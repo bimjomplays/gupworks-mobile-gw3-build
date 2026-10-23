@@ -76,8 +76,13 @@ final class ScreenshotTests: XCTestCase {
 
     /// opens a chat from the list by its row title and waits for its turns
     private func open(_ app: XCUIApplication, _ title: String, waitFor text: String) {
+        XCTAssertTrue(find(app, "Wallpaper ideas").waitForExistence(timeout: 20))
         let row = find(app, title)
-        XCTAssertTrue(row.waitForExistence(timeout: 20), title)
+        // the list is lazy: rows below the screen only exist once scrolled to
+        for _ in 0..<8 where !(row.exists && row.isHittable) {
+            app.swipeUp()
+        }
+        XCTAssertTrue(row.waitForExistence(timeout: 5), title)
         row.tap()
         XCTAssertTrue(app.descendants(matching: .any)["chatTitle"].waitForExistence(timeout: 10))
         XCTAssertTrue(find(app, text).waitForExistence(timeout: 10), text)

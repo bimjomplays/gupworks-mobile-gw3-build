@@ -213,7 +213,6 @@ private struct TableBlock: View {
                         cell(h, i, bold: true)
                     }
                 }
-                .background(Color(hex: 0x202024))
                 ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                     Divider().overlay(ChatStyle.cardBorder)
                     GridRow {
@@ -238,6 +237,8 @@ private struct TableBlock: View {
             .padding(.vertical, 9)
             .frame(maxWidth: 260, alignment: Alignment(horizontal: h, vertical: .center))
             .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: Alignment(horizontal: h, vertical: .center))
+            .background(bold ? Color(hex: 0x202024) : .clear)
             .gridColumnAlignment(h)
     }
 }

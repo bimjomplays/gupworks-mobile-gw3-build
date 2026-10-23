@@ -10,6 +10,8 @@ struct ChatView: View {
     @State private var store: ChatStore
     @State private var folds: [String: Bool] = [:]
     @State private var showDetails = false
+    @State private var position = ScrollPosition(edge: .bottom)
+    @State private var atBottom = true
     @Environment(\.scenePhase) private var phase
 
     init(id: String, pairing: Pairing?, demo: Bool) {
@@ -35,10 +37,29 @@ struct ChatView: View {
             .padding(.bottom, 12)
         }
         .defaultScrollAnchor(.bottom)
+        .scrollPosition($position)
         .onScrollGeometryChange(for: Bool.self) { g in
             g.contentOffset.y + g.contentInsets.top < 300
         } action: { _, nearTop in
             if nearTop { Task { await store.loadOlder() } }
+        }
+        .onScrollGeometryChange(for: Bool.self) { g in
+            g.contentOffset.y + g.containerSize.height - g.contentInsets.bottom >= g.contentSize.height - 120
+        } action: { _, bottom in
+            atBottom = bottom
+        }
+        .onChange(of: store.turns.isEmpty) { _, empty in
+            // the first page: start at the newest turn (again once pictures have taken their room)
+            guard !empty else { return }
+            position.scrollTo(edge: .bottom)
+            Task {
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                position.scrollTo(edge: .bottom)
+            }
+        }
+        .onChange(of: store.liveTick) {
+            // follow a running turn, unless you scrolled up to read
+            if atBottom { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
@@ -305,6 +326,7 @@ private struct HandleRow: View {
                 label
                     .font(.system(size: 15))
                     .lineLimit(1)
+                    .layoutPriority(1)
                 Rectangle().fill(ChatStyle.line).frame(height: 1)
             }
             .frame(minHeight: 44)
@@ -460,7 +482,7 @@ private struct FoldedDivider: View {
                 HStack(spacing: 10) {
                     Image(systemName: open ? "chevron.down" : "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
-                    Text(label).font(.system(size: 15))
+                    Text(label).font(.system(size: 15)).lineLimit(1).layoutPriority(1)
                     Rectangle().fill(ChatStyle.line).frame(height: 1)
                 }
                 .foregroundStyle(ChatStyle.dim)
@@ -745,16 +767,18 @@ private struct BottomBar: View {
     let asking: Bool
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 10) {
+        VStack(alignment: .trailing, spacing: 4) {
             if !asking, let ctx = usage.first(where: { $0.label == "ctx" })?.percent {
                 UsagePill(ctx: ctx, fiveHours: usage.first { $0.label == "5h" }?.percent)
+                    .padding(.horizontal, 16)
             }
             HStack(spacing: 8) {
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .regular))
                     .foregroundStyle(Theme.rowTitle)
                     .frame(width: 52, height: 52)
-                    .glassEffect(.regular, in: Circle())
+                    .background(Self.fill, in: Circle())
+                    .overlay(Circle().stroke(Self.border, lineWidth: 1))
                     .accessibilityLabel("Attach")
                 HStack(spacing: 0) {
                     Text(asking ? "Answer or ask\u{2026}" : "Ask Claude anything\u{2026}")
@@ -774,15 +798,20 @@ private struct BottomBar: View {
                 .padding(.leading, 18)
                 .padding(.trailing, 4)
                 .frame(height: 52)
-                .glassEffect(.regular, in: Capsule())
+                .background(Self.fill, in: Capsule())
+                .overlay(Capsule().stroke(Self.border, lineWidth: 1))
             }
-            .opacity(0.9)
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
+            .padding(.bottom, 6)
+            .background(Theme.background.ignoresSafeArea(edges: .bottom))
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Writing from the phone comes in the next update")
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 6)
     }
+
+    static let fill = Color(hex: 0x1F1F22)
+    static let border = Color(hex: 0x2E2E33)
 }
 
 /// "◔ 34% | 5h 5%": the context ring and the five-hour use.
@@ -810,7 +839,8 @@ private struct UsagePill: View {
         .monospacedDigit()
         .padding(.horizontal, 14)
         .frame(height: 36)
-        .glassEffect(.regular, in: Capsule())
+        .background(BottomBar.fill, in: Capsule())
+        .overlay(Capsule().stroke(BottomBar.border, lineWidth: 1))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Context \(Int(ctx.rounded())) percent used")
     }
