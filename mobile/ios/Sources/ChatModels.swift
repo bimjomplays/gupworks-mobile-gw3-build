@@ -18,6 +18,7 @@ struct ChatHeader: Codable, Equatable {
     var running: Bool
     var state: String
     var project: ProjectRef?
+    var pinned: Bool?
 
     struct ProjectRef: Codable, Equatable {
         var id: String?

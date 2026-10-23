@@ -30,7 +30,8 @@
   "branch": "",
   "folder": "/work/lumen-studio",
   "running": false,
-  "state": "done"
+  "state": "done",
+  "pinned": false
  },
  "status": {
   "state": "done",

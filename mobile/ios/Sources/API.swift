@@ -48,6 +48,56 @@ struct ChatRow: Codable, Equatable, Identifiable {
     var running: Bool
 }
 
+/// A message for a chat: its words and the uploads it names (UploadReply.path).
+struct OutgoingBody: Codable, Equatable {
+    var clientId: String
+    var text: String
+    var files: [String]
+}
+
+/// One of the phone's messages the chat hasn't shown as a turn yet.
+struct QueueItem: Codable, Equatable, Identifiable {
+    var clientId: String
+    var text: String
+    var ts: Double
+    var state: String      // queued (waits for the turn to end) | sent (its turn is on its way) | failed
+    var error: String?
+    var images: [String]?
+    var files: [String]?
+
+    var id: String { clientId }
+}
+
+struct SendReply: Codable, Equatable {
+    var ok: Bool
+    var new: Bool
+    var started: Bool
+    var queue: [QueueItem]
+}
+
+struct NewChatReply: Codable, Equatable {
+    var id: String
+    var started: Bool
+}
+
+struct UploadReply: Codable, Equatable {
+    var path: String
+    var name: String
+    var size: Int
+    var image: Bool
+}
+
+struct OKReply: Codable {
+    var ok: Bool
+}
+
+/// PATCH /v1/chats/<id>: only what's set is sent (nil fields stay out of the JSON).
+struct ChatEdit: Codable, Equatable {
+    var title: String?
+    var pinned: Bool?
+    var archived: Bool?
+}
+
 enum APIError: Error, Equatable {
     case notPaired           // 401: the PC doesn't know this phone (anymore)
     case unreachable         // no answer: Tailscale off, PC asleep, service stopped
@@ -104,6 +154,41 @@ final class APIClient {
         try await request(p.baseURL, "/v1/chats/\(chat)/cards/\(card)", token: p.token)
     }
 
+    // MARK: talking to a chat (slice 3)
+
+    /// Queues a message; the chat gets it once it's idle (started first if its process is gone). Sending the same
+    /// clientId again is the same message, so a retry after a lost answer never sends twice.
+    func send(_ p: Pairing, chat: String, _ m: OutgoingBody) async throws -> SendReply {
+        try await request(p.baseURL, "/v1/chats/\(chat)/send", token: p.token, method: "POST", encoding: m)
+    }
+
+    /// Ends the running turn (the PC answers 409 when nothing runs).
+    func stop(_ p: Pairing, chat: String) async throws {
+        let _: OKReply = try await request(p.baseURL, "/v1/chats/\(chat)/stop", token: p.token, method: "POST",
+                                           encoding: [String: String]())
+    }
+
+    /// A new chat with its first message; the answer names it.
+    func newChat(_ p: Pairing, _ m: OutgoingBody) async throws -> NewChatReply {
+        try await request(p.baseURL, "/v1/chats", token: p.token, method: "POST", encoding: m)
+    }
+
+    func editChat(_ p: Pairing, _ id: String, _ edit: ChatEdit) async throws {
+        let _: OKReply = try await request(p.baseURL, "/v1/chats/\(id)", token: p.token, method: "PATCH", encoding: edit)
+    }
+
+    /// Out of the list, as the desktop's delete: the PC keeps the transcript, so it can be brought back there.
+    func deleteChat(_ p: Pairing, _ id: String) async throws {
+        let _: OKReply = try await perform(p.baseURL, "/v1/chats/\(id)", token: p.token, method: "DELETE")
+    }
+
+    /// One photo or file, sent before the message that names it (`chat` is "new" for a chat not made yet).
+    func upload(_ p: Pairing, _ data: Data, name: String, type: String, chat: String) async throws -> UploadReply {
+        let q = [URLQueryItem(name: "name", value: name), URLQueryItem(name: "chat", value: chat)]
+        return try await perform(p.baseURL, "/v1/uploads", token: p.token, method: "POST", query: q, raw: data,
+                                 contentType: type)
+    }
+
     /// A server-sent events stream (`/v1/home/events`, `/v1/chats/<id>/events`). Ends when the PC closes it; throws
     /// APIError like the other calls.
     func events(_ p: Pairing, _ path: String, query: [URLQueryItem] = []) -> AsyncThrowingStream<SSEEvent, Error> {
@@ -156,11 +241,26 @@ final class APIClient {
 
     private func request<T: Decodable>(_ base: URL, _ path: String, token: String?, method: String = "GET",
                                        query: [URLQueryItem] = [], body: [String: String]? = nil) async throws -> T {
+        try await perform(base, path, token: token, method: method, query: query,
+                          json: body.map { try JSONEncoder().encode($0) })
+    }
+
+    private func request<T: Decodable, B: Encodable>(_ base: URL, _ path: String, token: String?, method: String,
+                                                     encoding body: B) async throws -> T {
+        try await perform(base, path, token: token, method: method, json: try JSONEncoder().encode(body))
+    }
+
+    private func perform<T: Decodable>(_ base: URL, _ path: String, token: String?, method: String = "GET",
+                                       query: [URLQueryItem] = [], json: Data? = nil, raw: Data? = nil,
+                                       contentType: String? = nil) async throws -> T {
         var req = Self.makeRequest(base, path, token: token, query: query)
         req.httpMethod = method
-        if let body {
+        if let json {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.httpBody = try JSONEncoder().encode(body)
+            req.httpBody = json
+        } else if let raw {
+            req.setValue(contentType ?? "application/octet-stream", forHTTPHeaderField: "Content-Type")
+            req.httpBody = raw
         }
         let data: Data, response: URLResponse
         do {

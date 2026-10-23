@@ -31,6 +31,7 @@
   "folder": "/work/lumen-studio",
   "running": false,
   "state": "done",
+  "pinned": false,
   "project": {
    "id": "lumen-studio-3c4d",
    "name": "Lumen Studio website"

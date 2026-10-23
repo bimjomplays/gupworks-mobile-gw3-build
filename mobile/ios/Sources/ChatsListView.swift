@@ -1,12 +1,16 @@
 import SwiftUI
 
 /// D1: one list, no tab bar. Settings up top; search and New chat in the bottom toolbar where the thumb is.
-/// Rows open their chat (a project its main chat); New chat and New project are shown but off until later slices.
+/// Rows open their chat (a project its main chat). A chat row swipes right to Pin, left to Archive · Delete, and
+/// long-presses for Rename and the rest. New project comes with a later slice.
 struct ChatsListView: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
     @State private var showSettings = false
     @State private var path = NavigationPath()  // chats, then step cards inside them
+    @State private var renaming: ChatRow?
+    @State private var newTitle = ""
+    @State private var deleting: ChatRow?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -38,16 +42,58 @@ struct ChatsListView: View {
                 DefaultToolbarItem(kind: .search, placement: .bottomBar)
                 ToolbarSpacer(.fixed, placement: .bottomBar)
                 ToolbarItem(placement: .bottomBar) {
-                    Button {} label: { Image(systemName: "square.and.pencil").foregroundStyle(Theme.rowTitle) }
-                        .disabled(true)  // slice 3
+                    Button { path.append(NewChatRoute()) } label: {
+                        Image(systemName: "square.and.pencil").foregroundStyle(Theme.rowTitle)
+                    }
                         .accessibilityLabel("New chat")
+                        .accessibilityIdentifier("newChat")
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .navigationDestination(for: ChatRoute.self) { r in
                 ChatView(id: r.id, pairing: model.pairing, demo: model.demo)
             }
+            .navigationDestination(for: NewChatRoute.self) { _ in
+                ChatView(id: nil, pairing: model.pairing, demo: model.demo)
+            }
+            .alert("Rename chat", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }),
+                   presenting: renaming) { c in
+                TextField("Title", text: $newTitle)
+                    .accessibilityIdentifier("renameField")
+                Button("Cancel", role: .cancel) {}
+                Button("Rename") {
+                    let title = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !title.isEmpty && title != c.title { Task { await model.edit(c.id, ChatEdit(title: title)) } }
+                }
+            }
+            .confirmationDialog(deleting.map { "Delete \u{201C}\($0.title)\u{201D}?" } ?? "Delete this chat?",
+                                isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+                                titleVisibility: .visible, presenting: deleting) { c in
+                Button("Delete", role: .destructive) { Task { await model.delete(c.id) } }
+                Button("Cancel", role: .cancel) {}
+            } message: { _ in
+                Text(ChatActions.deleteNote)
+            }
         }
+        .alert("That didn't work", isPresented: Binding(get: { model.actionError != nil },
+                                                       set: { if !$0 { model.actionError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(model.actionError ?? "")
+        }
+    }
+
+    private func startRename(_ c: ChatRow) {
+        newTitle = c.title
+        renaming = c
+    }
+
+    private func pin(_ c: ChatRow) {
+        Task { await model.edit(c.id, ChatEdit(pinned: !c.pinned)) }
+    }
+
+    private func archive(_ c: ChatRow) {
+        Task { await model.edit(c.id, ChatEdit(archived: true)) }
     }
 
     @ViewBuilder
@@ -81,6 +127,31 @@ struct ChatsListView: View {
                     ChatRowView(chat: c, now: now)
                         .onTapGesture { path.append(ChatRoute(id: c.id)) }
                         .accessibilityAddTraits(.isButton)
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            Button { pin(c) } label: {
+                                Label(c.pinned ? "Unpin" : "Pin", systemImage: c.pinned ? "pin.slash" : "pin")
+                            }
+                            .tint(ChatActions.pinTint)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            // Delete asks first, so no role here (that would take the row out at once)
+                            Button { deleting = c } label: { Label("Delete", systemImage: "trash") }
+                                .tint(ChatActions.deleteTint)
+                            Button { archive(c) } label: { Label("Archive", systemImage: "archivebox") }
+                                .tint(ChatActions.archiveTint)
+                        }
+                        .contextMenu {
+                            Section {
+                                Button("Rename", systemImage: "pencil") { startRename(c) }
+                                Button(c.pinned ? "Unpin" : "Pin to top", systemImage: c.pinned ? "pin.slash" : "pin") {
+                                    pin(c)
+                                }
+                                Button("Archive", systemImage: "archivebox") { archive(c) }
+                            }
+                            Section {
+                                Button("Delete\u{2026}", systemImage: "trash", role: .destructive) { deleting = c }
+                            }
+                        }
                 }
                 if chats.isEmpty {
                     emptyRow("Every chat is in a project.")
@@ -121,6 +192,15 @@ struct ChatsListView: View {
 /// A chat pushed on the list's stack.
 struct ChatRoute: Hashable {
     let id: String
+}
+
+/// What the list's swipes and long-press and a chat's ⋯ menu share.
+enum ChatActions {
+    static let pinTint = Color(hex: 0x2F5FB3)      // the D1 swipe's blue
+    static let archiveTint = Color(hex: 0x5A5A63)
+    static let deleteTint = Color(hex: 0xD9534F)
+    static let deleteNote = "It leaves your chats on the PC too and its Claude stops. The PC keeps the transcript, "
+        + "so the chat can be brought back there."
 }
 
 private struct SectionHeader<Trailing: View>: View {

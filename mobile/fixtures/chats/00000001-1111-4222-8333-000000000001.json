@@ -30,7 +30,8 @@
   "branch": "",
   "folder": "/work/wallpapers",
   "running": true,
-  "state": "working"
+  "state": "working",
+  "pinned": false
  },
  "status": {
   "state": "working",

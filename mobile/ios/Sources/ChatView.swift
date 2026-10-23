@@ -5,17 +5,27 @@ struct CardRoute: Hashable {
     let id: String
 }
 
-/// D2: one chat, read-only in this slice. Turns come from the PC and stay live; the composer is shown but off.
+/// A new chat pushed on the list's stack (each one fresh).
+struct NewChatRoute: Hashable {
+    let n = UUID()
+}
+
+/// D2/D3/D6: one chat, live from the PC, with the composer; `id` nil is a new chat, made by its first message.
 struct ChatView: View {
     @State private var store: ChatStore
     @State private var folds: [String: Bool] = [:]
     @State private var showDetails = false
     @State private var position = ScrollPosition(edge: .bottom)
     @State private var atBottom = true
+    @State private var renaming = false
+    @State private var newTitle = ""
+    @State private var confirmDelete = false
     @Environment(\.scenePhase) private var phase
+    @Environment(\.dismiss) private var dismiss
+    @Environment(AppModel.self) private var model
 
-    init(id: String, pairing: Pairing?, demo: Bool) {
-        _store = State(initialValue: ChatStore(id: id, pairing: pairing, demo: demo))
+    init(id: String?, pairing: Pairing?, demo: Bool) {
+        _store = State(initialValue: ChatStore(id: id ?? "", pairing: pairing, demo: demo))
     }
 
     var body: some View {
@@ -29,6 +39,16 @@ struct ChatView: View {
                 ForEach(store.turns) { t in
                     TurnView(turn: t, base: store.baseURL, open: folds[t.id] ?? t.open) {
                         withAnimation(.easeInOut(duration: 0.2)) { folds[t.id] = !(folds[t.id] ?? t.open) }
+                    }
+                }
+                ForEach(store.queue) { q in
+                    QueuedBubble(item: q, base: store.baseURL).padding(.top, 14)
+                }
+                ForEach(store.outbox) { m in
+                    OutgoingBubble(message: m) {
+                        Task { await store.retry(m.clientId) }
+                    } discard: {
+                        store.discard(m.clientId)
                     }
                 }
                 footer
@@ -57,6 +77,10 @@ struct ChatView: View {
                 position.scrollTo(edge: .bottom)
             }
         }
+        .onChange(of: store.outbox.count) { old, new in
+            // your own message: always to the bottom
+            if new > old { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
+        }
         .onChange(of: store.liveTick) {
             // follow a running turn, unless you scrolled up to read
             if atBottom { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
@@ -64,14 +88,14 @@ struct ChatView: View {
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            BottomBar(usage: store.header?.usage ?? [], asking: asking)
+            Composer(store: store, usage: store.header?.usage ?? [], asking: asking)
         }
         .navigationBarTitleDisplayMode(.inline)
         // a solid bar under the title, as in D2: turns scroll under it instead of showing through
         .toolbarBackground(Theme.background, for: .navigationBar)
         .toolbarBackgroundVisibility(.visible, for: .navigationBar)
         .toolbar { toolbar }
-        .task(id: phase == .active) {
+        .task(id: "\(phase == .active) \(store.id)") {
             if phase == .active { await store.run() }
         }
         .navigationDestination(for: CardRoute.self) { r in
@@ -80,6 +104,50 @@ struct ChatView: View {
         .sheet(isPresented: $showDetails) {
             if let h = store.header { ChatDetailsSheet(header: h) }
         }
+        .alert("Rename chat", isPresented: $renaming) {
+            TextField("Title", text: $newTitle)
+                .accessibilityIdentifier("renameField")
+            Button("Cancel", role: .cancel) {}
+            Button("Rename") { rename() }
+        }
+        .confirmationDialog("Delete this chat?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                let id = store.id
+                Task { if await model.delete(id) { dismiss() } }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(ChatActions.deleteNote)
+        }
+        .alert("That didn't work", isPresented: Binding(get: { store.actionError != nil },
+                                                       set: { if !$0 { store.actionError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(store.actionError ?? "")
+        }
+    }
+
+    private var pinned: Bool { store.header?.pinned ?? false }
+
+    private func rename() {
+        let title = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty, title != store.header?.title else { return }
+        let edit = ChatEdit(title: title)
+        store.showEdit(edit)
+        let id = store.id
+        Task { await model.edit(id, edit) }
+    }
+
+    private func pin() {
+        let edit = ChatEdit(pinned: !pinned)
+        store.showEdit(edit)
+        let id = store.id
+        Task { await model.edit(id, edit) }
+    }
+
+    private func archive() {
+        let id = store.id
+        Task { if await model.edit(id, ChatEdit(archived: true)) { dismiss() } }
     }
 
     /// a thread's question waits in this chat: the composer reads "Answer or ask…"
@@ -93,8 +161,14 @@ struct ChatView: View {
             Notice(icon: "trash", text: "This chat isn't on the PC anymore.")
         } else if let e = store.error {
             Notice(icon: "exclamationmark.triangle", text: e == .unreachable ? "Reconnecting\u{2026} " + e.message : e.message)
+        } else if store.isNew {
+            if store.outbox.isEmpty {
+                Notice(icon: "bubble.left", text: "A new chat on your PC. It starts with your first message.")
+            }
         } else if store.header != nil && store.turns.isEmpty {
-            Notice(icon: "bubble.left", text: "No messages yet.")
+            if store.queue.isEmpty && store.outbox.isEmpty {
+                Notice(icon: "bubble.left", text: "No messages yet.")
+            }
         } else if store.header == nil {
             ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
         }
@@ -103,23 +177,45 @@ struct ChatView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .principal) {
-            Button { showDetails = true } label: { TitleView(header: store.header) }
+            Button { showDetails = true } label: {
+                if store.isNew {
+                    Text("New chat").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.title)
+                } else {
+                    TitleView(header: store.header)
+                }
+            }
                 .buttonStyle(.plain)
+                .disabled(store.header == nil)
                 .accessibilityIdentifier("chatTitle")
         }
         .sharedBackgroundVisibility(.hidden)
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                // slices 3, 4 and 8
-                Button("Claude's browser", systemImage: "globe") {}.disabled(true)
-                Button("Claude's screen", systemImage: "display") {}.disabled(true)
-                Button("Your messages", systemImage: "text.bubble") {}.disabled(true)
-                Button("Rename", systemImage: "pencil") {}.disabled(true)
-                Button("Chat details", systemImage: "info.circle") { showDetails = true }
+                Section {
+                    // slices 4 and 8
+                    Button("Claude's browser", systemImage: "globe") {}.disabled(true)
+                    Button("Claude's screen", systemImage: "display") {}.disabled(true)
+                    Button("Your messages", systemImage: "list.bullet") {}.disabled(true)
+                }
+                if store.editable {
+                    Section {
+                        Button("Rename", systemImage: "pencil") {
+                            newTitle = store.header?.title ?? ""
+                            renaming = true
+                        }
+                        Button(pinned ? "Unpin" : "Pin to top", systemImage: pinned ? "pin.slash" : "pin", action: pin)
+                        Button("Archive", systemImage: "archivebox", action: archive)
+                    }
+                    Section {
+                        Button("Delete\u{2026}", systemImage: "trash", role: .destructive) { confirmDelete = true }
+                    }
+                }
             } label: {
                 Image(systemName: "ellipsis").foregroundStyle(Theme.rowTitle)
             }
+            .disabled(store.header == nil)
             .accessibilityLabel("More")
+            .accessibilityIdentifier("more")
         }
     }
 }
@@ -761,96 +857,6 @@ struct FlowLayout: Layout {
             x += size.width + spacing
             row = max(row, size.height)
         }
-    }
-}
-
-// MARK: - bottom
-
-/// The composer (off until slice 3) and the usage pill floating above it.
-private struct BottomBar: View {
-    let usage: [Meter]
-    let asking: Bool
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            if !asking, let ctx = usage.first(where: { $0.label == "ctx" })?.percent {
-                UsagePill(ctx: ctx, fiveHours: usage.first { $0.label == "5h" }?.percent)
-                    .padding(.horizontal, 16)
-            }
-            HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.system(size: 20, weight: .regular))
-                    .foregroundStyle(Theme.rowTitle)
-                    .frame(width: 52, height: 52)
-                    .background(Self.fill, in: Circle())
-                    .overlay(Circle().stroke(Self.border, lineWidth: 1))
-                    .accessibilityLabel("Attach")
-                HStack(spacing: 0) {
-                    Text(asking ? "Answer or ask\u{2026}" : "Ask Claude anything\u{2026}")
-                        .font(.system(size: 17))
-                        .foregroundStyle(Color(hex: 0x8A8A90))
-                        .lineLimit(1)
-                    Spacer(minLength: 4)
-                    // "/" in a small square: commands (slice 3)
-                    Text("/")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color(hex: 0xB4B4B8))
-                        .frame(width: 19, height: 19)
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: 0xB4B4B8), lineWidth: 1.5))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "mic")
-                        .font(.system(size: 18))
-                        .foregroundStyle(Theme.rowTitle)
-                        .frame(width: 44, height: 44)
-                }
-                .padding(.leading, 18)
-                .padding(.trailing, 4)
-                .frame(height: 52)
-                .background(Self.fill, in: Capsule())
-                .overlay(Capsule().stroke(Self.border, lineWidth: 1))
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 6)
-            .padding(.bottom, 6)
-            .background(Theme.background.ignoresSafeArea(edges: .bottom))
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Writing from the phone comes in the next update")
-        }
-    }
-
-    static let fill = Color(hex: 0x1F1F22)
-    static let border = Color(hex: 0x2E2E33)
-}
-
-/// "◔ 34% | 5h 5%": the context ring and the five-hour use.
-private struct UsagePill: View {
-    let ctx: Double
-    let fiveHours: Double?
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ZStack {
-                Circle().stroke(Color.white.opacity(0.15), lineWidth: 2.5)
-                Circle()
-                    .trim(from: 0, to: max(0.02, min(1, ctx / 100)))
-                    .stroke(Theme.blue, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-            }
-            .frame(width: 15, height: 15)
-            Text("\(Int(ctx.rounded()))%").foregroundStyle(Theme.rowTitle)
-            if let f = fiveHours {
-                Rectangle().fill(Color.white.opacity(0.2)).frame(width: 1, height: 14)
-                Text("\(Text("5h").foregroundStyle(ChatStyle.dim)) \(Text("\(Int(f.rounded()))%").foregroundStyle(Theme.rowTitle))")
-            }
-        }
-        .font(.system(size: 15))
-        .monospacedDigit()
-        .padding(.horizontal, 14)
-        .frame(height: 36)
-        .background(BottomBar.fill, in: Capsule())
-        .overlay(Capsule().stroke(BottomBar.border, lineWidth: 1))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Context \(Int(ctx.rounded())) percent used")
     }
 }
 

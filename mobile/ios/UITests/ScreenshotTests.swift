@@ -166,4 +166,149 @@ final class ScreenshotTests: XCTestCase {
         sleep(1)
         shot("card-failed")
     }
+
+    // MARK: slice 3: talking
+
+    private func type(_ app: XCUIApplication, _ text: String) {
+        let field = app.textFields["composer"].exists ? app.textFields["composer"] : app.textViews["composer"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText(text)
+    }
+
+    func testD3Typing() {
+        let app = launch()
+        open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
+        type(app, "Also make the close button bigger on phones")
+        XCTAssertTrue(app.buttons["send"].waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d3-typing")
+        app.buttons["send"].tap()
+        XCTAssertTrue(find(app, "This is the demo").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("chat-sent")
+    }
+
+    func testAttachMenu() {
+        let app = launch()
+        open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
+        app.buttons["attach"].tap()
+        XCTAssertTrue(app.buttons["Photos"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Files"].exists)
+        XCTAssertTrue(app.buttons["Camera"].exists)
+        sleep(1)
+        shot("attach-menu")
+    }
+
+    func testQueuedThenStop() {
+        let app = launch()
+        open(app, "Wallpaper ideas", waitFor: "Working")
+        XCTAssertTrue(app.buttons["stop"].waitForExistence(timeout: 5))
+        sleep(1)
+        shot("working-stop")
+        type(app, "Then make a lock screen version too")
+        app.buttons["send"].tap()
+        XCTAssertTrue(find(app, "queued").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("queued")
+        app.buttons["stop"].tap()
+        XCTAssertTrue(find(app, "This is the demo").waitForExistence(timeout: 5))
+        XCTAssertFalse(find(app, "queued · sends").exists)
+        XCTAssertFalse(app.buttons["stop"].exists)
+        sleep(1)
+        shot("stopped")
+    }
+
+    func testNewChat() {
+        let app = launch()
+        XCTAssertTrue(find(app, "Wallpaper ideas").waitForExistence(timeout: 20))
+        app.buttons["newChat"].tap()
+        XCTAssertTrue(find(app, "A new chat on your PC").waitForExistence(timeout: 5))
+        type(app, "Plan a picnic for six")
+        sleep(1)
+        shot("new-chat")
+        app.buttons["send"].tap()
+        XCTAssertTrue(find(app, "This is the demo").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Plan a picnic for six").exists)
+        sleep(1)
+        shot("new-chat-sent")
+    }
+
+    func testD6MoreRenameAndDelete() {
+        let app = launch()
+        open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
+        app.buttons["more"].tap()
+        XCTAssertTrue(app.buttons["Rename"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Pin to top"].exists)
+        XCTAssertTrue(app.buttons["Archive"].exists)
+        XCTAssertTrue(app.buttons["Delete\u{2026}"].exists)
+        sleep(1)
+        shot("d6-more")
+
+        app.buttons["Rename"].tap()
+        let field = app.textFields["renameField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        // the cursor to the end, then the old title out
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
+        if let old = field.value as? String {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count))
+        }
+        field.typeText("Lightbox on phones")
+        sleep(1)
+        shot("rename")
+        app.buttons["Rename"].tap()
+        XCTAssertTrue(find(app, "Lightbox on phones").waitForExistence(timeout: 5))
+
+        app.buttons["more"].tap()
+        app.buttons["Delete\u{2026}"].tap()
+        XCTAssertTrue(find(app, "Delete this chat?").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("delete-confirm")
+        app.buttons["Delete"].firstMatch.tap()
+        // back on the list, without it
+        XCTAssertTrue(app.descendants(matching: .any)["chatTitle"].waitForNonExistence(timeout: 10))
+        XCTAssertFalse(find(app, "Lightbox on phones").exists)
+    }
+
+    /// a slow partial drag across a row, so its swipe buttons show (a quick full swipe would run the first one)
+    private func drag(_ app: XCUIApplication, _ row: XCUIElement, from: CGFloat, to: CGFloat) {
+        let win = app.windows.firstMatch
+        let y = row.frame.midY / win.frame.height
+        let start = win.coordinate(withNormalizedOffset: CGVector(dx: from, dy: y))
+        let end = win.coordinate(withNormalizedOffset: CGVector(dx: to, dy: y))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
+    }
+
+    func testD1Swipes() {
+        let app = launch()
+        let row = find(app, "Carrot picture")
+        XCTAssertTrue(row.waitForExistence(timeout: 20))
+        drag(app, row, from: 0.1, to: 0.4)
+        XCTAssertTrue(app.buttons["Pin"].waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d1-swipe-pin")
+        app.buttons["Pin"].tap()
+        sleep(1)
+        let recipe = find(app, "Recipe scaler")
+        drag(app, recipe, from: 0.9, to: 0.45)
+        XCTAssertTrue(app.buttons["Archive"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Delete"].exists)
+        sleep(1)
+        shot("d1-swipe-left")
+        app.buttons["Delete"].tap()
+        XCTAssertTrue(find(app, "Delete \u{201C}Recipe scaler\u{201D}?").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d1-delete-confirm")
+    }
+
+    func testD1LongPress() {
+        let app = launch()
+        let row = find(app, "Recipe scaler")
+        XCTAssertTrue(row.waitForExistence(timeout: 20))
+        row.press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Rename"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Delete\u{2026}"].exists)
+        sleep(1)
+        shot("d1-press")
+    }
 }

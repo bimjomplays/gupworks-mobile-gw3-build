@@ -30,7 +30,8 @@
   "branch": "",
   "folder": "/work/photo-backup",
   "running": false,
-  "state": "done"
+  "state": "done",
+  "pinned": false
  },
  "status": {
   "state": "done",

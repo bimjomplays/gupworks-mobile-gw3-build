@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 @testable import GupWorks3
 
@@ -136,6 +137,51 @@ final class MediaLinkTests: XCTestCase {
     }
 }
 
+final class TalkAPITests: XCTestCase {
+    func testEditSendsOnlyWhatChanges() throws {
+        let one = try JSONSerialization.jsonObject(with: JSONEncoder().encode(ChatEdit(title: "Trip plans"))) as? [String: Any]
+        XCTAssertEqual(one?.count, 1)
+        XCTAssertEqual(one?["title"] as? String, "Trip plans")
+        let pin = try JSONSerialization.jsonObject(with: JSONEncoder().encode(ChatEdit(pinned: false))) as? [String: Any]
+        XCTAssertEqual(pin?.keys.sorted(), ["pinned"])
+    }
+
+    func testMessageBody() throws {
+        let body = OutgoingBody(clientId: "c-1", text: "Look", files: ["/uploads/photo.jpg"])
+        let obj = try JSONSerialization.jsonObject(with: JSONEncoder().encode(body)) as? [String: Any]
+        XCTAssertEqual(obj?["clientId"] as? String, "c-1")
+        XCTAssertEqual(obj?["files"] as? [String], ["/uploads/photo.jpg"])
+    }
+
+    func testRepliesDecode() throws {
+        let send = #"{"ok":true,"new":true,"started":false,"queue":[{"clientId":"c-1","text":"Look","ts":5,"state":"queued","images":["/v1/media/a.b"]},{"clientId":"c-2","text":"","ts":6,"state":"failed","error":"not sent","files":["notes.txt"]}]}"#
+        let r = try JSONDecoder().decode(SendReply.self, from: Data(send.utf8))
+        XCTAssertEqual(r.queue.map(\.state), ["queued", "failed"])
+        XCTAssertEqual(r.queue[0].images, ["/v1/media/a.b"])
+        XCTAssertEqual(r.queue[1].files, ["notes.txt"])
+        let up = try JSONDecoder().decode(UploadReply.self, from: Data(#"{"path":"/u/p.jpg","name":"p.jpg","size":3,"image":true}"#.utf8))
+        XCTAssertTrue(up.image)
+        let made = try JSONDecoder().decode(NewChatReply.self, from: Data(#"{"id":"abc","started":true}"#.utf8))
+        XCTAssertEqual(made.id, "abc")
+    }
+
+    func testPhotosGoSmallAndJPEG() throws {
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let big = UIGraphicsImageRenderer(size: CGSize(width: 4000, height: 3000), format: format).image { c in
+            UIColor.orange.setFill()
+            c.fill(CGRect(x: 0, y: 0, width: 4000, height: 3000))
+        }
+        let a = try XCTUnwrap(Attachment.photo(big, name: "photo.jpg"))
+        XCTAssertEqual(a.type, "image/jpeg")
+        let back = try XCTUnwrap(UIImage(data: a.data))
+        XCTAssertEqual(back.size.width * back.scale, 2048)
+        XCTAssertEqual(back.size.height * back.scale, 1536)
+        XCTAssertTrue(Attachment.readableImage("JPG"))
+        XCTAssertFalse(Attachment.readableImage("heic"))
+    }
+}
+
 @MainActor
 final class ChatStoreTests: XCTestCase {
     let gallery = "00000009-1111-4222-8333-000000000009"
@@ -193,6 +239,77 @@ final class ChatStoreTests: XCTestCase {
         XCTAssertEqual(s.status?.state, "working")
         s.handle(SSEEvent(name: "gone", data: "{}"))
         XCTAssertTrue(s.gone)
+    }
+    // MARK: slice 3
+
+    let working = "{\"state\":\"working\",\"ts\":1,\"live\":true,\"running\":true}"
+
+    func testQueueEventsAndStreamStart() {
+        let s = ChatStore(id: gallery, pairing: nil, demo: false)
+        s.handle(SSEEvent(name: "queue", data: #"{"items":[{"clientId":"c-1","text":"Next","ts":5,"state":"queued"}]}"#))
+        XCTAssertEqual(s.queue.map(\.clientId), ["c-1"])
+        s.handle(SSEEvent(name: "queue", data: #"{"items":[]}"#))
+        XCTAssertTrue(s.queue.isEmpty)
+    }
+
+    func testWorkingFollowsTheStatus() {
+        let s = ChatStore(id: gallery, pairing: nil, demo: false)
+        XCTAssertFalse(s.working)
+        s.handle(SSEEvent(name: "status", data: working))
+        XCTAssertTrue(s.working)
+        s.handle(SSEEvent(name: "status", data: "{\"state\":\"idle\",\"ts\":2,\"live\":true,\"running\":true}"))
+        XCTAssertFalse(s.working)
+    }
+
+    func testAFailedSendStaysWithRetry() async {
+        let s = ChatStore(id: gallery, pairing: nil, demo: false)  // no PC: the send can't go
+        await s.send(text: "  Hello  ", attachments: [])
+        XCTAssertEqual(s.outbox.count, 1)
+        XCTAssertEqual(s.outbox.first?.text, "Hello")
+        XCTAssertNotNil(s.outbox.first?.failed)
+        let id = s.outbox[0].clientId
+        await s.retry(id)
+        XCTAssertEqual(s.outbox.first?.clientId, id, "a retry is the same message")
+        s.discard(id)
+        XCTAssertTrue(s.outbox.isEmpty)
+        await s.send(text: "   ", attachments: [])
+        XCTAssertTrue(s.outbox.isEmpty, "nothing to send")
+    }
+
+    func testDemoNewChatQueueAndStop() async throws {
+        let s = ChatStore(id: "", pairing: nil, demo: true)
+        XCTAssertTrue(s.isNew)
+        await s.run()
+        XCTAssertTrue(s.turns.isEmpty)
+        await s.send(text: "Plan a picnic", attachments: [])
+        XCTAssertFalse(s.isNew)
+        XCTAssertEqual(s.turns.count, 1)
+        XCTAssertEqual(s.turns[0].prompt.text, "Plan a picnic")
+        XCTAssertTrue(s.editable)
+        await s.run()  // the view's task runs again for the new id: the demo chat stays
+        XCTAssertEqual(s.turns.count, 1)
+        XCTAssertFalse(s.gone)
+
+        s.handle(SSEEvent(name: "status", data: working))
+        await s.send(text: "And a playlist", attachments: [])
+        XCTAssertEqual(s.queue.map(\.state), ["queued"])
+        await s.stop()
+        XCTAssertFalse(s.working)
+        XCTAssertTrue(s.queue.isEmpty)
+        XCTAssertEqual(s.turns.last?.prompt.text, "And a playlist")
+    }
+
+    func testProjectChatsAreNotEditable() async {
+        let s = ChatStore(id: "00000066-1111-4222-8333-000000000066", pairing: nil, demo: true)
+        await s.run()
+        XCTAssertEqual(s.header?.role, "main")
+        XCTAssertFalse(s.editable)
+        let g = ChatStore(id: gallery, pairing: nil, demo: true)
+        await g.run()
+        XCTAssertTrue(g.editable)
+        g.showEdit(ChatEdit(title: "Renamed", pinned: true))
+        XCTAssertEqual(g.header?.title, "Renamed")
+        XCTAssertEqual(g.header?.pinned, true)
     }
 }
 

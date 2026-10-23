@@ -10,7 +10,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.2.0"
+    MARKETING_VERSION: "0.3.0"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   GupWorks3:
@@ -43,7 +43,8 @@ targets:
           - CFBundleURLName: app.gupworks3.phone.pair
             CFBundleURLSchemes: [gupworks3]
         NSCameraUsageDescription: >-
-          GupWorks uses the camera only to scan the pairing code your PC shows. Nothing is recorded or sent anywhere.
+          GupWorks uses the camera to scan the pairing code your PC shows and to take photos you send to a chat on your
+          PC. Nothing else is recorded or sent anywhere.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.gupworks3.phone

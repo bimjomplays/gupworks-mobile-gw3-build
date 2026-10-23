@@ -12,6 +12,8 @@ final class AppModel {
     private(set) var error: APIError?
     private(set) var loading = false
     private(set) var lastRefresh: Date?
+    /// a rename, pin, archive or delete the PC refused or never got, for an alert
+    var actionError: String?
     /// a gupworks3://pair link the system opened the app with (iPhone camera scan), for the pairing screen
     var incomingLink: String?
 
@@ -91,5 +93,64 @@ final class AppModel {
         } catch {
             self.error = .unreachable
         }
+    }
+
+    // MARK: chat edits (slice 3): shown in the list at once, then sent; the PC's next list has them too
+
+    /// Rename, pin or archive one of the Chats. False when it didn't go through (the list is read again).
+    @discardableResult
+    func edit(_ id: String, _ e: ChatEdit) async -> Bool {
+        showLocally(id, e, deleted: false)
+        if demo { return true }
+        guard let p = pairing else { return false }
+        do {
+            try await api.editChat(p, id, e)
+            return true
+        } catch {
+            actionError = (error as? APIError)?.message ?? APIError.unreachable.message
+            await refresh()
+            return false
+        }
+    }
+
+    /// Deletes a chat as the desktop does: out of the list and its process ended; the PC keeps its transcript, so
+    /// it can be brought back there (`gw3-phone restore`).
+    @discardableResult
+    func delete(_ id: String) async -> Bool {
+        showLocally(id, ChatEdit(), deleted: true)
+        if demo { return true }
+        guard let p = pairing else { return false }
+        do {
+            try await api.deleteChat(p, id)
+            return true
+        } catch {
+            actionError = (error as? APIError)?.message ?? APIError.unreachable.message
+            await refresh()
+            return false
+        }
+    }
+
+    private func showLocally(_ id: String, _ e: ChatEdit, deleted: Bool) {
+        guard var h = home else { return }
+        var archived = 0
+        func change(_ rows: [ChatRow]) -> [ChatRow] {
+            var out: [ChatRow] = []
+            for var c in rows {
+                guard c.id == id else { out.append(c); continue }
+                if deleted || e.archived == true {
+                    if e.archived == true { archived += 1 }
+                    continue
+                }
+                if let t = e.title { c.title = t }
+                if let p = e.pinned { c.pinned = p }
+                out.append(c)
+            }
+            // pinned first, as the PC lists them (the rest keep their order)
+            return out.filter(\.pinned) + out.filter { !$0.pinned }
+        }
+        h.setups = change(h.setups)
+        h.chats = change(h.chats)
+        h.archivedCount += archived
+        home = h
     }
 }
