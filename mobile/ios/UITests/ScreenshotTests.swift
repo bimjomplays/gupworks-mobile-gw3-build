@@ -520,6 +520,8 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         let back = expectation(for: NSPredicate(format: "value BEGINSWITH 'The lightbox opens'"), evaluatedWith: field)
         wait(for: [back], timeout: 5)
+        // it lands on that prompt: the prompt and Claude's answer after it are gone from the chat
+        XCTAssertFalse(find(app, "All five pages pass").exists)
         sleep(1)
         shot("rewind-restored")
     }

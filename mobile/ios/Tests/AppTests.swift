@@ -465,21 +465,21 @@ final class AnswerStoreTests: XCTestCase {
         let t = try XCTUnwrap(s.turns.last { $0.rewind == true })
         await s.startRewind(t)
         let d = try XCTUnwrap(s.rewindDialog)
-        let before = s.turns.map(\.id)
+        let before = s.turns.map { $0.id }
         await s.finishRewind(d.choices?.first { $0.label == "Restore conversation" })
         XCTAssertNil(s.rewindDialog)
         XCTAssertEqual(s.draft, t.prompt.text)
         // it lands on that prompt: the prompt and the turns after it leave the list
-        XCTAssertEqual(s.turns.map(\.id), Array(before.prefix { $0 != t.id }))
+        XCTAssertEqual(s.turns.map { $0.id }, Array(before.prefix { $0 != t.id }))
     }
 
     func testCutEventDropsRewoundTurns() async throws {
-        let s = ChatStore(id: gallery, pairing: nil, demo: true)
+        let s = ChatStore(id: "00000009-1111-4222-8333-000000000009", pairing: nil, demo: true)
         await s.run()
-        let ids = s.turns.map(\.id)
+        let ids = s.turns.map { $0.id }
         XCTAssertGreaterThan(ids.count, 1)
         s.handle(SSEEvent(name: "cut", data: "{\"ids\":[\"\(ids.last!)\",\"not-here\"]}"))
-        XCTAssertEqual(s.turns.map(\.id), Array(ids.dropLast()))
+        XCTAssertEqual(s.turns.map { $0.id }, Array(ids.dropLast()))
     }
 }
 
