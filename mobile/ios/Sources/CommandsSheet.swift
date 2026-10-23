@@ -14,9 +14,13 @@ struct CommandsSheet: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Commands")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Text("Commands").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.title)
+                            .fixedSize()
+                    }
+                    .sharedBackgroundVisibility(.hidden)
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { dismiss() } label: { Image(systemName: "xmark") }
                             .accessibilityLabel("Close")
@@ -43,10 +47,10 @@ struct CommandsSheet: View {
                     if !c.pinned.isEmpty { pinnedSection(c) }
                     let recent = c.recent.compactMap { r in c.commands.first { $0.name == r } }
                     if !recent.isEmpty {
-                        Section("Recent") { ForEach(recent) { row($0, c) } }
+                        Section { ForEach(recent) { row($0, c) } } header: { SheetHeader("Recent") }
                     }
                     ForEach(groups(c), id: \.self) { g in
-                        Section(g) { ForEach(c.commands.filter { $0.group == g }) { row($0, c) } }
+                        Section { ForEach(c.commands.filter { $0.group == g }) { row($0, c) } } header: { SheetHeader(g) }
                     }
                 } else {
                     let found = c.commands.filter { $0.name.lowercased().contains(q) || ($0.summary ?? "").lowercased().contains(q) }
@@ -111,7 +115,7 @@ struct CommandsSheet: View {
             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
         } header: {
             HStack {
-                Text("Pinned")
+                SheetHeader("Pinned")
                 Spacer()
                 Button(editing ? "Done" : "Edit") { withAnimation { editing.toggle() } }
                     .font(.system(size: 15))

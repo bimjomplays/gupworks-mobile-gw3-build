@@ -57,7 +57,7 @@ struct ChatDetailsSheet: View {
                 .accessibilityIdentifier("modelRow")
                 effortRow(h)
             } header: {
-                Text("Model")
+                SheetHeader("Model")
             } footer: {
                 if h.pending == true {
                     Text("Applies from the next turn.").accessibilityIdentifier("pending")
@@ -75,22 +75,26 @@ struct ChatDetailsSheet: View {
                 .disabled(!canSwitch(h) || store.switchingMode)
                 .accessibilityIdentifier("bypass")
             } header: {
-                Text("Permissions")
+                SheetHeader("Permissions")
             } footer: {
                 Text(bypassNote(h))
             }
 
             if !h.usage.isEmpty || h.cache != nil {
-                Section("Usage") {
+                Section {
                     ForEach(h.usage, id: \.label) { m in meter(m) }
                     if let c = h.cache { cacheRow(c) }
+                } header: {
+                    SheetHeader("Usage")
                 }
             }
 
-            Section("Details") {
+            Section {
                 if let p = h.project { detail("folder.badge.gearshape", "Project", p.name) }
                 if let b = h.branch, !b.isEmpty { detail("arrow.triangle.branch", "Branch", b) }
                 if let f = h.folder, !f.isEmpty { detail("folder", "Folder", f) }
+            } header: {
+                SheetHeader("Details")
             }
         }
     }
@@ -168,6 +172,15 @@ struct ChatDetailsSheet: View {
         case "wk": return "Week"
         default: return label
         }
+    }
+}
+
+/// D4/D5's section headers: small, grey, as typed (iOS 26 lists draw them large and bold otherwise)
+struct SheetHeader: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text).font(.system(size: 15)).foregroundStyle(ChatStyle.dim).textCase(nil)
     }
 }
 
