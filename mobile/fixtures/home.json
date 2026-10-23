@@ -1,0 +1,130 @@
+{
+ "now": 1792000000000,
+ "projects": [
+  {
+   "id": "garden-planner-1a2b",
+   "name": "Garden planner",
+   "state": "needs",
+   "detail": "Mockups: pick a layout",
+   "needs": 1,
+   "permission": 0,
+   "working": 0,
+   "paused": false,
+   "mainChatId": "00000065-1111-4222-8333-000000000065"
+  },
+  {
+   "id": "lumen-studio-3c4d",
+   "name": "Lumen Studio website",
+   "state": "needs",
+   "detail": "2 threads working",
+   "needs": 1,
+   "permission": 0,
+   "working": 2,
+   "paused": false,
+   "mainChatId": "00000066-1111-4222-8333-000000000066"
+  },
+  {
+   "id": "home-server-5e6f",
+   "name": "Home server",
+   "state": "permission",
+   "detail": "Backups",
+   "needs": 0,
+   "permission": 1,
+   "working": 0,
+   "paused": false,
+   "mainChatId": "00000067-1111-4222-8333-000000000067"
+  }
+ ],
+ "setups": [],
+ "chats": [
+  {
+   "id": "00000001-1111-4222-8333-000000000001",
+   "title": "Wallpaper ideas",
+   "state": "working",
+   "model": "Opus 5.5",
+   "provider": "Claude",
+   "lastActive": 1791999980000,
+   "pinned": false,
+   "pinnedAt": 0,
+   "running": true
+  },
+  {
+   "id": "00000002-1111-4222-8333-000000000002",
+   "title": "Carrot picture",
+   "state": "done",
+   "model": "GPT 6.1 Sol",
+   "provider": "OpenAI",
+   "lastActive": 1791989200000,
+   "pinned": false,
+   "pinnedAt": 0,
+   "running": false
+  },
+  {
+   "id": "00000003-1111-4222-8333-000000000003",
+   "title": "Recipe scaler",
+   "state": "idle",
+   "model": "Qwen3.8 27B",
+   "provider": "local",
+   "lastActive": 1791906400000,
+   "pinned": false,
+   "pinnedAt": 0,
+   "running": false
+  },
+  {
+   "id": "00000004-1111-4222-8333-000000000004",
+   "title": "Trip packing list",
+   "state": "idle",
+   "model": "Opus 5.5",
+   "provider": "Claude",
+   "lastActive": 1791568000000,
+   "pinned": false,
+   "pinnedAt": 0,
+   "running": false
+  },
+  {
+   "id": "00000005-1111-4222-8333-000000000005",
+   "title": "Bike gear ratios",
+   "state": "idle",
+   "model": "Sonnet 5.5",
+   "provider": "Claude",
+   "lastActive": 1791560800000,
+   "pinned": false,
+   "pinnedAt": 0,
+   "running": false
+  },
+  {
+   "id": "00000006-1111-4222-8333-000000000006",
+   "title": "Weekend plan",
+   "state": "idle",
+   "model": "Opus 5.5",
+   "provider": "Claude",
+   "lastActive": 1791550000000,
+   "pinned": false,
+   "pinnedAt": 0,
+   "running": false
+  },
+  {
+   "id": "00000007-1111-4222-8333-000000000007",
+   "title": "Sourdough timing",
+   "state": "idle",
+   "model": "Haiku 5.5",
+   "provider": "Claude",
+   "lastActive": 1791222400000,
+   "pinned": false,
+   "pinnedAt": 0,
+   "running": false
+  },
+  {
+   "id": "00000008-1111-4222-8333-000000000008",
+   "title": "Photo backup script",
+   "state": "idle",
+   "model": "GPT 6 Luna",
+   "provider": "OpenAI",
+   "lastActive": 1790963200000,
+   "pinned": false,
+   "pinnedAt": 0,
+   "running": false
+  }
+ ],
+ "archivedCount": 4
+}

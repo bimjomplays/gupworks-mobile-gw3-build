@@ -1,0 +1,95 @@
+# XcodeGen spec for the GupWorks 3 iPhone app. The .xcodeproj and Sources/Info.plist are generated on the macOS
+# runner (`xcodegen generate`) and never committed. This folder is published to the public build repo: nothing
+# personal or secret goes here (signing team, keys and the like come from the runner's secrets).
+name: GupWorks3
+options:
+  bundleIdPrefix: app.gupworks3
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  GupWorks3:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+      - Resources
+      # recorded gw3-phone answers (invented text) for the demo mode and the screenshot tests
+      - path: ../fixtures
+        type: folder
+        buildPhase: resources
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: GupWorks
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: LaunchBG
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UIUserInterfaceStyle: Dark
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIRequiredDeviceCapabilities: [arm64]
+        ITSAppUsesNonExemptEncryption: false
+        # the pairing QR holds a gupworks3://pair link, so the iPhone camera app can open it here too
+        CFBundleURLTypes:
+          - CFBundleURLName: app.gupworks3.phone.pair
+            CFBundleURLSchemes: [gupworks3]
+        NSCameraUsageDescription: >-
+          GupWorks uses the camera only to scan the pairing code your PC shows. Nothing is recorded or sent anywhere.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.gupworks3.phone
+        PRODUCT_NAME: GupWorks3
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+        ENABLE_PREVIEWS: "YES"
+        # unsigned by default (the ipa and shots jobs); the testflight job turns signing on with its own settings
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGN_IDENTITY: ""
+  GupWorks3Tests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: GupWorks3
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+        PRODUCT_BUNDLE_IDENTIFIER: app.gupworks3.phone.tests
+        CODE_SIGNING_ALLOWED: "NO"
+  GupWorks3UITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: GupWorks3
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+        PRODUCT_BUNDLE_IDENTIFIER: app.gupworks3.phone.uitests
+        TEST_TARGET_NAME: GupWorks3
+        CODE_SIGNING_ALLOWED: "NO"
+schemes:
+  GupWorks3:
+    build:
+      targets:
+        GupWorks3: all
+        GupWorks3Tests: [test]
+        GupWorks3UITests: [test]
+    test:
+      config: Debug
+      targets:
+        - GupWorks3Tests
+        - GupWorks3UITests
+    archive:
+      config: Release

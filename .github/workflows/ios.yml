@@ -1,0 +1,192 @@
+# Builds the iPhone app on a GitHub-hosted Mac. Lives in the public build copy as .github/workflows/ios.yml.
+#  - ipa:        unsigned device build, artifact "GupWorks3-ipa" (for iloader, which signs it itself)
+#  - shots:      unit tests + UI tests on a simulator in demo mode; screenshots as artifact "screenshots"
+#  - testflight: signs and uploads to TestFlight, only when the App Store Connect secrets are set; otherwise it says
+#                so and skips cleanly
+name: ios
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  PROJECT: GupWorks3.xcodeproj
+  SCHEME: GupWorks3
+jobs:
+  ipa:
+    if: github.event.repository.private == false
+    runs-on: macos-26
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: mobile/ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          brew install xcodegen
+          xcodebuild -version
+      - run: xcodegen generate
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath build \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > build.log 2>&1 \
+            || { grep -E "error:|warning: .*deprecated" build.log | head -80; tail -40 build.log; exit 1; }
+      - name: Package
+        run: |
+          app="build/Build/Products/Release-iphoneos/$SCHEME.app"
+          test -f "$app/fixtures/home.json" || { echo "fixtures missing from the app"; exit 1; }
+          mkdir Payload
+          cp -R "$app" Payload/
+          zip -qry GupWorks3.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GupWorks3-ipa
+          path: mobile/ios/GupWorks3.ipa
+
+  shots:
+    if: github.event.repository.private == false
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile/ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          brew install xcodegen
+          xcodebuild -version
+      - run: xcodegen generate
+      - name: Simulator
+        id: sim
+        run: |
+          # the newest iPhone 17 (the mockups are a 6.3" screen), else an iPhone 17 Pro, else any iPhone
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, re, sys
+          devs = [d | {"rt": rt} for rt, ds in json.load(sys.stdin)["devices"].items() if "iOS" in rt for d in ds]
+          def rank(d):
+              n = d["name"]
+              return (n == "iPhone 17", n == "iPhone 17 Pro", n.startswith("iPhone"), d["rt"])
+          devs.sort(key=rank)
+          print(devs[-1]["udid"] if devs else "")')
+          test -n "$udid" || { xcrun simctl list devices available; exit 1; }
+          xcrun simctl list devices | grep "$udid"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+      - name: Test
+        env:
+          TEST_RUNNER_SHOTS_DIR: ${{ github.workspace }}/shots
+        run: |
+          set -o pipefail
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build -resultBundlePath shots.xcresult \
+            CODE_SIGNING_ALLOWED=NO test > test.log 2>&1 \
+            || { grep -E "error:|failed|XCTAssert" test.log | head -80; tail -60 test.log; exit 1; }
+          grep -E "Test Suite .* (passed|failed)|Executed" test.log | tail -6
+      - name: Collect screenshots
+        if: always()
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/shots"
+          if [ -d shots.xcresult ]; then
+            xcrun xcresulttool export attachments --path shots.xcresult --output-path "$GITHUB_WORKSPACE/shots/attachments" || true
+          fi
+          ls -la "$GITHUB_WORKSPACE/shots"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: shots/
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-log
+          path: mobile/ios/test.log
+
+  testflight:
+    needs: [ipa, shots]
+    if: github.event.repository.private == false
+    runs-on: macos-26
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: mobile/ios
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - name: Secrets present?
+        id: keys
+        working-directory: .
+        run: |
+          missing=""
+          for v in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID; do [ -n "${!v}" ] || missing="$missing $v"; done
+          if [ -n "$missing" ]; then
+            echo "::notice title=TestFlight skipped::No App Store Connect key yet (missing:$missing). The ipa and screenshots are built; add the secrets to upload."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.keys.outputs.ready == 'true'
+      - name: Tools
+        if: steps.keys.outputs.ready == 'true'
+        run: |
+          brew install xcodegen
+          xcodebuild -version
+          xcodegen generate
+      - name: Key
+        if: steps.keys.outputs.ready == 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/asc"
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8"
+          chmod 600 "$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8"
+      - name: Archive
+        if: steps.keys.outputs.ready == 'true'
+        run: |
+          set -o pipefail
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/GupWorks3.xcarchive" \
+            -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=YES CODE_SIGN_IDENTITY="Apple Development" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} archive > archive.log 2>&1 \
+            || { grep -E "error:" archive.log | head -60; tail -40 archive.log; exit 1; }
+      - name: Upload to TestFlight
+        if: steps.keys.outputs.ready == 'true'
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>$APPLE_TEAM_ID</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>testFlightInternalTestingOnly</key><true/>
+          </dict></plist>
+          EOF
+          set -o pipefail
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/GupWorks3.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" > export.log 2>&1 \
+            || { grep -E "error:" export.log | head -60; tail -40 export.log; exit 1; }
+          echo "::notice title=TestFlight::Build ${{ github.run_number }} uploaded; it shows in TestFlight after Apple's processing (about 5 to 30 minutes)."
+      - name: Remove key
+        if: always() && steps.keys.outputs.ready == 'true'
+        run: rm -rf "$RUNNER_TEMP/asc"

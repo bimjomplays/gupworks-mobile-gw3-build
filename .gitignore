@@ -1,0 +1,7 @@
+mobile/ios/*.xcodeproj
+mobile/ios/Sources/Info.plist
+mobile/ios/build/
+mobile/ios/*.log
+mobile/ios/Payload/
+*.ipa
+*.xcresult

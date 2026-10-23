@@ -1,0 +1,9 @@
+{
+ "app": "gw3-phone",
+ "version": "0.1.0",
+ "api": 1,
+ "pc": "desktop",
+ "features": [
+  "home"
+ ]
+}
