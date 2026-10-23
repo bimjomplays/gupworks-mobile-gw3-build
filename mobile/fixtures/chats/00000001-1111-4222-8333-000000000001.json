@@ -1,0 +1,423 @@
+{
+ "now": 1792000000000,
+ "header": {
+  "id": "00000001-1111-4222-8333-000000000001",
+  "title": "Wallpaper ideas",
+  "role": "chat",
+  "model": "Opus 5.5",
+  "modelId": "claude-opus-5-5",
+  "provider": "Claude",
+  "effort": "high",
+  "bypass": true,
+  "usage": [
+   {
+    "label": "ctx",
+    "percent": 18,
+    "tokens": 27000,
+    "switchAt": 150000,
+    "auto": true
+   },
+   {
+    "label": "5h",
+    "percent": 5,
+    "resets": "2026-10-14T19:46:40.000Z"
+   },
+   {
+    "label": "wk",
+    "percent": 21
+   }
+  ],
+  "branch": "",
+  "folder": "/work/wallpapers",
+  "running": true,
+  "state": "working"
+ },
+ "status": {
+  "state": "working",
+  "ts": 1791999980000,
+  "live": true,
+  "running": true
+ },
+ "turns": {
+  "turns": [
+   {
+    "id": "000186a1-0000-4000-8000-0000000186a1",
+    "kind": "prompt",
+    "start": 1791998501000,
+    "state": "done",
+    "prompt": {
+     "text": "Make me three phone wallpapers from the colours in this photo",
+     "images": [
+      "demo:media/pasted-photo.png"
+     ]
+    },
+    "handle": {
+     "title": "Worked for 41s",
+     "stats": "3 steps · 1 edit",
+     "ms": 41000
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "000186a2-0000-4000-8000-0000000186a2",
+      "answer": false,
+      "md": [
+       {
+        "t": "p",
+        "text": "Picking five colours from the photo, then drawing three wallpapers from them."
+       }
+      ]
+     },
+     {
+      "type": "card",
+      "id": "toolu_demo3a110001",
+      "state": "done",
+      "steps": 3,
+      "title": "Ran 2 commands, created 1 file",
+      "stats": "3 steps · 11s",
+      "add": 6
+     },
+     {
+      "type": "text",
+      "id": "000186a9-0000-4000-8000-0000000186a9",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Here are the three, at phone size (1170 × 2532):"
+       },
+       {
+        "t": "media",
+        "items": [
+         {
+          "kind": "image",
+          "url": "demo:media/dusk.png",
+          "name": "Dusk"
+         },
+         {
+          "kind": "image",
+          "url": "demo:media/fog.png",
+          "name": "Fog"
+         },
+         {
+          "kind": "image",
+          "url": "demo:media/tide.png",
+          "name": "Tide"
+         }
+        ]
+       },
+       {
+        "t": "table",
+        "head": [
+         "Wallpaper",
+         "Colours",
+         "Feel"
+        ],
+        "rows": [
+         [
+          "**Dusk**",
+          "violet, rose, amber",
+          "warm, evening"
+         ],
+         [
+          "**Fog**",
+          "four greys",
+          "calm, quiet"
+         ],
+         [
+          "**Tide**",
+          "deep blue to sea green",
+          "cool, fresh"
+         ]
+        ],
+        "align": [
+         "left",
+         "left",
+         "left"
+        ]
+       },
+       {
+        "t": "p",
+        "text": "And a short loop of Dusk, the bands fading in:"
+       },
+       {
+        "t": "media",
+        "items": [
+         {
+          "kind": "video",
+          "url": "demo:media/dusk-loop.mp4",
+          "name": "Dusk loop",
+          "poster": "demo:media/dusk-loop.mp4.poster.png"
+         }
+        ]
+       },
+       {
+        "t": "p",
+        "text": "To change the colours, edit `BANDS` and the list at the top of `make.py`:"
+       },
+       {
+        "t": "code",
+        "lang": "python",
+        "code": "DUSK = [\"#2b2350\", \"#4a2f6b\", \"#8a4a6e\", \"#d9875a\", \"#f2c46b\"]\nwallpaper(DUSK, \"dusk.png\")"
+       }
+      ]
+     }
+    ],
+    "outside": [
+     {
+      "type": "changes",
+      "id": "changed-000186a1-0000-4000-8000-0000000186a1",
+      "folded": true,
+      "title": "Changed 1 file",
+      "add": 6,
+      "del": 0,
+      "files": [
+       {
+        "path": "make.py",
+        "add": 6,
+        "del": 0,
+        "created": true
+       }
+      ]
+     }
+    ],
+    "rev": "f933f4d87405"
+   },
+   {
+    "id": "000186ab-0000-4000-8000-0000000186ab",
+    "kind": "prompt",
+    "start": 1791999939000,
+    "state": "working",
+    "prompt": {
+     "text": "Make Fog a little darker and add a 4K version of all three."
+    },
+    "handle": {
+     "title": "Working",
+     "stats": "2 steps · 1 edit",
+     "since": 1791999939000
+    },
+    "open": true,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "000186ac-0000-4000-8000-0000000186ac",
+      "answer": false,
+      "md": [
+       {
+        "t": "p",
+        "text": "Darkening Fog by one step, then rendering all three at 4K."
+       }
+      ]
+     },
+     {
+      "type": "card",
+      "id": "toolu_demo3a110004",
+      "state": "running",
+      "steps": 2,
+      "title": "Running render the 4K versions",
+      "stats": "2 steps",
+      "add": 1,
+      "del": 1,
+      "since": 1791999940200
+     }
+    ],
+    "rev": "cd7746ee5df5"
+   }
+  ],
+  "more": false
+ },
+ "cards": {
+  "toolu_demo3a110001": {
+   "id": "toolu_demo3a110001",
+   "title": "Ran 2 commands, created 1 file",
+   "state": "done",
+   "stats": "3 steps · 11s",
+   "intent": "Picking five colours from the photo, then drawing three wallpapers from them.",
+   "rows": [
+    {
+     "id": "toolu_demo3a110001",
+     "tool": "Bash",
+     "state": "ok",
+     "label": "Bash",
+     "detail": "python3 palette.py pasted.png --colours 5",
+     "chip": "",
+     "ms": 1500,
+     "out": {
+      "head": [
+       "palette: #2b2350 #8a4a6e #d9875a #56616b #1d6a80"
+      ],
+      "tail": [],
+      "total": 1,
+      "failed": false
+     }
+    },
+    {
+     "id": "toolu_demo3a110002",
+     "tool": "Write",
+     "state": "ok",
+     "label": "Create",
+     "detail": "make.py",
+     "chip": "",
+     "ms": 300,
+     "add": 6,
+     "diff": {
+      "path": "make.py",
+      "lines": [
+       {
+        "k": "+",
+        "n": 1,
+        "text": "from PIL import Image"
+       },
+       {
+        "k": "+",
+        "n": 2,
+        "text": ""
+       },
+       {
+        "k": "+",
+        "n": 3,
+        "text": "BANDS = 5"
+       },
+       {
+        "k": "+",
+        "n": 4,
+        "text": ""
+       },
+       {
+        "k": "+",
+        "n": 5,
+        "text": "def wallpaper(colours, out):"
+       },
+       {
+        "k": "+",
+        "n": 6,
+        "text": "    ..."
+       }
+      ]
+     }
+    },
+    {
+     "id": "toolu_demo3a110003",
+     "tool": "Bash",
+     "state": "ok",
+     "label": "Bash",
+     "detail": "python3 make.py --all",
+     "chip": "",
+     "ms": 8000,
+     "out": {
+      "head": [
+       "wrote dusk.png fog.png tide.png dusk-loop.mp4"
+      ],
+      "tail": [],
+      "total": 1,
+      "failed": false
+     }
+    }
+   ],
+   "add": 6
+  },
+  "changed-000186a1-0000-4000-8000-0000000186a1": {
+   "id": "changed-000186a1-0000-4000-8000-0000000186a1",
+   "title": "Changed 1 file",
+   "state": "done",
+   "stats": "",
+   "add": 6,
+   "del": 0,
+   "rows": [
+    {
+     "id": "toolu_demo3a110002",
+     "tool": "Write",
+     "state": "ok",
+     "label": "Create",
+     "detail": "make.py",
+     "chip": "",
+     "ms": 300,
+     "add": 6,
+     "diff": {
+      "path": "make.py",
+      "lines": [
+       {
+        "k": "+",
+        "n": 1,
+        "text": "from PIL import Image"
+       },
+       {
+        "k": "+",
+        "n": 2,
+        "text": ""
+       },
+       {
+        "k": "+",
+        "n": 3,
+        "text": "BANDS = 5"
+       },
+       {
+        "k": "+",
+        "n": 4,
+        "text": ""
+       },
+       {
+        "k": "+",
+        "n": 5,
+        "text": "def wallpaper(colours, out):"
+       },
+       {
+        "k": "+",
+        "n": 6,
+        "text": "    ..."
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "toolu_demo3a110004": {
+   "id": "toolu_demo3a110004",
+   "title": "Running render the 4K versions",
+   "state": "running",
+   "stats": "2 steps",
+   "intent": "Darkening Fog by one step, then rendering all three at 4K.",
+   "rows": [
+    {
+     "id": "toolu_demo3a110004",
+     "tool": "Edit",
+     "state": "ok",
+     "label": "Update",
+     "detail": "make.py",
+     "chip": "",
+     "ms": 200,
+     "add": 1,
+     "del": 1,
+     "diff": {
+      "path": "make.py",
+      "lines": [
+       {
+        "k": "-",
+        "n": 9,
+        "text": "FOG = [\"#3c4650\", \"#56616b\", \"#76808a\", \"#9aa3ab\", \"#c4c9cd\"]"
+       },
+       {
+        "k": "+",
+        "n": 9,
+        "text": "FOG = [\"#30383f\", \"#47515a\", \"#636d77\", \"#868f98\", \"#aeb5bb\"]"
+       }
+      ]
+     }
+    },
+    {
+     "id": "toolu_demo3a110005",
+     "tool": "Bash",
+     "state": "running",
+     "label": "Bash",
+     "detail": "python3 make.py --all --size 2160x3840",
+     "chip": "",
+     "since": 1791999980000
+    }
+   ],
+   "add": 1,
+   "del": 1,
+   "since": 1791999940200
+  }
+ }
+}

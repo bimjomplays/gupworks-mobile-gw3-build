@@ -56,7 +56,8 @@ enum APIError: Error, Equatable {
     var message: String {
         switch self {
         case .notPaired: return "Your PC doesn't know this phone anymore. Pair again."
-        case .unreachable: return "Can't reach your PC. Is Tailscale on?"
+        case .unreachable:
+            return "Can't reach your PC. Is Tailscale on? In the Tailscale app, also check that Use Tailscale DNS is on."
         case .server(let text): return text
         }
     }
@@ -88,12 +89,75 @@ final class APIClient {
         try await request(p.baseURL, "/v1/home", token: p.token)
     }
 
-    private func request<T: Decodable>(_ base: URL, _ path: String, token: String?, method: String = "GET",
-                                       body: [String: String]? = nil) async throws -> T {
-        var req = URLRequest(url: base.appendingPathComponent(path))
-        req.httpMethod = method
-        req.setValue("application/json", forHTTPHeaderField: "Accept")
+    func chat(_ p: Pairing, _ id: String) async throws -> ChatHeader {
+        try await request(p.baseURL, "/v1/chats/\(id)", token: p.token)
+    }
+
+    /// a page of turns, oldest first; `before` is the oldest turn the phone has
+    func turns(_ p: Pairing, _ id: String, before: String? = nil, limit: Int = 30) async throws -> TurnsPage {
+        var q = [URLQueryItem(name: "limit", value: String(limit))]
+        if let before { q.append(URLQueryItem(name: "before", value: before)) }
+        return try await request(p.baseURL, "/v1/chats/\(id)/turns", token: p.token, query: q)
+    }
+
+    func card(_ p: Pairing, chat: String, card: String) async throws -> CardDetail {
+        try await request(p.baseURL, "/v1/chats/\(chat)/cards/\(card)", token: p.token)
+    }
+
+    /// A server-sent events stream (`/v1/home/events`, `/v1/chats/<id>/events`). Ends when the PC closes it; throws
+    /// APIError like the other calls.
+    func events(_ p: Pairing, _ path: String, query: [URLQueryItem] = []) -> AsyncThrowingStream<SSEEvent, Error> {
+        let req = Self.makeRequest(p.baseURL, path, token: p.token, query: query, accept: "text/event-stream")
+        let session = streamSession
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let (bytes, response) = try await session.bytes(for: req)
+                    let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    if status == 401 { throw APIError.notPaired }
+                    guard status == 200 else { throw APIError.server("The PC answered \(status).") }
+                    var parser = SSEParser()
+                    for try await byte in bytes {
+                        if let e = parser.feed(byte) { continuation.yield(e) }
+                    }
+                    continuation.finish()
+                } catch let e as APIError {
+                    continuation.finish(throwing: e)
+                } catch {
+                    continuation.finish(throwing: Task.isCancelled ? CancellationError() as Error : APIError.unreachable)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Streams stay open for minutes; the PC sends a keepalive every 15 s, so a quiet 45 s means the line is dead.
+    private let streamSession: URLSession = {
+        let c = URLSessionConfiguration.ephemeral
+        c.timeoutIntervalForRequest = 45
+        c.timeoutIntervalForResource = 60 * 60 * 24
+        c.waitsForConnectivity = false
+        c.httpCookieStorage = nil
+        c.urlCache = nil
+        c.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: c, delegate: NoRedirects(), delegateQueue: nil)
+    }()
+
+    private static func makeRequest(_ base: URL, _ path: String, token: String?, query: [URLQueryItem] = [],
+                                    accept: String = "application/json") -> URLRequest {
+        var c = URLComponents(url: base, resolvingAgainstBaseURL: false)!
+        c.path = path
+        c.queryItems = query.isEmpty ? nil : query
+        var req = URLRequest(url: c.url!)
+        req.setValue(accept, forHTTPHeaderField: "Accept")
         if let token { req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
+        return req
+    }
+
+    private func request<T: Decodable>(_ base: URL, _ path: String, token: String?, method: String = "GET",
+                                       query: [URLQueryItem] = [], body: [String: String]? = nil) async throws -> T {
+        var req = Self.makeRequest(base, path, token: token, query: query)
+        req.httpMethod = method
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try JSONEncoder().encode(body)
@@ -123,6 +187,44 @@ final class APIClient {
     }
 }
 
+/// One server-sent event: `event: <name>` and its `data:` lines.
+struct SSEEvent: Equatable {
+    var name: String
+    var data: String
+}
+
+/// Reads an event stream byte by byte (AsyncBytes.lines drops the empty lines that end each event).
+struct SSEParser {
+    private var line: [UInt8] = []
+    private var name = ""
+    private var data: [String] = []
+
+    mutating func feed(_ byte: UInt8) -> SSEEvent? {
+        if byte == 13 { return nil }               // \r\n endings
+        guard byte == 10 else { line.append(byte); return nil }
+        let text = String(decoding: line, as: UTF8.self)
+        line.removeAll(keepingCapacity: true)
+        if text.isEmpty {
+            defer { name = ""; data = [] }
+            return data.isEmpty ? nil : SSEEvent(name: name.isEmpty ? "message" : name, data: data.joined(separator: "\n"))
+        }
+        if text.hasPrefix(":") { return nil }       // keepalive
+        let field = text.prefix { $0 != ":" }
+        var value = text.dropFirst(field.count).dropFirst()
+        if value.hasPrefix(" ") { value = value.dropFirst() }
+        switch field {
+        case "event": name = String(value)
+        case "data": data.append(String(value))
+        default: break
+        }
+        return nil
+    }
+
+    mutating func feed(_ text: String) -> [SSEEvent] {
+        text.utf8.compactMap { feed($0) }
+    }
+}
+
 private final class NoRedirects: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
@@ -135,8 +237,8 @@ private final class NoRedirects: NSObject, URLSessionTaskDelegate {
 enum Demo {
     static var isOn: Bool { ProcessInfo.processInfo.arguments.contains("-demo") }
 
-    static func load<T: Decodable>(_ name: String) -> T? {
-        guard let url = Bundle.main.url(forResource: name, withExtension: "json", subdirectory: "fixtures"),
+    static func load<T: Decodable>(_ name: String, in folder: String = "fixtures") -> T? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "json", subdirectory: folder),
               let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
     }

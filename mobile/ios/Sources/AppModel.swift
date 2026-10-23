@@ -46,6 +46,31 @@ final class AppModel {
         error = nil
     }
 
+    /// Keeps the list live from the PC's home stream until the task is cancelled (the app leaves the front).
+    func followHome() async {
+        guard !demo, let p = pairing else { return }
+        var wait: UInt64 = 2
+        while !Task.isCancelled {
+            do {
+                for try await e in api.events(p, "/v1/home/events") where e.name == "home" {
+                    if let h = try? JSONDecoder().decode(Home.self, from: Data(e.data.utf8)) {
+                        home = h
+                        error = nil
+                        lastRefresh = Date()
+                    }
+                    wait = 2
+                }
+            } catch let e as APIError {
+                if Task.isCancelled { return }
+                if e == .notPaired { error = e; return }
+            } catch {
+                if Task.isCancelled { return }
+            }
+            try? await Task.sleep(nanoseconds: wait * 1_000_000_000)
+            wait = min(wait * 2, 30)
+        }
+    }
+
     func refresh() async {
         guard let p = pairing else { return }
         if demo {

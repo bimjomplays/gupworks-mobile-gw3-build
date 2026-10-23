@@ -71,4 +71,92 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["pairProblem"].waitForExistence(timeout: 5))
         shot("pairing")
     }
+
+    // MARK: slice 2: chats
+
+    /// opens a chat from the list by its row title and waits for its turns
+    private func open(_ app: XCUIApplication, _ title: String, waitFor text: String) {
+        let row = find(app, title)
+        XCTAssertTrue(row.waitForExistence(timeout: 20), title)
+        row.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["chatTitle"].waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, text).waitForExistence(timeout: 10), text)
+    }
+
+    /// unfolds the newest turn (its handle is the last one)
+    private func unfoldLast(_ app: XCUIApplication) {
+        let handles = app.buttons.matching(identifier: "handle")
+        XCTAssertTrue(handles.firstMatch.waitForExistence(timeout: 5))
+        handles.element(boundBy: handles.count - 1).tap()
+    }
+
+    func testD2Chat() {
+        let app = launch()
+        open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
+        XCTAssertTrue(find(app, "Bypass").exists)
+        unfoldLast(app)
+        XCTAssertTrue(find(app, "Fixed style.css").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Checked all five pages").exists)
+        sleep(1)
+        shot("d2-chat")
+    }
+
+    func testD2Folded() {
+        let app = launch()
+        open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
+        sleep(1)
+        shot("d2-folded")
+    }
+
+    func testStepCard() {
+        let app = launch()
+        open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
+        unfoldLast(app)
+        let card = find(app, "Fixed style.css")
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        card.tap()
+        XCTAssertTrue(find(app, "style.css").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Done").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d2-card")
+    }
+
+    func testD11MainChat() {
+        let app = launch()
+        open(app, "Lumen Studio website", waitFor: "THREAD NEEDS YOU")
+        XCTAssertTrue(find(app, "Main chat").exists)
+        XCTAssertTrue(find(app, "Land it as is").exists)
+        sleep(1)
+        shot("d11-main")
+    }
+
+    func testLiveChatWithPictures() {
+        let app = launch()
+        open(app, "Wallpaper ideas", waitFor: "Working")
+        sleep(2)  // the clock ticks
+        shot("chat-live")
+        let video = app.descendants(matching: .any)["video"]
+        app.swipeDown()
+        XCTAssertTrue(video.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["picture"].exists)
+        sleep(1)
+        shot("chat-media")
+        video.tap()
+        XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5))
+        sleep(2)
+        shot("video")
+    }
+
+    func testFailedCard() {
+        let app = launch()
+        open(app, "Photo backup script", waitFor: "The backup didn")
+        unfoldLast(app)
+        XCTAssertTrue(find(app, "Tried the backup once").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("chat-failed")
+        find(app, "Tried the backup once").tap()
+        XCTAssertTrue(find(app, "Failed").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("card-failed")
+    }
 }

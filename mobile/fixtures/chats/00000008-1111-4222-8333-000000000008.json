@@ -1,0 +1,168 @@
+{
+ "now": 1792000000000,
+ "header": {
+  "id": "00000008-1111-4222-8333-000000000008",
+  "title": "Photo backup script",
+  "role": "chat",
+  "model": "GPT 6.1 Sol",
+  "modelId": "gpt-6.1-sol",
+  "provider": "OpenAI",
+  "effort": "medium",
+  "bypass": true,
+  "usage": [
+   {
+    "label": "ctx",
+    "percent": 9,
+    "tokens": 13500,
+    "switchAt": 150000,
+    "auto": true
+   },
+   {
+    "label": "5h",
+    "percent": 0,
+    "resets": "2026-10-14T19:46:40.000Z"
+   },
+   {
+    "label": "wk",
+    "percent": 0
+   }
+  ],
+  "branch": "",
+  "folder": "/work/photo-backup",
+  "running": false,
+  "state": "done"
+ },
+ "status": {
+  "state": "done",
+  "ts": 1791740800000,
+  "live": false,
+  "running": false
+ },
+ "turns": {
+  "turns": [
+   {
+    "id": "000c3501-0000-4000-8000-0000000c3501",
+    "kind": "prompt",
+    "start": 1791740801000,
+    "state": "done",
+    "prompt": {
+     "text": "Run the backup script once and tell me what it does."
+    },
+    "handle": {
+     "title": "Worked for 9s",
+     "stats": "3 steps",
+     "ms": 9000
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "000c3502-0000-4000-8000-0000000c3502",
+      "answer": false,
+      "md": [
+       {
+        "t": "p",
+        "text": "Reading the script first, then running it once."
+       }
+      ]
+     },
+     {
+      "type": "card",
+      "id": "toolu_demo8b110001",
+      "state": "failed",
+      "steps": 3,
+      "title": "Tried the backup once",
+      "stats": "3 steps · 1 failed · 2.4s"
+     },
+     {
+      "type": "text",
+      "id": "000c3509-0000-4000-8000-0000000c3509",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "The backup didn't run: it copies `/mnt/photos` to `/mnt/backup/photos`, but `/mnt/photos` doesn't exist on this machine, so rsync stopped before copying anything."
+       },
+       {
+        "t": "p",
+        "text": "What it would do once the photo drive is there:"
+       },
+       {
+        "t": "list",
+        "items": [
+         {
+          "level": 0,
+          "text": "Copy every new or changed photo to the backup drive.",
+          "n": 1
+         },
+         {
+          "level": 0,
+          "text": "Delete from the backup what you deleted from the photos (`--delete`), so the backup mirrors the drive.",
+          "n": 2
+         }
+        ]
+       },
+       {
+        "t": "quote",
+        "text": "Careful: with `--delete`, a photo deleted by mistake disappears from the backup on the next run."
+       },
+       {
+        "t": "p",
+        "text": "Plug in the photo drive (or tell me where the photos are now) and I'll run it again."
+       }
+      ]
+     }
+    ],
+    "rev": "3095f347a404"
+   }
+  ],
+  "more": false
+ },
+ "cards": {
+  "toolu_demo8b110001": {
+   "id": "toolu_demo8b110001",
+   "title": "Tried the backup once",
+   "state": "failed",
+   "stats": "3 steps · 1 failed · 2.4s",
+   "intent": "Reading the script first, then running it once.",
+   "rows": [
+    {
+     "id": "toolu_demo8b110001",
+     "tool": "Read",
+     "state": "ok",
+     "label": "Read",
+     "detail": "backup.sh",
+     "chip": "",
+     "ms": 300
+    },
+    {
+     "id": "toolu_demo8b110002",
+     "tool": "Bash",
+     "state": "error",
+     "label": "Bash",
+     "detail": "sh backup.sh",
+     "chip": "",
+     "ms": 1200,
+     "out": {
+      "head": [
+       "rsync: [sender] change_dir \"/mnt/photos\" failed: No such file or directory (2)",
+       "rsync error: some files/attrs were not transferred (code 23) at main.c(1338)"
+      ],
+      "tail": [],
+      "total": 2,
+      "failed": true
+     }
+    },
+    {
+     "id": "toolu_demo8b110003",
+     "tool": "Glob",
+     "state": "ok",
+     "label": "Find",
+     "detail": "/mnt/*",
+     "chip": "",
+     "ms": 100
+    }
+   ]
+  }
+ }
+}

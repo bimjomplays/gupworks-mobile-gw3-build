@@ -1,0 +1,422 @@
+{
+ "now": 1792000000000,
+ "header": {
+  "id": "00000066-1111-4222-8333-000000000066",
+  "title": "Lumen Studio website",
+  "role": "main",
+  "model": "Haiku 5.5",
+  "modelId": "claude-haiku-5-5",
+  "provider": "Claude",
+  "effort": "low",
+  "bypass": true,
+  "usage": [
+   {
+    "label": "ctx",
+    "percent": 61,
+    "tokens": 91500,
+    "switchAt": 150000,
+    "auto": true
+   },
+   {
+    "label": "5h",
+    "percent": 5,
+    "resets": "2026-10-14T19:46:40.000Z"
+   },
+   {
+    "label": "wk",
+    "percent": 21
+   }
+  ],
+  "branch": "",
+  "folder": "/work/lumen-studio",
+  "running": false,
+  "state": "done",
+  "project": {
+   "id": "lumen-studio-3c4d",
+   "name": "Lumen Studio website"
+  }
+ },
+ "status": {
+  "state": "done",
+  "ts": 1791996400000,
+  "live": false,
+  "running": false
+ },
+ "turns": {
+  "turns": [
+   {
+    "id": "0064b541-0000-4000-8000-00000064b541",
+    "kind": "prompt",
+    "start": 1791906401000,
+    "state": "done",
+    "prompt": {
+     "text": "Plan the rest of the site: contact page, gallery alt text, an accessibility pass."
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "0064b542-0000-4000-8000-00000064b542",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Three pieces, one thread each."
+       }
+      ]
+     },
+     {
+      "type": "text",
+      "id": "0064b543-0000-4000-8000-00000064b543",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Planned: a4 contact page, a5 gallery alt text, a6 accessibility pass."
+       }
+      ]
+     },
+     {
+      "type": "divider",
+      "label": "Earlier messages summarised",
+      "body": "This session is being continued from a previous conversation. Summary: the Lumen Studio website project; parts planned (contact page a4, gallery alt text a5, accessibility pass a6).",
+      "answer": true
+     }
+    ],
+    "rev": "513c63904ad9"
+   },
+   {
+    "id": "0064b549-0000-4000-8000-00000064b549",
+    "kind": "prompt",
+    "start": 1791917211010,
+    "state": "done",
+    "prompt": {
+     "text": "Start them."
+    },
+    "handle": {
+     "title": "Worked for 15s",
+     "stats": "3 steps",
+     "ms": 15000
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "0064b54a-0000-4000-8000-00000064b54a",
+      "answer": false,
+      "md": [
+       {
+        "t": "p",
+        "text": "Starting the three threads."
+       }
+      ]
+     },
+     {
+      "type": "card",
+      "id": "toolu_demo7e110001",
+      "state": "done",
+      "steps": 3,
+      "title": "Started a4, a5 and a6",
+      "stats": "3 steps · 2.6s"
+     },
+     {
+      "type": "text",
+      "id": "0064b551-0000-4000-8000-00000064b551",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Three threads are running: the contact page, the gallery alt text and an accessibility pass."
+       }
+      ]
+     }
+    ],
+    "rev": "15bf258f19f9"
+   },
+   {
+    "id": "0064b553-0000-4000-8000-00000064b553",
+    "kind": "prompt",
+    "start": 1791989218010,
+    "state": "done",
+    "prompt": {
+     "text": "Land a4 and a5 when they pass, then tell me what's left."
+    },
+    "handle": {
+     "title": "Worked for 2m 40s",
+     "stats": "12 steps",
+     "ms": 160000
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "0064b554-0000-4000-8000-00000064b554",
+      "answer": false,
+      "md": [
+       {
+        "t": "p",
+        "text": "Checking a4 and a5."
+       }
+      ]
+     },
+     {
+      "type": "card",
+      "id": "toolu_demo7e110004",
+      "state": "done",
+      "steps": 7,
+      "title": "Checked and landed a4 and a5",
+      "stats": "7 steps · 35s"
+     },
+     {
+      "type": "text",
+      "id": "0064b563-0000-4000-8000-00000064b563",
+      "answer": false,
+      "md": [
+       {
+        "t": "p",
+        "text": "Both landed. Looking at a6."
+       }
+      ]
+     },
+     {
+      "type": "card",
+      "id": "toolu_demo7e110011",
+      "state": "done",
+      "steps": 5,
+      "title": "Looked at a6's palette change",
+      "stats": "5 steps · 12s"
+     },
+     {
+      "type": "text",
+      "id": "0064b56e-0000-4000-8000-00000064b56e",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "The contact page (a4) and the gallery alt text (a5) have landed."
+       },
+       {
+        "t": "p",
+        "text": "The accessibility pass is ready, but it changes the palette, so it waits for you."
+       }
+      ]
+     }
+    ],
+    "outside": [
+     {
+      "type": "ask",
+      "id": "ask-toolu_demo7e110015",
+      "answered": false,
+      "call": "toolu_demo7e110015",
+      "work": "a6",
+      "question": "It darkens the accent from #b8572a to #a84e24 and the muted text one step, which takes every page to passing contrast. Land it as is?",
+      "options": [
+       "Land it as is",
+       "Keep the old palette",
+       "Hold until I've looked"
+      ],
+      "model": "Sonnet 5.5"
+     }
+    ],
+    "rev": "33ad2c0d6177"
+   }
+  ],
+  "more": false
+ },
+ "cards": {
+  "toolu_demo7e110001": {
+   "id": "toolu_demo7e110001",
+   "title": "Started a4, a5 and a6",
+   "state": "done",
+   "stats": "3 steps · 2.6s",
+   "intent": "Starting the three threads.",
+   "rows": [
+    {
+     "id": "toolu_demo7e110001",
+     "tool": "mcp__gupworks-projects__work_start",
+     "state": "ok",
+     "label": "work start",
+     "detail": "",
+     "chip": "gupworks-projects",
+     "ms": 600
+    },
+    {
+     "id": "toolu_demo7e110002",
+     "tool": "mcp__gupworks-projects__work_start",
+     "state": "ok",
+     "label": "work start",
+     "detail": "",
+     "chip": "gupworks-projects",
+     "ms": 600
+    },
+    {
+     "id": "toolu_demo7e110003",
+     "tool": "mcp__gupworks-projects__work_start",
+     "state": "ok",
+     "label": "work start",
+     "detail": "",
+     "chip": "gupworks-projects",
+     "ms": 600
+    }
+   ]
+  },
+  "toolu_demo7e110004": {
+   "id": "toolu_demo7e110004",
+   "title": "Checked and landed a4 and a5",
+   "state": "done",
+   "stats": "7 steps · 35s",
+   "intent": "Checking a4 and a5.",
+   "rows": [
+    {
+     "id": "toolu_demo7e110004",
+     "tool": "mcp__gupworks-projects__project_status",
+     "state": "ok",
+     "label": "Checked the project",
+     "detail": "",
+     "chip": "gupworks-projects",
+     "ms": 600
+    },
+    {
+     "id": "toolu_demo7e110005",
+     "tool": "mcp__gupworks-projects__work_review",
+     "state": "ok",
+     "label": "work review",
+     "detail": "",
+     "chip": "gupworks-projects",
+     "ms": 800
+    },
+    {
+     "id": "toolu_demo7e110006",
+     "tool": "Bash",
+     "state": "ok",
+     "label": "Bash",
+     "detail": "bin/check a4",
+     "chip": "",
+     "ms": 12000,
+     "out": {
+      "head": [
+       "ok"
+      ],
+      "tail": [],
+      "total": 1,
+      "failed": false
+     }
+    },
+    {
+     "id": "toolu_demo7e110007",
+     "tool": "mcp__gupworks-projects__work_land",
+     "state": "ok",
+     "label": "work land",
+     "detail": "",
+     "chip": "gupworks-projects",
+     "ms": 3000
+    },
+    {
+     "id": "toolu_demo7e110008",
+     "tool": "mcp__gupworks-projects__work_review",
+     "state": "ok",
+     "label": "work review",
+     "detail": "",
+     "chip": "gupworks-projects",
+     "ms": 800
+    },
+    {
+     "id": "toolu_demo7e110009",
+     "tool": "Bash",
+     "state": "ok",
+     "label": "Bash",
+     "detail": "bin/check a5",
+     "chip": "",
+     "ms": 12000,
+     "out": {
+      "head": [
+       "ok"
+      ],
+      "tail": [],
+      "total": 1,
+      "failed": false
+     }
+    },
+    {
+     "id": "toolu_demo7e110010",
+     "tool": "mcp__gupworks-projects__work_land",
+     "state": "ok",
+     "label": "work land",
+     "detail": "",
+     "chip": "gupworks-projects",
+     "ms": 3000
+    }
+   ]
+  },
+  "toolu_demo7e110011": {
+   "id": "toolu_demo7e110011",
+   "title": "Looked at a6's palette change",
+   "state": "done",
+   "stats": "5 steps · 12s",
+   "intent": "Both landed. Looking at a6.",
+   "rows": [
+    {
+     "id": "toolu_demo7e110011",
+     "tool": "mcp__gupworks-projects__project_status",
+     "state": "ok",
+     "label": "Checked the project",
+     "detail": "",
+     "chip": "gupworks-projects",
+     "ms": 700
+    },
+    {
+     "id": "toolu_demo7e110012",
+     "tool": "Read",
+     "state": "ok",
+     "label": "Read",
+     "detail": "style.css",
+     "chip": "",
+     "ms": 300
+    },
+    {
+     "id": "toolu_demo7e110013",
+     "tool": "Bash",
+     "state": "ok",
+     "label": "Bash",
+     "detail": "npm run contrast",
+     "chip": "",
+     "ms": 9000,
+     "out": {
+      "head": [
+       "contrast ok on 5 pages"
+      ],
+      "tail": [],
+      "total": 1,
+      "failed": false
+     }
+    },
+    {
+     "id": "toolu_demo7e110014",
+     "tool": "Bash",
+     "state": "ok",
+     "label": "Bash",
+     "detail": "git diff --stat a6",
+     "chip": "",
+     "ms": 400,
+     "out": {
+      "head": [
+       "2 colours changed"
+      ],
+      "tail": [],
+      "total": 1,
+      "failed": false
+     }
+    },
+    {
+     "id": "toolu_demo7e110015",
+     "tool": "mcp__gupworks-projects__notify_user",
+     "state": "ok",
+     "label": "notify user",
+     "detail": "",
+     "chip": "gupworks-projects",
+     "ms": 300
+    }
+   ]
+  }
+ }
+}

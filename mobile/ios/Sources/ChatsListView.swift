@@ -1,14 +1,15 @@
 import SwiftUI
 
 /// D1: one list, no tab bar. Settings up top; search and New chat in the bottom toolbar where the thumb is.
-/// Slice 1 is read-only: rows don't open yet, New chat and New project are shown but off.
+/// Rows open their chat (a project its main chat); New chat and New project are shown but off until later slices.
 struct ChatsListView: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
     @State private var showSettings = false
+    @State private var path: [ChatRoute] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 if let error = model.error {
                     ErrorBanner(error: error)
@@ -43,6 +44,9 @@ struct ChatsListView: View {
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .navigationDestination(for: ChatRoute.self) { r in
+                ChatView(id: r.id, pairing: model.pairing, demo: model.demo)
+            }
         }
     }
 
@@ -55,7 +59,11 @@ struct ChatsListView: View {
 
         if q.isEmpty || !projects.isEmpty {
             Section {
-                ForEach(projects) { ProjectRowView(project: $0) }
+                ForEach(projects) { p in
+                    ProjectRowView(project: p)
+                        .onTapGesture { if let id = p.mainChatId { path.append(ChatRoute(id: id)) } }
+                        .accessibilityAddTraits(p.mainChatId == nil ? [] : .isButton)
+                }
                 if projects.isEmpty {
                     emptyRow(home.projectsError.map { "Projects can't be read right now (\($0))." } ?? "No projects yet.")
                 }
@@ -69,7 +77,11 @@ struct ChatsListView: View {
         }
         if q.isEmpty || !chats.isEmpty {
             Section {
-                ForEach(chats) { ChatRowView(chat: $0, now: now) }
+                ForEach(chats) { c in
+                    ChatRowView(chat: c, now: now)
+                        .onTapGesture { path.append(ChatRoute(id: c.id)) }
+                        .accessibilityAddTraits(.isButton)
+                }
                 if chats.isEmpty {
                     emptyRow("Every chat is in a project.")
                 }
@@ -104,6 +116,11 @@ struct ChatsListView: View {
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
     }
+}
+
+/// A chat pushed on the list's stack.
+struct ChatRoute: Hashable {
+    let id: String
 }
 
 private struct SectionHeader<Trailing: View>: View {
@@ -145,6 +162,7 @@ struct ProjectRowView: View {
             badge
         }
         .padding(.vertical, 6)
+        .contentShape(Rectangle())
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .accessibilityElement(children: .combine)
@@ -207,6 +225,7 @@ struct ChatRowView: View {
                 .foregroundStyle(Theme.time)
         }
         .padding(.vertical, 6)
+        .contentShape(Rectangle())
         .listRowBackground(Color.clear)
         .listRowSeparator(.hidden)
         .accessibilityElement(children: .combine)

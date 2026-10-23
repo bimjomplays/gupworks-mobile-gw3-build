@@ -17,7 +17,7 @@ struct GupWorksApp: App {
     }
 }
 
-/// Not paired: the pairing screen. Paired: the chats list, refreshed whenever the app comes to the front.
+/// Not paired: the pairing screen. Paired: the chats list, live while the app is in front.
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var phase
@@ -31,10 +31,12 @@ struct RootView: View {
             }
         }
         .animation(.default, value: model.isPaired)
-        .onChange(of: phase) { _, now in
-            if now == .active { Task { await model.refresh() } }
+        // in front: load the list, then follow the PC's changes until the app goes to the back
+        .task(id: [model.isPaired, phase == .active]) {
+            guard phase == .active else { return }
+            await model.refresh()
+            await model.followHome()
         }
-        .task(id: model.isPaired) { await model.refresh() }
         .onOpenURL { url in
             // only the pairing screen takes links; once paired, unpair first in Settings
             if !model.isPaired { model.incomingLink = url.absoluteString }

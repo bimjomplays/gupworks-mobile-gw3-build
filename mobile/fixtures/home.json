@@ -124,6 +124,17 @@
    "pinned": false,
    "pinnedAt": 0,
    "running": false
+  },
+  {
+   "id": "00000009-1111-4222-8333-000000000009",
+   "title": "Gallery lightbox fix",
+   "state": "done",
+   "model": "Opus 5.5",
+   "provider": "Claude",
+   "lastActive": 1790900000000,
+   "pinned": false,
+   "pinnedAt": 0,
+   "running": false
   }
  ],
  "archivedCount": 4
