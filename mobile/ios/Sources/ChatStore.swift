@@ -64,6 +64,8 @@ final class ChatStore {
     /// /rewind's confirm page, open on the PC for the prompt `rewindText`
     private(set) var rewindDialog: Dialog?
     private(set) var rewindText = ""
+    /// the turn the open confirm page rewinds to
+    private var rewindTurn = ""
     private(set) var rewinding = false
     /// the dialog just answered: an older status that still has it doesn't bring it back
     private var answered: (sig: String, at: Date)?
@@ -172,6 +174,8 @@ final class ChatStore {
                 setQueue(q.items)
                 liveTick += 1
             }
+        case "cut":
+            if let c = try? dec.decode(CutEvent.self, from: data) { cut(c.ids) }
         case "gone":
             gone = true
         default:
@@ -191,6 +195,18 @@ final class ChatStore {
         }
         all.sort { $0.start < $1.start }
         if all != turns { turns = all }
+    }
+
+    /// Turns rewound away (a Restore here or on the PC) leave the list.
+    func cut(_ ids: [String]) {
+        let gone = Set(ids)
+        if turns.contains(where: { gone.contains($0.id) }) { turns.removeAll { gone.contains($0.id) } }
+    }
+
+    /// A Restore lands on the chosen prompt: it and everything after it go (the PC says the same a moment later).
+    func cutFrom(_ id: String) {
+        guard let i = turns.firstIndex(where: { $0.id == id }) else { return }
+        cut(turns[i...].map(\.id))
     }
 
     func loadOlder() async {
@@ -397,7 +413,7 @@ final class ChatStore {
     }
 
     /// the desktop's choice when a model has no effort picked: high, else medium, else the first
-    static func defaultEffort(_ efforts: [String]) -> String {
+    nonisolated static func defaultEffort(_ efforts: [String]) -> String {
         efforts.contains("high") ? "high" : efforts.contains("medium") ? "medium" : efforts.first ?? ""
     }
 
@@ -459,6 +475,7 @@ final class ChatStore {
         if demo {
             if let r: RewindReply = Demo.load("rewind") {
                 rewindText = turn.prompt.text ?? r.text
+                rewindTurn = turn.id
                 rewindDialog = r.dialog
             }
             return
@@ -467,6 +484,7 @@ final class ChatStore {
         do {
             let r = try await api.rewind(p, chat: id, turn: turn.id)
             rewindText = r.text
+            rewindTurn = turn.id
             rewindDialog = r.dialog
         } catch APIError.refused(_, true, _) {
             actionError = "This chat runs on an older GupWorks. Rewind it on the PC, or restart the chat there."
@@ -484,14 +502,14 @@ final class ChatStore {
         let restore = c.map { $0.label.hasPrefix("Restore") && $0.label.lowercased().contains("conversation") } ?? false
         let lines = rewindText.components(separatedBy: "\n").count
         if demo {
-            if restore { put(rewindText) }
+            if restore { put(rewindText); cutFrom(rewindTurn) }
             return
         }
         guard let p = pairing, let sig = d.sig else { return }
         let a = c.map { DialogAnswer(sig: sig, choice: $0.n, lines: lines) } ?? DialogAnswer(sig: sig, action: "skip")
         do {
             _ = try await api.answer(p, chat: id, a)
-            if restore { put(rewindText) }
+            if restore { put(rewindText); cutFrom(rewindTurn) }
         } catch let e as APIError {
             actionError = e.message
         } catch {
@@ -608,6 +626,10 @@ final class ChatStore {
         more = false
         demoCards = f.cards.mapValues { $0.shifted(shift) }
     }
+}
+
+private struct CutEvent: Decodable {
+    var ids: [String]
 }
 
 private struct QueueEvent: Decodable {
