@@ -77,6 +77,13 @@ final class FixtureTests: XCTestCase {
 }
 
 final class ChatFormatTests: XCTestCase {
+    /// A Telegram message's bubble shows no phone mark, even from a gw3-phone that still sends `phone: true`.
+    func testTelegramPromptHasNoPhoneMark() throws {
+        let p = try JSONDecoder().decode(Prompt.self, from: Data(#"{"text":"Is the contact page live yet?","phone":true}"#.utf8))
+        XCTAssertEqual(p.text, "Is the contact page live yet?")
+        XCTAssertFalse(Mirror(reflecting: p).children.contains { $0.label == "phone" })
+    }
+
     func testClock() {
         XCTAssertEqual(Format.clock(7_000), "0:07")
         XCTAssertEqual(Format.clock(62_000), "1:02")

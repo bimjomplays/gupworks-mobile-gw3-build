@@ -448,19 +448,14 @@ struct Bubble: View {
             if let text = prompt.text, !text.isEmpty {
                 HStack {
                     Spacer(minLength: 60)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        if prompt.phone == true {
-                            Image(systemName: "iphone").font(.system(size: 13)).foregroundStyle(.white.opacity(0.75))
-                        }
-                        Text(text)
-                            .font(.system(size: 17))
-                            .lineSpacing(2)
-                            .foregroundStyle(.white)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(queued ? Color(hex: 0x24365A) : ChatStyle.bubble, in: RoundedRectangle(cornerRadius: 14))
+                    Text(text)
+                        .font(.system(size: 17))
+                        .lineSpacing(2)
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(queued ? Color(hex: 0x24365A) : ChatStyle.bubble, in: RoundedRectangle(cornerRadius: 14))
                 }
             }
             if queued {
