@@ -621,6 +621,13 @@ final class ChatStore {
         let shift = Date().timeIntervalSince1970 * 1000 - f.now
         header = f.header
         if let at = f.header.cache?.at { header?.cache?.at = at + shift }
+        header?.usage = f.header.usage.map { m in
+            var m = m
+            if let r = m.resets, let at = Format.isoDate(r) {
+                m.resets = ISO8601DateFormatter().string(from: at.addingTimeInterval(shift / 1000))
+            }
+            return m
+        }
         status = f.status
         turns = f.turns.turns.map { $0.shifted(shift) }
         more = false
