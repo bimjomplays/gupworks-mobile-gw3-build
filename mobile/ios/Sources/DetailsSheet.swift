@@ -31,7 +31,7 @@ struct ChatDetailsSheet: View {
                     .navigationBarTitleDisplayMode(.inline)
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])  // D5: the whole sheet at once, the usage meters and cache included
         .task { await store.loadModels() }
     }
 

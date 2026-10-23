@@ -393,7 +393,7 @@ final class ScreenshotTests: XCTestCase {
         app.buttons["usage"].tap()
         XCTAssertTrue(find(app, "Chat details").waitForExistence(timeout: 5))
         XCTAssertTrue(find(app, "Context").waitForExistence(timeout: 5))
-        XCTAssertTrue(find(app, "warm").exists)
+        XCTAssertTrue(find(app, "warm").waitForExistence(timeout: 5))
         sleep(1)
         shot("d5-details")
 
