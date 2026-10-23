@@ -77,7 +77,7 @@ struct ChatView: View {
                 position.scrollTo(edge: .bottom)
             }
         }
-        .onChange(of: store.outbox.count) { old, new in
+        .onChange(of: store.outbox.count + store.queue.count) { old, new in
             // your own message: always to the bottom
             if new > old { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
         }

@@ -147,7 +147,8 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["picture"].exists)
         sleep(1)
         shot("chat-media")
-        video.tap()
+        // its top: the composer may cover the rest
+        video.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
         XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5))
         sleep(2)
         shot("video")
@@ -246,8 +247,10 @@ final class ScreenshotTests: XCTestCase {
         shot("d6-more")
 
         app.buttons["Rename"].tap()
-        let field = app.textFields["renameField"]
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 5), app.debugDescription)
+        let field = alert.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5), app.debugDescription)
         // the cursor to the end, then the old title out
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
         if let old = field.value as? String {
@@ -256,7 +259,7 @@ final class ScreenshotTests: XCTestCase {
         field.typeText("Lightbox on phones")
         sleep(1)
         shot("rename")
-        app.buttons["Rename"].tap()
+        alert.buttons["Rename"].tap()
         XCTAssertTrue(find(app, "Lightbox on phones").waitForExistence(timeout: 5))
 
         app.buttons["more"].tap()
