@@ -30,6 +30,10 @@ struct ChatView: View {
     }
 
     var body: some View {
+        sheets(alerts(chat))
+    }
+
+    private var chat: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 if store.more || store.loadingOlder {
@@ -114,21 +118,36 @@ struct ChatView: View {
             CardDetailView(store: store, cardId: r.id)
         }
         .environment(\.messageActions, actions)
-        .sheet(isPresented: $showDetails) {
-            ChatDetailsSheet(store: store)
-        }
-        .sheet(item: $selecting) { SelectTextSheet(text: $0.text) }
-        .confirmationDialog(store.rewindDialog?.title ?? "Rewind", isPresented: Binding(
-            get: { store.rewindDialog != nil },
-            set: { if !$0 && store.rewindDialog != nil { Task { await store.finishRewind(nil) } } }
-        ), titleVisibility: .visible) {
-            ForEach(rewindChoices) { c in
-                Button(c.words) { Task { await store.finishRewind(c) } }
+    }
+
+    /// split from body so the compiler can type-check it
+    private func sheets(_ v: some View) -> some View {
+        v
+            .sheet(isPresented: $showDetails) {
+                ChatDetailsSheet(store: store)
             }
-            Button("Never mind", role: .cancel) { Task { await store.finishRewind(nil) } }
-        } message: {
-            Text(rewindNote)
-        }
+            .sheet(item: $selecting) { (s: SelectedText) in SelectTextSheet(text: s.text) }
+            .confirmationDialog(store.rewindDialog?.title ?? "Rewind", isPresented: rewindShown,
+                                titleVisibility: .visible) {
+                ForEach(rewindChoices) { (c: Dialog.Choice) in
+                    Button(c.words) { Task { await store.finishRewind(c) } }
+                }
+                Button("Never mind", role: .cancel) { Task { await store.finishRewind(nil) } }
+            } message: {
+                Text(rewindNote)
+            }
+    }
+
+    private var rewindShown: Binding<Bool> {
+        let s = store
+        return Binding(
+            get: { s.rewindDialog != nil },
+            set: { (shown: Bool) in if !shown && s.rewindDialog != nil { Task { await s.finishRewind(nil) } } }
+        )
+    }
+
+    private func alerts(_ v: some View) -> some View {
+        v
         .alert("Rename chat", isPresented: $renaming) {
             TextField("Title", text: $newTitle)
                 .accessibilityIdentifier("renameField")
