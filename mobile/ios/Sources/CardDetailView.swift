@@ -31,6 +31,7 @@ struct CardDetailView: View {
             .padding(.vertical, 12)
         }
         .background(Theme.background)
+        .accessibilityIdentifier("cardDetail")
         .navigationTitle(card?.title ?? "Steps")
         .navigationBarTitleDisplayMode(.inline)
         .task(id: store.rev(ofCard: cardId)) { await load() }

@@ -67,6 +67,9 @@ struct ChatView: View {
             BottomBar(usage: store.header?.usage ?? [], asking: asking)
         }
         .navigationBarTitleDisplayMode(.inline)
+        // a solid bar under the title, as in D2: turns scroll under it instead of showing through
+        .toolbarBackground(Theme.background, for: .navigationBar)
+        .toolbarBackgroundVisibility(.visible, for: .navigationBar)
         .toolbar { toolbar }
         .task(id: phase == .active) {
             if phase == .active { await store.run() }
@@ -404,8 +407,9 @@ struct StepCard: View {
             Text(block.title ?? "")
                 .font(.system(size: 16))
                 .foregroundStyle(Theme.rowTitle)
-                .lineLimit(1)
+                .lineLimit(2)  // long stats ("3 steps · 1 failed · 2.4s") leave less room: wrap, don't cut
                 .truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 6)
             meta
                 .font(.system(size: 13))
@@ -416,7 +420,8 @@ struct StepCard: View {
                 .foregroundStyle(ChatStyle.dim)
         }
         .padding(.horizontal, 14)
-        .frame(height: 48)
+        .padding(.vertical, 8)
+        .frame(minHeight: 48)
         .background(ChatStyle.cardBG, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(ChatStyle.cardBorder, lineWidth: 1))
         .contentShape(Rectangle())
@@ -786,9 +791,12 @@ private struct BottomBar: View {
                         .foregroundStyle(Color(hex: 0x8A8A90))
                         .lineLimit(1)
                     Spacer(minLength: 4)
-                    Image(systemName: "square.slash")
-                        .font(.system(size: 18))
+                    // "/" in a small square: commands (slice 3)
+                    Text("/")
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color(hex: 0xB4B4B8))
+                        .frame(width: 19, height: 19)
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: 0xB4B4B8), lineWidth: 1.5))
                         .frame(width: 44, height: 44)
                     Image(systemName: "mic")
                         .font(.system(size: 18))

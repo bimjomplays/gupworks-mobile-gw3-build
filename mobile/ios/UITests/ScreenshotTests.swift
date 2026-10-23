@@ -120,6 +120,7 @@ final class ScreenshotTests: XCTestCase {
         let card = find(app, "Fixed style.css")
         XCTAssertTrue(card.waitForExistence(timeout: 5))
         card.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["cardDetail"].waitForExistence(timeout: 10))
         XCTAssertTrue(find(app, "style.css").waitForExistence(timeout: 5))
         XCTAssertTrue(find(app, "Done").waitForExistence(timeout: 5))
         sleep(1)
@@ -160,7 +161,8 @@ final class ScreenshotTests: XCTestCase {
         sleep(1)
         shot("chat-failed")
         find(app, "Tried the backup once").tap()
-        XCTAssertTrue(find(app, "Failed").waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["cardDetail"].waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, "change_dir").waitForExistence(timeout: 5))
         sleep(1)
         shot("card-failed")
     }

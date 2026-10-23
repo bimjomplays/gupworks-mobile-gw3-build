@@ -6,7 +6,7 @@ struct ChatsListView: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
     @State private var showSettings = false
-    @State private var path: [ChatRoute] = []
+    @State private var path = NavigationPath()  // chats, then step cards inside them
 
     var body: some View {
         NavigationStack(path: $path) {
