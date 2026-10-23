@@ -50,6 +50,13 @@ struct ChatsListView: View {
                 }
             }
             .sheet(isPresented: $showSettings) { SettingsView() }
+            .task {
+                // the demo's `-open <chat id>` (screenshot tests): straight into a chat the list doesn't show
+                let args = ProcessInfo.processInfo.arguments
+                if model.demo, path.isEmpty, let i = args.firstIndex(of: "-open"), i + 1 < args.count {
+                    path.append(ChatRoute(id: args[i + 1]))
+                }
+            }
             .navigationDestination(for: ChatRoute.self) { r in
                 ChatView(id: r.id, pairing: model.pairing, demo: model.demo)
             }

@@ -5,11 +5,15 @@ import UniformTypeIdentifiers
 /// D3: + (Photos, Camera, Files), the text field, / and the mic at rest; ↑ once there's something to send, and ■ while
 /// Claude works (a message sent then waits as *queued*). The usage pill floats above it.
 struct Composer: View {
-    let store: ChatStore
+    @Bindable var store: ChatStore
     let usage: [Meter]
     let asking: Bool
+    /// the usage pill opens the chat's details (D5), as the title does
+    var details: () -> Void = {}
 
-    @State private var text = ""
+    @State private var showCommands = false
+    /// /model or /effort picked in D4: D5 opens once D4 has gone
+    @State private var thenDetails = false
     @State private var attachments: [Attachment] = []
     @State private var pickingPhotos = false
     @State private var photoItems: [PhotosPickerItem] = []
@@ -23,14 +27,18 @@ struct Composer: View {
     static let uploadMax = 30 * 1024 * 1024  // gw3-phone's UPLOAD_MAX
 
     private var hasContent: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
+        !store.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
     }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
             if !asking, let ctx = usage.first(where: { $0.label == "ctx" })?.percent {
-                UsagePill(ctx: ctx, fiveHours: usage.first { $0.label == "5h" }?.percent)
-                    .padding(.horizontal, 16)
+                Button(action: details) {
+                    UsagePill(ctx: ctx, fiveHours: usage.first { $0.label == "5h" }?.percent)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("usage")
+                .padding(.horizontal, 16)
             }
             if !attachments.isEmpty {
                 AttachmentStrip(attachments: $attachments)
@@ -57,6 +65,22 @@ struct Composer: View {
         .fileImporter(isPresented: $files, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
             addFiles(result)
         }
+        .sheet(isPresented: $showCommands, onDismiss: {
+            if thenDetails {
+                thenDetails = false
+                details()
+            }
+        }) {
+            CommandsSheet(store: store) { thenDetails = true }
+        }
+        .onChange(of: store.draft) { old, new in
+            // typing / first in an empty box opens the commands, as the desktop's palette
+            if old.isEmpty && new == "/" && !store.isNew {
+                store.draft = ""
+                showCommands = true
+            }
+        }
+        .onChange(of: store.focusTick) { focused = true }
         .alert("Can't attach that", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -85,7 +109,7 @@ struct Composer: View {
 
     private var field: some View {
         HStack(alignment: .bottom, spacing: 0) {
-            TextField("", text: $text,
+            TextField("", text: $store.draft,
                       prompt: Text(asking ? "Answer or ask\u{2026}" : "Ask Claude anything\u{2026}")
                           .foregroundStyle(Color(hex: 0x8A8A90)),
                       axis: .vertical)
@@ -127,15 +151,21 @@ struct Composer: View {
         .padding(.bottom, 4)
     }
 
-    /// "/" in a small square: commands (slice 4)
+    /// "/" in a small square: the commands sheet (D4)
     private var slash: some View {
-        Text("/")
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(Color(hex: 0xB4B4B8))
-            .frame(width: 19, height: 19)
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: 0xB4B4B8), lineWidth: 1.5))
-            .frame(width: 44, height: 44)
-            .accessibilityHidden(true)
+        Button { showCommands = true } label: {
+            Text("/")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color(hex: 0xB4B4B8))
+                .frame(width: 19, height: 19)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(hex: 0xB4B4B8), lineWidth: 1.5))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(store.isNew)
+        .accessibilityLabel("Commands")
+        .accessibilityIdentifier("commands")
     }
 
     private var sendButton: some View {
@@ -169,8 +199,8 @@ struct Composer: View {
 
     private func send() {
         guard hasContent else { return }
-        let words = text, picked = attachments
-        text = ""
+        let words = store.draft, picked = attachments
+        store.draft = ""
         attachments = []
         Task { await store.send(text: words, attachments: picked) }
     }

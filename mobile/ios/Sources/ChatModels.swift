@@ -19,10 +19,21 @@ struct ChatHeader: Codable, Equatable {
     var state: String
     var project: ProjectRef?
     var pinned: Bool?
+    // slice 4
+    var mode: String?           // bypass | auto | manual | acceptEdits | plan (Claude's mode line)
+    var door: Bool?             // the chat's gw3-hold takes keys from the phone (false: an older hold)
+    var pending: Bool?          // a model or effort picked that applies from the next turn
+    var cache: Cache?
 
     struct ProjectRef: Codable, Equatable {
         var id: String?
         var name: String
+    }
+
+    /// the prompt cache: written at `at` (ms), kept `ttlMin` minutes
+    struct Cache: Codable, Equatable {
+        var at: Double?
+        var ttlMin: Double?
     }
 }
 
@@ -41,6 +52,45 @@ struct ChatStatus: Codable, Equatable {
     var live: Bool
     var running: Bool
     var waiting: String?        // you | permission
+    var dialog: Dialog?         // what Claude asks on its screen now (slice 4)
+}
+
+/// A dialog on Claude's screen (tools/gw3_dialogs.py parse): a permission, a question, its review page, a plan, or
+/// /rewind's confirm page. `answerable` false: the chat's hold is older, so the phone says "Answer this on the PC".
+struct Dialog: Codable, Equatable {
+    var kind: String            // permission | ask | review | plan | rewind
+    var title: String?
+    var question: String?
+    var body: [String]?
+    var notes: [String]?
+    var choices: [Choice]?
+    var chat: Int?              // the choice number of "Chat about this"
+    var multi: Bool?
+    var tabs: [Tab]?
+    var sig: String?
+    var answerable: Bool?
+    var plan: [MD]?
+
+    struct Choice: Codable, Equatable, Identifiable {
+        var n: Int
+        var label: String
+        var button: String?
+        var detail: String?
+        var input: Bool?        // "Type something." / "Tell Claude what to change": answered with words
+        var box: Bool?
+        var checked: Bool?
+        var focused: Bool?
+
+        var id: Int { n }
+        var words: String { button ?? label }
+    }
+
+    struct Tab: Codable, Equatable {
+        var name: String
+        var answered: Bool?
+    }
+
+    var canAnswer: Bool { answerable == true && !(sig ?? "").isEmpty }
 }
 
 struct TurnsPage: Codable, Equatable {
@@ -60,6 +110,7 @@ struct Turn: Codable, Equatable, Identifiable {
     var blocks: [Block]
     var outside: [Outside]?
     var rev: String
+    var rewind: Bool?           // Claude's /rewind lists this prompt (D7's Rewind to here)
 }
 
 struct Prompt: Codable, Equatable {

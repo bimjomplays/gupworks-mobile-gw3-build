@@ -1,0 +1,33 @@
+{
+ "ok": true,
+ "dialog": {
+  "kind": "rewind",
+  "title": "Rewind",
+  "question": "Confirm you want to restore to the point before you sent this message:",
+  "body": [
+   "The lightbox opens behind the header on small screens. Fix it and check e…",
+   "(2h ago)"
+  ],
+  "notes": [
+   "The conversation will be forked.",
+   "The code will be unchanged."
+  ],
+  "choices": [
+   {
+    "n": 1,
+    "label": "Restore conversation",
+    "button": "Restore conversation",
+    "focused": true
+   },
+   {
+    "n": 4,
+    "label": "Never mind",
+    "button": "Never mind"
+   }
+  ],
+  "sig": "b459e2dbbf4e",
+  "answerable": true
+ },
+ "text": "The lightbox opens behind the header on small screens. Fix it and check every page.",
+ "turn": "000dbbb9-0000-4000-8000-0000000dbbb9"
+}

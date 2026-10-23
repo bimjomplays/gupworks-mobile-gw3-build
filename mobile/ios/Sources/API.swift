@@ -98,10 +98,94 @@ struct ChatEdit: Codable, Equatable {
     var archived: Bool?
 }
 
+// MARK: slice 4: answering, picking, commands
+
+/// POST …/answer: one of the dialog's choices, ticks for a multiple choice question, words for "Something else…",
+/// or skip / chat. `sig` names the dialog, so an answer never lands on a newer question.
+struct DialogAnswer: Codable, Equatable {
+    var sig: String
+    var choice: Int?
+    var ticks: [Int]?
+    var text: String?
+    var action: String?         // skip | chat
+    var lines: Int?             // rewind's Restore: how many lines the message has (the PC clears its box)
+}
+
+/// what's on Claude's screen after an answer: a question's next tab, or nothing (nil)
+struct AnswerReply: Codable, Equatable {
+    var ok: Bool
+    var dialog: Dialog?
+}
+
+struct ModeReply: Codable, Equatable {
+    var ok: Bool
+    var mode: String
+    var bypass: Bool
+}
+
+struct PickBody: Codable, Equatable {
+    var model: String
+    var effort: String?
+}
+
+struct PickReply: Codable, Equatable {
+    var ok: Bool
+    var model: String
+    var effort: String
+}
+
+struct ModelInfo: Codable, Equatable, Identifiable {
+    var id: String
+    var label: String
+    var provider: String
+    var note: String?
+    var efforts: [String]
+}
+
+struct ModelsReply: Codable, Equatable {
+    var models: [ModelInfo]
+}
+
+struct CommandInfo: Codable, Equatable, Identifiable {
+    var name: String
+    var group: String
+    var args: String?
+    var summary: String?
+    var description: String?
+
+    var id: String { name }
+    /// `<what>` in its args: the command needs words after it, so it goes into the box instead of running
+    var needsArgs: Bool { (args ?? "").hasPrefix("<") }
+}
+
+struct CommandsReply: Codable, Equatable {
+    var pinned: [String]
+    var recent: [String]
+    var groups: [String]?
+    var commands: [CommandInfo]
+}
+
+struct PinsBody: Codable, Equatable {
+    var pinned: [String]
+}
+
+struct PinsReply: Codable, Equatable {
+    var pinned: [String]
+    var recent: [String]
+}
+
+struct RewindReply: Codable, Equatable {
+    var ok: Bool
+    var dialog: Dialog
+    var text: String
+}
+
 enum APIError: Error, Equatable {
     case notPaired           // 401: the PC doesn't know this phone (anymore)
     case unreachable         // no answer: Tailscale off, PC asleep, service stopped
     case server(String)      // the PC answered with an error
+    /// an answer the PC turned down: the chat's hold is older (`old`), or the question changed (the new `dialog`)
+    case refused(String, old: Bool, dialog: Dialog?)
 
     var message: String {
         switch self {
@@ -109,20 +193,32 @@ enum APIError: Error, Equatable {
         case .unreachable:
             return "Can't reach your PC. Is Tailscale on? In the Tailscale app, also check that Use Tailscale DNS is on."
         case .server(let text): return text
+        case .refused(let text, _, _): return text
         }
     }
 }
 
+/// an error answer: its words, and for answers what came with them
+private struct ErrorBody: Decodable {
+    var error: String?
+    var old: Bool?
+    var dialog: Dialog?
+}
+
 /// Talks to gw3-phone: an ephemeral session (no cookies, cache or stored credentials), no redirects.
 final class APIClient {
-    private let session: URLSession = {
+    private let session = APIClient.makeSession(timeout: 12)
+    /// answers and rewinds: the PC presses keys and waits for Claude to redraw between them
+    private let slowSession = APIClient.makeSession(timeout: 60)
+
+    private static func makeSession(timeout: TimeInterval) -> URLSession {
         let c = URLSessionConfiguration.ephemeral
-        c.timeoutIntervalForRequest = 12
+        c.timeoutIntervalForRequest = timeout
         c.waitsForConnectivity = false
         c.httpCookieStorage = nil
         c.urlCache = nil
         return URLSession(configuration: c, delegate: NoRedirects(), delegateQueue: nil)
-    }()
+    }
 
     /// `device` is the name the PC lists this phone under (`gw3-phone status`)
     func pair(_ link: PairLink, device: String) async throws -> Pairing {
@@ -189,6 +285,42 @@ final class APIClient {
                                  contentType: type)
     }
 
+    // MARK: answering, picking, commands (slice 4)
+
+    func answer(_ p: Pairing, chat: String, _ a: DialogAnswer) async throws -> AnswerReply {
+        try await request(p.baseURL, "/v1/chats/\(chat)/answer", token: p.token, method: "POST", encoding: a, slow: true)
+    }
+
+    /// Bypass on or off (Shift+Tab on the PC until Claude's mode line says so)
+    func setBypass(_ p: Pairing, chat: String, _ on: Bool) async throws -> ModeReply {
+        try await request(p.baseURL, "/v1/chats/\(chat)/mode", token: p.token, method: "POST", encoding: ["bypass": on],
+                          slow: true)
+    }
+
+    /// the model and effort for the chat's next turn (as the desktop's picker)
+    func pick(_ p: Pairing, chat: String, _ b: PickBody) async throws -> PickReply {
+        try await request(p.baseURL, "/v1/chats/\(chat)/pick", token: p.token, method: "POST", encoding: b)
+    }
+
+    func models(_ p: Pairing) async throws -> ModelsReply {
+        try await request(p.baseURL, "/v1/models", token: p.token)
+    }
+
+    func commands(_ p: Pairing, chat: String) async throws -> CommandsReply {
+        try await request(p.baseURL, "/v1/chats/\(chat)/commands", token: p.token)
+    }
+
+    /// the pinned commands, the same list the desktop's palette pins
+    func setPins(_ p: Pairing, _ pinned: [String]) async throws -> PinsReply {
+        try await request(p.baseURL, "/v1/pins", token: p.token, method: "PUT", encoding: PinsBody(pinned: pinned))
+    }
+
+    /// Opens /rewind at a prompt; the answer is its confirm page, answered like any dialog.
+    func rewind(_ p: Pairing, chat: String, turn: String) async throws -> RewindReply {
+        try await request(p.baseURL, "/v1/chats/\(chat)/rewind", token: p.token, method: "POST", encoding: ["turn": turn],
+                          slow: true)
+    }
+
     /// A server-sent events stream (`/v1/home/events`, `/v1/chats/<id>/events`). Ends when the PC closes it; throws
     /// APIError like the other calls.
     func events(_ p: Pairing, _ path: String, query: [URLQueryItem] = []) -> AsyncThrowingStream<SSEEvent, Error> {
@@ -246,13 +378,13 @@ final class APIClient {
     }
 
     private func request<T: Decodable, B: Encodable>(_ base: URL, _ path: String, token: String?, method: String,
-                                                     encoding body: B) async throws -> T {
-        try await perform(base, path, token: token, method: method, json: try JSONEncoder().encode(body))
+                                                     encoding body: B, slow: Bool = false) async throws -> T {
+        try await perform(base, path, token: token, method: method, json: try JSONEncoder().encode(body), slow: slow)
     }
 
     private func perform<T: Decodable>(_ base: URL, _ path: String, token: String?, method: String = "GET",
                                        query: [URLQueryItem] = [], json: Data? = nil, raw: Data? = nil,
-                                       contentType: String? = nil) async throws -> T {
+                                       contentType: String? = nil, slow: Bool = false) async throws -> T {
         var req = Self.makeRequest(base, path, token: token, query: query)
         req.httpMethod = method
         if let json {
@@ -264,7 +396,7 @@ final class APIClient {
         }
         let data: Data, response: URLResponse
         do {
-            (data, response) = try await session.data(for: req)
+            (data, response) = try await (slow ? slowSession : session).data(for: req)
         } catch {
             throw APIError.unreachable
         }
@@ -276,8 +408,12 @@ final class APIClient {
             throw APIError.notPaired
         }
         guard status == 200 else {
-            let text = (try? JSONDecoder().decode([String: String].self, from: data))?["error"]
-            throw APIError.server(text ?? "The PC answered \(status).")
+            let e = try? JSONDecoder().decode(ErrorBody.self, from: data)
+            let text = e?.error ?? "The PC answered \(status)."
+            if e?.old == true || e?.dialog != nil {
+                throw APIError.refused(text, old: e?.old == true, dialog: e?.dialog)
+            }
+            throw APIError.server(text)
         }
         do {
             return try JSONDecoder().decode(T.self, from: data)

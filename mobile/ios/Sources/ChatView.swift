@@ -20,6 +20,7 @@ struct ChatView: View {
     @State private var renaming = false
     @State private var newTitle = ""
     @State private var confirmDelete = false
+    @State private var selecting: SelectedText?
     @Environment(\.scenePhase) private var phase
     @Environment(\.dismiss) private var dismiss
     @Environment(AppModel.self) private var model
@@ -51,6 +52,13 @@ struct ChatView: View {
                         store.discard(m.clientId)
                     }
                 }
+                if let d = store.dialog {
+                    DialogCard(dialog: d, busy: store.answering, base: store.baseURL) { a in
+                        Task { await store.answer(a) }
+                    }
+                    .id(d.sig ?? d.kind)
+                    .padding(.top, 14)
+                }
                 footer
             }
             .padding(.horizontal, 18)
@@ -81,6 +89,10 @@ struct ChatView: View {
             // your own message: always to the bottom
             if new > old { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
         }
+        .onChange(of: store.dialog?.sig) { _, sig in
+            // Claude asks: its card is the newest thing, at the bottom
+            if sig != nil { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
+        }
         .onChange(of: store.liveTick) {
             // follow a running turn, unless you scrolled up to read
             if atBottom { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
@@ -88,7 +100,7 @@ struct ChatView: View {
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Composer(store: store, usage: store.header?.usage ?? [], asking: asking)
+            Composer(store: store, usage: store.header?.usage ?? [], asking: asking) { showDetails = true }
         }
         .navigationBarTitleDisplayMode(.inline)
         // a solid bar under the title, as in D2: turns scroll under it instead of showing through
@@ -101,8 +113,21 @@ struct ChatView: View {
         .navigationDestination(for: CardRoute.self) { r in
             CardDetailView(store: store, cardId: r.id)
         }
+        .environment(\.messageActions, actions)
         .sheet(isPresented: $showDetails) {
-            if let h = store.header { ChatDetailsSheet(header: h) }
+            ChatDetailsSheet(store: store)
+        }
+        .sheet(item: $selecting) { SelectTextSheet(text: $0.text) }
+        .confirmationDialog(store.rewindDialog?.title ?? "Rewind", isPresented: Binding(
+            get: { store.rewindDialog != nil },
+            set: { if !$0 && store.rewindDialog != nil { Task { await store.finishRewind(nil) } } }
+        ), titleVisibility: .visible) {
+            ForEach(rewindChoices) { c in
+                Button(c.words) { Task { await store.finishRewind(c) } }
+            }
+            Button("Never mind", role: .cancel) { Task { await store.finishRewind(nil) } }
+        } message: {
+            Text(rewindNote)
         }
         .alert("Rename chat", isPresented: $renaming) {
             TextField("Title", text: $newTitle)
@@ -128,6 +153,30 @@ struct ChatView: View {
     }
 
     private var pinned: Bool { store.header?.pinned ?? false }
+
+    /// D7's long-press actions and the thread card's answers, for the turns below
+    private var actions: MessageActions {
+        let s = store
+        let rewind: ((Turn) -> Void)? = s.working || s.rewinding ? nil : { t in Task { await s.startRewind(t) } }
+        return MessageActions(
+            rewind: rewind,
+            btw: { text in s.put("/btw about \u{201C}\(MessageActions.quote(text))\u{201D}: ") },
+            select: { text in selecting = SelectedText(text: text) },
+            reply: { text in Task { await s.send(text: text, attachments: []) } }
+        )
+    }
+
+    /// the confirm page's choices but Never mind (the cancel button)
+    private var rewindChoices: [Dialog.Choice] {
+        (store.rewindDialog?.choices ?? []).filter { $0.n > 0 && !$0.label.lowercased().hasPrefix("never mind") }
+    }
+
+    private var rewindNote: String {
+        let q = store.rewindDialog?.question ?? ""
+        let t = MessageActions.quote(store.rewindText)
+        let notes = (store.rewindDialog?.notes ?? []).joined(separator: " ")
+        return [q, t.isEmpty ? "" : "\u{201C}\(t)\u{201D}", notes].filter { !$0.isEmpty }.joined(separator: "\n\n")
+    }
 
     private func rename() {
         let title = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -192,7 +241,7 @@ struct ChatView: View {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Section {
-                    // slices 4 and 8
+                    // slice 8
                     Button("Claude's browser", systemImage: "globe") {}.disabled(true)
                     Button("Claude's screen", systemImage: "display") {}.disabled(true)
                     Button("Your messages", systemImage: "list.bullet") {}.disabled(true)
@@ -344,6 +393,7 @@ private struct PromptView: View {
                 .padding(.vertical, 4)
         default:
             Bubble(prompt: turn.prompt, base: base)
+                .messageMenu(text: turn.prompt.text ?? "", turn: turn.rewind == true ? turn : nil)
         }
     }
 
@@ -387,7 +437,6 @@ struct Bubble: View {
                             .font(.system(size: 17))
                             .lineSpacing(2)
                             .foregroundStyle(.white)
-                            .textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.horizontal, 14)
@@ -460,6 +509,7 @@ private struct BlockView: View {
         switch block.type {
         case "text":
             MarkdownView(blocks: block.md ?? [], base: base)
+                .messageMenu(text: MessageActions.plain(block.md ?? []), turn: nil)
                 .padding(.top, 12)
         case "card":
             NavigationLink(value: CardRoute(id: block.id ?? "")) {
@@ -771,12 +821,14 @@ private struct OutsideBox<Rows: View>: View {
     }
 }
 
-/// D11's "THREAD NEEDS YOU" card. Read-only in this slice: the choices show, answering comes with slice 4.
+/// D11's "THREAD NEEDS YOU" card: a choice answers in this chat as `a6: Land it as is`, which the main chat passes on.
 private struct AskCard: View {
     let item: Outside
+    @Environment(\.messageActions) private var actions
+    @State private var sent: String?
 
     var body: some View {
-        let answered = item.answered == true
+        let answered = item.answered == true || sent != nil
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text(answered ? "THREAD ASKED · ANSWERED" : "THREAD NEEDS YOU")
@@ -797,17 +849,30 @@ private struct AskCard: View {
             if !answered, let options = item.options, !options.isEmpty {
                 FlowLayout(spacing: 8) {
                     ForEach(Array(options.enumerated()), id: \.offset) { i, o in
-                        Text(o)
-                            .font(.system(size: 16))
-                            .foregroundStyle(i == 0 ? .white : ChatStyle.body)
-                            .padding(.horizontal, 16)
-                            .frame(height: 44)
-                            .background(i == 0 ? ChatStyle.bubble : .clear, in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(i == 0 ? ChatStyle.bubble : Color(hex: 0x34343A), lineWidth: 1))
+                        Button {
+                            let words = [item.work ?? "", o].filter { !$0.isEmpty }.joined(separator: ": ")
+                            sent = o
+                            actions.reply(words)
+                        } label: {
+                            Text(o)
+                                .font(.system(size: 16))
+                                .foregroundStyle(i == 0 ? .white : ChatStyle.body)
+                                .padding(.horizontal, 16)
+                                .frame(height: 44)
+                                .background(i == 0 ? ChatStyle.bubble : .clear, in: RoundedRectangle(cornerRadius: 12))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(i == 0 ? ChatStyle.bubble : Color(hex: 0x34343A), lineWidth: 1))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("askOption-\(i)")
                     }
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityHint("Answering from the phone comes in a later update.")
+            }
+            if let s = sent {
+                Text("You answered \u{201C}\(s)\u{201D}")
+                    .font(.system(size: 14))
+                    .foregroundStyle(ChatStyle.dim)
+                    .padding(.top, 8)
             }
         }
         .padding(.horizontal, 14)
@@ -819,6 +884,7 @@ private struct AskCard: View {
                 .stroke(answered ? Color(hex: 0x3A3358) : Theme.blue.opacity(0.75), lineWidth: answered ? 1 : 2)
         )
         .shadow(color: answered ? .clear : Theme.blue.opacity(0.25), radius: 12)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ask")
     }
 }
@@ -856,64 +922,6 @@ struct FlowLayout: Layout {
             s.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
             x += size.width + spacing
             row = max(row, size.height)
-        }
-    }
-}
-
-// MARK: - details
-
-/// Tapping the title: the chat's model, effort, Bypass, usage and folder (changing them comes with slice 4).
-struct ChatDetailsSheet: View {
-    let header: ChatHeader
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    row("Model", header.model)
-                    if !header.effort.isEmpty { row("Effort", header.effort) }
-                    row("Bypass", header.bypass ? "On" : "Off", color: header.bypass ? Color(hex: 0xE07C7C) : nil)
-                    if let p = header.provider, !p.isEmpty { row("Runs on", p) }
-                }
-                if !header.usage.isEmpty {
-                    Section("Usage") {
-                        ForEach(header.usage, id: \.label) { m in
-                            row(meterName(m.label), m.percent.map { "\(Int($0.rounded()))%" } ?? "\u{2013}")
-                        }
-                    }
-                }
-                Section {
-                    if let p = header.project { row("Project", p.name) }
-                    if let f = header.folder, !f.isEmpty { row("Folder", f) }
-                    if let b = header.branch, !b.isEmpty { row("Branch", b) }
-                }
-            }
-            .navigationTitle(header.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-    }
-
-    private func meterName(_ label: String) -> String {
-        switch label {
-        case "ctx": return "Context"
-        case "5h": return "5 hours"
-        case "wk": return "Week"
-        default: return label
-        }
-    }
-
-    private func row(_ name: String, _ value: String, color: Color? = nil) -> some View {
-        HStack {
-            Text(name)
-            Spacer()
-            Text(value).foregroundStyle(color ?? ChatStyle.dim).lineLimit(1).truncationMode(.middle)
         }
     }
 }

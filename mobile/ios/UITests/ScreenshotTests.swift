@@ -314,4 +314,238 @@ final class ScreenshotTests: XCTestCase {
         sleep(1)
         shot("d1-press")
     }
+
+    // MARK: slice 4: answer, pick, command
+
+    private let gallery = "00000009-1111-4222-8333-000000000009"
+    private func chat(_ n: Int) -> String { String(format: "%08d-1111-4222-8333-%012d", n, n) }
+
+    /// straight into a demo chat (the slice 4 ones aren't in the list)
+    private func openChat(_ id: String, waitFor text: String) -> XCUIApplication {
+        let app = launch(["-open", id])
+        XCTAssertTrue(app.descendants(matching: .any)["chatTitle"].waitForExistence(timeout: 20))
+        XCTAssertTrue(find(app, text).waitForExistence(timeout: 10), text)
+        return app
+    }
+
+    private func el(_ app: XCUIApplication, _ id: String) -> XCUIElement {
+        app.descendants(matching: .any)[id].firstMatch
+    }
+
+    func testNeedsYouPermission() {
+        let app = openChat(chat(12), waitFor: "WAITING FOR PERMISSION")
+        XCTAssertTrue(find(app, "make_icons.py").exists)
+        XCTAssertTrue(app.buttons["choice-2"].exists)
+        XCTAssertTrue(app.buttons["choice-3"].exists)
+        XCTAssertGreaterThanOrEqual(app.buttons["choice-1"].frame.height, 44)
+        sleep(1)
+        shot("needs-permission")
+        app.buttons["choice-1"].tap()
+        XCTAssertTrue(el(app, "dialog-permission").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["stop"].waitForExistence(timeout: 5), "Claude works on")
+        sleep(1)
+        shot("needs-permission-answered")
+    }
+
+    func testNeedsYouAskSomethingElse() {
+        let app = openChat(chat(13), waitFor: "CLAUDE ASKS")
+        XCTAssertTrue(find(app, "Which colour should the Send button be?").exists)
+        XCTAssertTrue(find(app, "Warmer").exists)
+        XCTAssertTrue(app.buttons["dialogChat"].exists)
+        XCTAssertTrue(app.buttons["dialogSkip"].exists)
+        sleep(1)
+        shot("needs-ask")
+        app.buttons["choice-4"].tap()
+        let field = el(app, "dialogText")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("Same green as the header")
+        sleep(1)
+        shot("needs-ask-typing")
+        app.buttons["dialogSend"].tap()
+        XCTAssertTrue(el(app, "dialog-ask").waitForNonExistence(timeout: 5))
+    }
+
+    func testNeedsYouPlan() {
+        let app = openChat(chat(14), waitFor: "PLAN READY")
+        XCTAssertTrue(find(app, "Journal page").exists)
+        XCTAssertTrue(app.buttons["choice-1"].exists)
+        sleep(1)
+        shot("needs-plan")
+        app.buttons["choice-3"].tap()
+        XCTAssertTrue(el(app, "dialogText").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("needs-plan-keep")
+        app.buttons["Back"].tap()
+        app.buttons["choice-1"].tap()
+        XCTAssertTrue(el(app, "dialog-plan").waitForNonExistence(timeout: 5))
+    }
+
+    func testOlderHoldAnswersOnThePC() {
+        let app = openChat(chat(15), waitFor: "Answer this on the PC")
+        XCTAssertFalse(app.buttons["choice-1"].exists)
+        sleep(1)
+        shot("needs-on-pc")
+    }
+
+    func testD5Details() {
+        let app = openChat(gallery, waitFor: "All five pages pass")
+        app.buttons["usage"].tap()
+        XCTAssertTrue(find(app, "Chat details").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Context").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "warm").exists)
+        sleep(1)
+        shot("d5-details")
+
+        // Bypass off, then on again: the red word in the title follows
+        let bypass = app.switches["bypass"]
+        XCTAssertTrue(bypass.waitForExistence(timeout: 5))
+        XCTAssertEqual(bypass.value as? String, "1")
+        flip(bypass)
+        XCTAssertTrue(waitValue(bypass, "0"))
+        sleep(1)
+        shot("d5-bypass-off")
+
+        // effort for the next turn
+        app.segmentedControls["effort"].buttons["high"].tap()
+        XCTAssertTrue(el(app, "pending").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d5-effort")
+
+        el(app, "modelRow").tap()
+        XCTAssertTrue(find(app, "Sonnet 5.5").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d5-models")
+        find(app, "Sonnet 5.5").tap()
+        XCTAssertTrue(find(app, "Chat details").waitForExistence(timeout: 5))
+        app.buttons["closeDetails"].tap()
+        let title = el(app, "chatTitle")
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(title.label.contains("Sonnet 5.5"), title.label)
+        XCTAssertFalse(title.label.contains("Bypass"), title.label)
+        sleep(1)
+        shot("d5-title-after")
+
+        title.tap()
+        let again = app.switches["bypass"]
+        XCTAssertTrue(again.waitForExistence(timeout: 5))
+        flip(again)
+        XCTAssertTrue(waitValue(again, "1"))
+        app.buttons["closeDetails"].tap()
+        XCTAssertTrue(el(app, "chatTitle").label.contains("Bypass"))
+    }
+
+    /// a SwiftUI Toggle row: its switch sits at the right end
+    private func flip(_ e: XCUIElement) {
+        let inner = e.switches.firstMatch
+        if inner.exists && inner.frame.width < e.frame.width {
+            inner.tap()
+        } else {
+            e.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        }
+    }
+
+    private func waitValue(_ e: XCUIElement, _ v: String) -> Bool {
+        let done = expectation(for: NSPredicate(format: "value == %@", v), evaluatedWith: e)
+        return XCTWaiter.wait(for: [done], timeout: 5) == .completed
+    }
+
+    func testD4CommandsPinAndRun() {
+        let app = openChat(gallery, waitFor: "All five pages pass")
+        app.buttons["commands"].tap()
+        XCTAssertTrue(app.buttons["pinned-compact"].waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Recent").exists)
+        sleep(1)
+        shot("d4-commands")
+
+        app.buttons["pin-context"].tap()
+        XCTAssertTrue(app.buttons["pinned-context"].waitForExistence(timeout: 5))
+        app.buttons["editPins"].tap()
+        XCTAssertTrue(app.buttons["Unpin context"].waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d4-edit-pins")
+        app.buttons["Unpin context"].tap()
+        XCTAssertTrue(app.buttons["pinned-context"].waitForNonExistence(timeout: 5))
+        app.buttons["editPins"].tap()
+
+        let search = app.searchFields.firstMatch
+        search.tap()
+        search.typeText("revi")
+        XCTAssertTrue(app.buttons["cmd-code-review"].waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d4-search")
+        search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 4))
+
+        // a pinned command runs in the chat
+        XCTAssertTrue(app.buttons["pinned-compact"].waitForExistence(timeout: 5))
+        app.buttons["pinned-compact"].tap()
+        XCTAssertTrue(app.buttons["pinned-compact"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(find(app, "/compact").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d4-ran")
+    }
+
+    func testTypingSlashOpensCommands() {
+        let app = openChat(gallery, waitFor: "All five pages pass")
+        type(app, "/")
+        XCTAssertTrue(app.buttons["pinned-compact"].waitForExistence(timeout: 5))
+        let search = app.searchFields.firstMatch
+        search.tap()
+        search.typeText("btw")
+        XCTAssertTrue(app.buttons["cmd-btw"].waitForExistence(timeout: 5))
+        app.buttons["cmd-btw"].tap()
+        let field = app.textFields["composer"].exists ? app.textFields["composer"] : app.textViews["composer"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertEqual(field.value as? String, "/btw ")
+    }
+
+    func testD7PressAndRewind() {
+        let app = openChat(gallery, waitFor: "All five pages pass")
+        let bubble = find(app, "The lightbox opens behind the header")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 5))
+        bubble.press(forDuration: 1.2)
+        let rewind = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Rewind to here'")).firstMatch
+        XCTAssertTrue(rewind.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Copy"].exists)
+        XCTAssertTrue(app.buttons["Ask btw about it"].exists)
+        XCTAssertTrue(app.buttons["Select text"].exists)
+        sleep(1)
+        shot("d7-press")
+        rewind.tap()
+        XCTAssertTrue(app.buttons["Restore conversation"].waitForExistence(timeout: 5))
+        sleep(1)
+        shot("rewind-confirm")
+        app.buttons["Restore conversation"].tap()
+        let field = app.textFields["composer"].exists ? app.textFields["composer"] : app.textViews["composer"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let back = expectation(for: NSPredicate(format: "value BEGINSWITH 'The lightbox opens'"), evaluatedWith: field)
+        wait(for: [back], timeout: 5)
+        sleep(1)
+        shot("rewind-restored")
+    }
+
+    func testD7AnswerSelectText() {
+        let app = openChat(gallery, waitFor: "All five pages pass")
+        find(app, "All five pages pass").press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Copy"].waitForExistence(timeout: 5))
+        XCTAssertFalse(find(app, "Rewind to here").exists, "Claude's replies aren't rewind points")
+        app.buttons["Select text"].tap()
+        XCTAssertTrue(el(app, "selectText").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("select-text")
+        app.buttons["doneSelecting"].tap()
+    }
+
+    func testThreadNeedsYouAnswers() {
+        let app = launch()
+        open(app, "Lumen Studio website", waitFor: "THREAD NEEDS YOU")
+        let first = app.buttons["askOption-0"]
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(first.frame.height, 44)
+        first.tap()
+        XCTAssertTrue(find(app, "a6: Land it as is").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "You answered").exists)
+        sleep(1)
+        shot("thread-answered")
+    }
 }

@@ -1,0 +1,184 @@
+{
+ "now": 1792000000000,
+ "header": {
+  "id": "00000014-1111-4222-8333-000000000014",
+  "title": "Journal page plan",
+  "role": "chat",
+  "model": "Opus 5.5",
+  "modelId": "claude-opus-5-5",
+  "provider": "Claude",
+  "effort": "high",
+  "bypass": false,
+  "mode": "plan",
+  "door": true,
+  "usage": [
+   {
+    "label": "ctx",
+    "percent": 15,
+    "tokens": 22500,
+    "switchAt": 150000,
+    "auto": true
+   },
+   {
+    "label": "5h",
+    "percent": 5,
+    "resets": "2026-10-14T19:46:40.000Z"
+   },
+   {
+    "label": "wk",
+    "percent": 21
+   }
+  ],
+  "branch": "",
+  "folder": "/work/lumen-studio",
+  "running": true,
+  "state": "needs",
+  "pinned": false
+ },
+ "status": {
+  "state": "needs",
+  "ts": 1791999880000,
+  "live": true,
+  "running": true,
+  "waiting": "you",
+  "dialog": {
+   "kind": "plan",
+   "title": "Ready to code?",
+   "choices": [
+    {
+     "n": 1,
+     "label": "Yes, and switch to BYPASS PERMISSIONS (no further prompts) for this session",
+     "button": "Approve",
+     "focused": true
+    },
+    {
+     "n": 2,
+     "label": "Yes, manually approve edits",
+     "button": "Approve, ask before edits"
+    },
+    {
+     "n": 3,
+     "label": "Tell Claude what to change",
+     "button": "Keep planning",
+     "input": true
+    }
+   ],
+   "question": "Claude has written up a plan and is ready to execute. Would you like to proceed?",
+   "body": [
+    "Journal page",
+    "",
+    "1. Add journal.html with the newest five entries, newest first.",
+    "2. Reuse the gallery's card style for each entry.",
+    "3. Link it from the header between Gallery and About.",
+    "4. Run the link check on every page."
+   ],
+   "sig": "7c85eaab42da",
+   "answerable": true,
+   "plan": [
+    {
+     "t": "h",
+     "text": "Journal page",
+     "level": 1
+    },
+    {
+     "t": "list",
+     "items": [
+      {
+       "level": 0,
+       "text": "Add `journal.html` with the newest five entries, newest first.",
+       "n": 1
+      },
+      {
+       "level": 0,
+       "text": "Reuse the gallery's card style for each entry.",
+       "n": 2
+      },
+      {
+       "level": 0,
+       "text": "Link it from the header between Gallery and About.",
+       "n": 3
+      },
+      {
+       "level": 0,
+       "text": "Run the link check on every page.",
+       "n": 4
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "turns": {
+  "turns": [
+   {
+    "id": "00155cc1-0000-4000-8000-000000155cc1",
+    "kind": "prompt",
+    "start": 1791999461000,
+    "state": "waiting",
+    "prompt": {
+     "text": "Plan a journal page for the site. Plan only, no changes yet."
+    },
+    "waiting": "you",
+    "handle": {
+     "title": "Waiting for you",
+     "stats": "3 steps",
+     "since": 1791999461000
+    },
+    "open": true,
+    "blocks": [
+     {
+      "type": "card",
+      "id": "toolu_demo4c110001",
+      "state": "running",
+      "steps": 3,
+      "title": "Running ExitPlanMode",
+      "stats": "3 steps",
+      "since": 1791999461400
+     }
+    ],
+    "rev": "2b6580dd5b42",
+    "rewind": true
+   }
+  ],
+  "more": false
+ },
+ "cards": {
+  "toolu_demo4c110001": {
+   "id": "toolu_demo4c110001",
+   "title": "Running ExitPlanMode",
+   "state": "running",
+   "stats": "3 steps",
+   "intent": "",
+   "rows": [
+    {
+     "id": "toolu_demo4c110001",
+     "tool": "Read",
+     "state": "ok",
+     "label": "Read",
+     "detail": "index.html",
+     "chip": "",
+     "ms": 300
+    },
+    {
+     "id": "toolu_demo4c110002",
+     "tool": "Read",
+     "state": "ok",
+     "label": "Read",
+     "detail": "gallery.html",
+     "chip": "",
+     "ms": 300
+    },
+    {
+     "id": "toolu_demo4c110003",
+     "tool": "ExitPlanMode",
+     "state": "running",
+     "label": "ExitPlanMode",
+     "detail": "",
+     "chip": "",
+     "since": 1791999880400
+    }
+   ],
+   "since": 1791999461400
+  }
+ }
+}

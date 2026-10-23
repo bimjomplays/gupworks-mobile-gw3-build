@@ -9,6 +9,8 @@
   "provider": "OpenAI",
   "effort": "medium",
   "bypass": true,
+  "mode": "bypass",
+  "door": false,
   "usage": [
    {
     "label": "ctx",
@@ -114,7 +116,8 @@
       ]
      }
     ],
-    "rev": "3095f347a404"
+    "rev": "a793b7972aef",
+    "rewind": true
    }
   ],
   "more": false

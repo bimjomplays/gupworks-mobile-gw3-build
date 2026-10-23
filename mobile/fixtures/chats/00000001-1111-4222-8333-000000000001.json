@@ -9,6 +9,8 @@
   "provider": "Claude",
   "effort": "high",
   "bypass": true,
+  "mode": "bypass",
+  "door": false,
   "usage": [
    {
     "label": "ctx",
@@ -183,7 +185,8 @@
       ]
      }
     ],
-    "rev": "f933f4d87405"
+    "rev": "22018c030028",
+    "rewind": true
    },
    {
     "id": "000186ab-0000-4000-8000-0000000186ab",
@@ -223,7 +226,8 @@
       "since": 1791999940200
      }
     ],
-    "rev": "cd7746ee5df5"
+    "rev": "7762468cd45a",
+    "rewind": true
    }
   ],
   "more": false

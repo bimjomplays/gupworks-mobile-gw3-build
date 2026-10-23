@@ -1,0 +1,124 @@
+{
+ "now": 1792000000000,
+ "header": {
+  "id": "00000015-1111-4222-8333-000000000015",
+  "title": "Invoice PDF",
+  "role": "chat",
+  "model": "Sonnet 5.5",
+  "modelId": "claude-sonnet-5-5",
+  "provider": "Claude",
+  "effort": "low",
+  "bypass": false,
+  "mode": "manual",
+  "door": false,
+  "usage": [
+   {
+    "label": "ctx",
+    "percent": 7,
+    "tokens": 10500,
+    "switchAt": 150000,
+    "auto": true
+   },
+   {
+    "label": "5h",
+    "percent": 5,
+    "resets": "2026-10-14T19:46:40.000Z"
+   },
+   {
+    "label": "wk",
+    "percent": 21
+   }
+  ],
+  "branch": "",
+  "folder": "/work/invoices",
+  "running": true,
+  "state": "permission",
+  "pinned": false
+ },
+ "status": {
+  "state": "needs",
+  "ts": 1791999700000,
+  "live": true,
+  "running": true,
+  "waiting": "permission",
+  "dialog": {
+   "kind": "permission",
+   "title": "Allow Write?",
+   "answerable": false,
+   "sig": "",
+   "question": "hours.csv"
+  }
+ },
+ "turns": {
+  "turns": [
+   {
+    "id": "0016e361-0000-4000-8000-00000016e361",
+    "kind": "prompt",
+    "start": 1791999281000,
+    "state": "waiting",
+    "prompt": {
+     "text": "Turn the invoice template into a PDF with this month's hours."
+    },
+    "waiting": "permission",
+    "handle": {
+     "title": "Waiting for permission",
+     "stats": "1 step · 1 edit",
+     "since": 1791999281000
+    },
+    "open": true,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "0016e362-0000-4000-8000-00000016e362",
+      "answer": false,
+      "md": [
+       {
+        "t": "p",
+        "text": "Writing the hours into the template first."
+       }
+      ]
+     },
+     {
+      "type": "card",
+      "id": "toolu_demo5c110001",
+      "state": "running",
+      "steps": 1,
+      "one": {
+       "label": "Write",
+       "detail": "hours.csv",
+       "chip": "",
+       "state": "running"
+      },
+      "title": "Write hours.csv",
+      "stats": "",
+      "since": 1791999700400
+     }
+    ],
+    "rev": "8216186afb94",
+    "rewind": true
+   }
+  ],
+  "more": false
+ },
+ "cards": {
+  "toolu_demo5c110001": {
+   "id": "toolu_demo5c110001",
+   "title": "Write hours.csv",
+   "state": "running",
+   "stats": "",
+   "intent": "Writing the hours into the template first.",
+   "rows": [
+    {
+     "id": "toolu_demo5c110001",
+     "tool": "Write",
+     "state": "running",
+     "label": "Write",
+     "detail": "hours.csv",
+     "chip": "",
+     "since": 1791999700400
+    }
+   ],
+   "since": 1791999700400
+  }
+ }
+}

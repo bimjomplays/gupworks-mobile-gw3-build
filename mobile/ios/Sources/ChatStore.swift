@@ -50,6 +50,24 @@ final class ChatStore {
     /// a send, stop or edit that didn't work, for an alert
     var actionError: String?
 
+    // slice 4
+    /// the composer's words (a rewind, Ask btw or a command with words put text here)
+    var draft = ""
+    /// bumps when something put words in the box: the composer takes the keyboard
+    private(set) var focusTick = 0
+    /// an answer on its way: the dialog's buttons wait
+    private(set) var answering = false
+    /// a Bypass flip on its way (Shift+Tab on the PC takes a moment)
+    private(set) var switchingMode = false
+    private(set) var models: [ModelInfo] = []
+    private(set) var commands: CommandsReply?
+    /// /rewind's confirm page, open on the PC for the prompt `rewindText`
+    private(set) var rewindDialog: Dialog?
+    private(set) var rewindText = ""
+    private(set) var rewinding = false
+    /// the dialog just answered: an older status that still has it doesn't bring it back
+    private var answered: (sig: String, at: Date)?
+
     private let pairing: Pairing?
     private let demo: Bool
     private let api = APIClient()
@@ -71,6 +89,13 @@ final class ChatStore {
         if stopping { return false }
         if let s = status { return s.state == "working" }
         return header?.state == "working"
+    }
+
+    /// what Claude asks on its screen now, for the needs-you card
+    var dialog: Dialog? {
+        guard let s = status, s.live, let d = s.dialog, d.kind != "rewind" else { return nil }
+        if let a = answered, a.sig == d.sig, Date().timeIntervalSince(a.at) < 6 { return nil }
+        return d
     }
 
     /// a plain chat (not a project's): the phone may rename, pin, archive and delete it
@@ -264,6 +289,216 @@ final class ChatStore {
         } catch {}
     }
 
+    // MARK: answering, picking, commands (slice 4)
+
+    /// Answers the needs-you card as the desktop's button would. A chat on an older hold turns the card into
+    /// "Answer this on the PC"; a question that changed meanwhile shows the new one.
+    func answer(_ a: DialogAnswer) async {
+        guard !answering else { return }
+        answering = true
+        defer { answering = false }
+        if demo { return demoAnswer(a) }
+        guard let p = pairing else { return }
+        do {
+            let reply = try await api.answer(p, chat: id, a)
+            answered = (a.sig, Date())
+            showDialog(reply.dialog)
+        } catch APIError.refused(let text, let old, let newer) {
+            if old {
+                markOld()
+            } else {
+                if let newer { showDialog(newer) }
+                actionError = text
+            }
+        } catch let e as APIError {
+            actionError = e.message
+        } catch {
+            actionError = APIError.unreachable.message
+        }
+    }
+
+    /// the dialog on the PC's screen after an answer: the next tab of a question, or none (Claude goes on)
+    private func showDialog(_ d: Dialog?) {
+        guard var s = status else { return }
+        s.dialog = d
+        if d == nil {
+            s.waiting = nil
+            s.state = "working"
+            header?.state = "working"
+        }
+        status = s
+        liveTick += 1
+    }
+
+    private func markOld() {
+        guard var s = status, var d = s.dialog else { return }
+        d.answerable = false
+        s.dialog = d
+        status = s
+        header?.door = false
+    }
+
+    /// Bypass on or off: the red word in the title follows once the PC's mode line says so.
+    func setBypass(_ on: Bool) async {
+        guard !switchingMode, header?.bypass != on else { return }
+        switchingMode = true
+        defer { switchingMode = false }
+        if demo {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            header?.bypass = on
+            header?.mode = on ? "bypass" : "manual"
+            return
+        }
+        guard let p = pairing else { return }
+        do {
+            let r = try await api.setBypass(p, chat: id, on)
+            header?.bypass = r.bypass
+            header?.mode = r.mode
+        } catch APIError.refused(_, true, _) {
+            header?.door = false
+            actionError = "This chat runs on an older GupWorks. Change Bypass on the PC, or restart the chat there."
+        } catch let e as APIError {
+            actionError = e.message
+        } catch {
+            actionError = APIError.unreachable.message
+        }
+    }
+
+    func loadModels() async {
+        if demo {
+            if models.isEmpty, let m: ModelsReply = Demo.load("models") { models = m.models }
+            return
+        }
+        guard let p = pairing, let m = try? await api.models(p) else { return }
+        models = m.models
+    }
+
+    /// The model and effort for the next turn, as the desktop's picker sets them.
+    func pick(model: ModelInfo, effort: String?) async {
+        let effort = effort.flatMap { model.efforts.contains($0) ? $0 : nil } ?? Self.defaultEffort(model.efforts)
+        let before = header
+        header?.model = model.label
+        header?.modelId = model.id
+        header?.provider = model.provider
+        header?.effort = effort
+        header?.pending = true
+        if demo { return }
+        guard let p = pairing else { return }
+        do {
+            let r = try await api.pick(p, chat: id, PickBody(model: model.id, effort: effort))
+            header?.effort = r.effort
+        } catch let e as APIError {
+            header = before
+            actionError = e.message
+        } catch {
+            header = before
+            actionError = APIError.unreachable.message
+        }
+    }
+
+    /// the desktop's choice when a model has no effort picked: high, else medium, else the first
+    static func defaultEffort(_ efforts: [String]) -> String {
+        efforts.contains("high") ? "high" : efforts.contains("medium") ? "medium" : efforts.first ?? ""
+    }
+
+    func loadCommands() async {
+        if demo {
+            if commands == nil { commands = Demo.load("commands") }
+            return
+        }
+        guard let p = pairing, !isNew else { return }
+        if let c = try? await api.commands(p, chat: id) { commands = c }
+    }
+
+    /// Pins a command, or unpins it: the desktop's palette has the same pins.
+    func togglePin(_ name: String) async {
+        guard var c = commands else { return }
+        let before = c.pinned
+        if let i = c.pinned.firstIndex(of: name) { c.pinned.remove(at: i) } else { c.pinned.append(name) }
+        commands = c
+        if demo { return }
+        guard let p = pairing else { return }
+        do {
+            let r = try await api.setPins(p, c.pinned)
+            commands?.pinned = r.pinned
+            commands?.recent = r.recent
+        } catch let e as APIError {
+            commands?.pinned = before
+            actionError = e.message
+        } catch {
+            commands?.pinned = before
+            actionError = APIError.unreachable.message
+        }
+    }
+
+    /// A command from D4: one that needs words goes into the box with the keyboard up; the rest runs now.
+    func run(_ cmd: CommandInfo) async {
+        if cmd.needsArgs {
+            put("/\(cmd.name) ")
+            return
+        }
+        if var c = commands {  // first in Recent, as the PC lists it next time
+            c.recent.removeAll { $0 == cmd.name }
+            c.recent.insert(cmd.name, at: 0)
+            commands = c
+        }
+        await send(text: "/\(cmd.name)", attachments: [])
+    }
+
+    /// words into the composer, keyboard up
+    func put(_ text: String) {
+        draft = text
+        focusTick += 1
+    }
+
+    /// D7's Rewind to here: opens /rewind on the PC at that prompt; its confirm page comes back to answer.
+    func startRewind(_ turn: Turn) async {
+        guard !rewinding, turn.rewind == true else { return }
+        rewinding = true
+        defer { rewinding = false }
+        if demo {
+            if let r: RewindReply = Demo.load("rewind") {
+                rewindText = turn.prompt.text ?? r.text
+                rewindDialog = r.dialog
+            }
+            return
+        }
+        guard let p = pairing else { return }
+        do {
+            let r = try await api.rewind(p, chat: id, turn: turn.id)
+            rewindText = r.text
+            rewindDialog = r.dialog
+        } catch APIError.refused(_, true, _) {
+            actionError = "This chat runs on an older GupWorks. Rewind it on the PC, or restart the chat there."
+        } catch let e as APIError {
+            actionError = e.message
+        } catch {
+            actionError = APIError.unreachable.message
+        }
+    }
+
+    /// One of the confirm page's choices: Restore puts the message back in the phone's box to edit and send.
+    func finishRewind(_ c: Dialog.Choice?) async {
+        guard let d = rewindDialog else { return }
+        rewindDialog = nil
+        let restore = c.map { $0.label.hasPrefix("Restore") && $0.label.lowercased().contains("conversation") } ?? false
+        let lines = rewindText.components(separatedBy: "\n").count
+        if demo {
+            if restore { put(rewindText) }
+            return
+        }
+        guard let p = pairing, let sig = d.sig else { return }
+        let a = c.map { DialogAnswer(sig: sig, choice: $0.n, lines: lines) } ?? DialogAnswer(sig: sig, action: "skip")
+        do {
+            _ = try await api.answer(p, chat: id, a)
+            if restore { put(rewindText) }
+        } catch let e as APIError {
+            actionError = e.message
+        } catch {
+            actionError = APIError.unreachable.message
+        }
+    }
+
     /// what a rename or pin on this phone looks like before the PC's header comes back with it
     func showEdit(_ edit: ChatEdit) {
         guard var h = header else { return }
@@ -299,6 +534,12 @@ final class ChatStore {
     }
 
     // MARK: demo
+
+    /// The demo answers itself: the card goes and Claude works on (nothing leaves the phone).
+    private func demoAnswer(_ a: DialogAnswer) {
+        answered = (a.sig, Date())
+        showDialog(nil)
+    }
 
     /// The demo has no PC: a message waits as *queued* while the chat works, else it shows as a turn with a short
     /// made-up answer. Nothing leaves the phone.
@@ -361,6 +602,7 @@ final class ChatStore {
         }
         let shift = Date().timeIntervalSince1970 * 1000 - f.now
         header = f.header
+        if let at = f.header.cache?.at { header?.cache?.at = at + shift }
         status = f.status
         turns = f.turns.turns.map { $0.shifted(shift) }
         more = false

@@ -9,6 +9,8 @@
   "provider": "Claude",
   "effort": "low",
   "bypass": true,
+  "mode": "bypass",
+  "door": false,
   "usage": [
    {
     "label": "ctx",
@@ -84,7 +86,8 @@
       "answer": true
      }
     ],
-    "rev": "513c63904ad9"
+    "rev": "230e075c3ce5",
+    "rewind": true
    },
    {
     "id": "0064b549-0000-4000-8000-00000064b549",
@@ -132,7 +135,8 @@
       ]
      }
     ],
-    "rev": "15bf258f19f9"
+    "rev": "47c406c997ea",
+    "rewind": true
    },
    {
     "id": "0064b553-0000-4000-8000-00000064b553",
@@ -219,7 +223,8 @@
       "model": "Sonnet 5.5"
      }
     ],
-    "rev": "33ad2c0d6177"
+    "rev": "5b2eb59c81ba",
+    "rewind": true
    }
   ],
   "more": false

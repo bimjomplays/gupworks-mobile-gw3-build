@@ -1,0 +1,184 @@
+{
+ "now": 1792000000000,
+ "header": {
+  "id": "00000013-1111-4222-8333-000000000013",
+  "title": "Contact form button",
+  "role": "chat",
+  "model": "Sonnet 5.5",
+  "modelId": "claude-sonnet-5-5",
+  "provider": "Claude",
+  "effort": "medium",
+  "bypass": true,
+  "mode": "bypass",
+  "door": true,
+  "usage": [
+   {
+    "label": "ctx",
+    "percent": 9,
+    "tokens": 13500,
+    "switchAt": 150000,
+    "auto": true
+   },
+   {
+    "label": "5h",
+    "percent": 5,
+    "resets": "2026-10-14T19:46:40.000Z"
+   },
+   {
+    "label": "wk",
+    "percent": 21
+   }
+  ],
+  "branch": "",
+  "folder": "/work/lumen-studio",
+  "running": true,
+  "state": "needs",
+  "pinned": false
+ },
+ "status": {
+  "state": "needs",
+  "ts": 1791999930000,
+  "live": true,
+  "running": true,
+  "waiting": "you",
+  "dialog": {
+   "kind": "ask",
+   "chat": 5,
+   "choices": [
+    {
+     "n": 1,
+     "label": "Violet",
+     "button": "Violet",
+     "detail": "The accent of the header and links",
+     "focused": true
+    },
+    {
+     "n": 2,
+     "label": "Amber",
+     "button": "Amber",
+     "detail": "Warmer; stands out more on the cream page"
+    },
+    {
+     "n": 3,
+     "label": "Ink",
+     "button": "Ink",
+     "detail": "Dark grey, the quietest choice"
+    },
+    {
+     "n": 4,
+     "label": "Type something.",
+     "button": "Type something.",
+     "input": true
+    }
+   ],
+   "question": "Which colour should the Send button be?",
+   "title": "Button colour",
+   "sig": "519dc6d5a173",
+   "answerable": true
+  }
+ },
+ "turns": {
+  "turns": [
+   {
+    "id": "0013d621-0000-4000-8000-00000013d621",
+    "kind": "prompt",
+    "start": 1791999641000,
+    "state": "waiting",
+    "prompt": {
+     "text": "Give the contact form a send button that fits the site."
+    },
+    "waiting": "you",
+    "handle": {
+     "title": "Waiting for you",
+     "stats": "2 steps",
+     "since": 1791999641000
+    },
+    "open": true,
+    "blocks": [
+     {
+      "type": "card",
+      "id": "toolu_demo2c110001",
+      "state": "done",
+      "steps": 1,
+      "one": {
+       "label": "Read",
+       "detail": "style.css",
+       "chip": "",
+       "state": "ok"
+      },
+      "title": "Read style.css",
+      "stats": "0.3s"
+     },
+     {
+      "type": "text",
+      "id": "0013d624-0000-4000-8000-00000013d624",
+      "answer": false,
+      "md": [
+       {
+        "t": "p",
+        "text": "The site uses two accents. Asking which one you want."
+       }
+      ]
+     },
+     {
+      "type": "card",
+      "id": "toolu_demo2c110002",
+      "state": "running",
+      "steps": 1,
+      "one": {
+       "label": "AskUserQuestion",
+       "detail": "",
+       "chip": "",
+       "state": "running"
+      },
+      "title": "AskUserQuestion",
+      "stats": "",
+      "since": 1791999930400
+     }
+    ],
+    "rev": "710a98e2dd28",
+    "rewind": true
+   }
+  ],
+  "more": false
+ },
+ "cards": {
+  "toolu_demo2c110001": {
+   "id": "toolu_demo2c110001",
+   "title": "Read style.css",
+   "state": "done",
+   "stats": "0.3s",
+   "intent": "",
+   "rows": [
+    {
+     "id": "toolu_demo2c110001",
+     "tool": "Read",
+     "state": "ok",
+     "label": "Read",
+     "detail": "style.css",
+     "chip": "",
+     "ms": 300
+    }
+   ]
+  },
+  "toolu_demo2c110002": {
+   "id": "toolu_demo2c110002",
+   "title": "AskUserQuestion",
+   "state": "running",
+   "stats": "",
+   "intent": "The site uses two accents. Asking which one you want.",
+   "rows": [
+    {
+     "id": "toolu_demo2c110002",
+     "tool": "AskUserQuestion",
+     "state": "running",
+     "label": "AskUserQuestion",
+     "detail": "",
+     "chip": "",
+     "since": 1791999930400
+    }
+   ],
+   "since": 1791999930400
+  }
+ }
+}

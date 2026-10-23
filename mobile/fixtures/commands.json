@@ -1,0 +1,796 @@
+{
+ "pinned": [
+  "compact",
+  "code-review",
+  "loop"
+ ],
+ "recent": [
+  "context",
+  "compact",
+  "code-review",
+  "model",
+  "loop",
+  "clear"
+ ],
+ "groups": [
+  "Session",
+  "Model & usage",
+  "Code",
+  "Automate",
+  "Setup",
+  "Skills",
+  "Mods"
+ ],
+ "commands": [
+  {
+   "name": "add-dir",
+   "group": "Session",
+   "args": "<path>",
+   "summary": "Let Claude work in another folder too",
+   "description": "Let Claude work in another folder too"
+  },
+  {
+   "name": "advisor",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "Let Claude consult a stronger model",
+   "description": "Let Claude consult a stronger model"
+  },
+  {
+   "name": "artifact-capabilities",
+   "group": "Skills",
+   "args": "",
+   "summary": "What published pages can do",
+   "description": "What published pages can do"
+  },
+  {
+   "name": "artifact-design",
+   "group": "Skills",
+   "args": "",
+   "summary": "Design guidance for artifacts",
+   "description": "Design guidance for artifacts"
+  },
+  {
+   "name": "artifact-diagramming",
+   "group": "Skills",
+   "args": "",
+   "summary": "Diagram know-how for artifacts",
+   "description": "Diagram know-how for artifacts"
+  },
+  {
+   "name": "artifacts",
+   "group": "Setup",
+   "args": "",
+   "summary": "Your published artifacts",
+   "description": "Your published artifacts"
+  },
+  {
+   "name": "auto-mode-setup",
+   "group": "Setup",
+   "args": "",
+   "summary": "Teach auto mode about this machine",
+   "description": "Teach auto mode about this machine"
+  },
+  {
+   "name": "autocompact",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "When to auto-summarize",
+   "description": "When to auto-summarize"
+  },
+  {
+   "name": "autofix-pr",
+   "group": "Code",
+   "args": "",
+   "summary": "Watch the PR and fix what breaks",
+   "description": "Watch the PR and fix what breaks"
+  },
+  {
+   "name": "background",
+   "group": "Session",
+   "args": "",
+   "summary": "Send this session to the background",
+   "description": "Send this session to the background"
+  },
+  {
+   "name": "batch",
+   "group": "Code",
+   "args": "<change>",
+   "summary": "Plan a big change and run it in parallel",
+   "description": "Plan a big change and run it in parallel"
+  },
+  {
+   "name": "branch",
+   "group": "Session",
+   "args": "",
+   "summary": "Branch the conversation from here",
+   "description": "Branch the conversation from here"
+  },
+  {
+   "name": "btw",
+   "group": "Session",
+   "args": "<question>",
+   "summary": "Ask a side question without interrupting",
+   "description": "Ask a side question without interrupting"
+  },
+  {
+   "name": "bug",
+   "group": "Setup",
+   "args": "",
+   "summary": "Report a bug",
+   "description": "Report a bug"
+  },
+  {
+   "name": "cd",
+   "group": "Session",
+   "args": "<path>",
+   "summary": "Move this chat to another folder",
+   "description": "Move this chat to another folder"
+  },
+  {
+   "name": "chrome",
+   "group": "Setup",
+   "args": "",
+   "summary": "Claude in Chrome settings",
+   "description": "Claude in Chrome settings"
+  },
+  {
+   "name": "claude-api",
+   "group": "Skills",
+   "args": "",
+   "summary": "Reference for building with the Claude API",
+   "description": "Reference for building with the Claude API"
+  },
+  {
+   "name": "clear",
+   "group": "Session",
+   "args": "",
+   "summary": "Start fresh in this chat",
+   "description": "Start fresh in this chat"
+  },
+  {
+   "name": "code-review",
+   "group": "Code",
+   "args": "[level]",
+   "summary": "Review your changes for bugs",
+   "description": "Review your changes for bugs"
+  },
+  {
+   "name": "color",
+   "group": "Setup",
+   "args": "<color>",
+   "summary": "Prompt bar color for this chat",
+   "description": "Prompt bar color for this chat"
+  },
+  {
+   "name": "compact",
+   "group": "Session",
+   "args": "[focus]",
+   "summary": "Summarize the chat to free up context",
+   "description": "Summarize the chat to free up context"
+  },
+  {
+   "name": "config",
+   "group": "Setup",
+   "args": "",
+   "summary": "Settings",
+   "description": "Settings"
+  },
+  {
+   "name": "context",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "What is filling the context",
+   "description": "What is filling the context"
+  },
+  {
+   "name": "copy",
+   "group": "Session",
+   "args": "[n]",
+   "summary": "Copy Claude's last answer",
+   "description": "Copy Claude's last answer"
+  },
+  {
+   "name": "dataviz",
+   "group": "Skills",
+   "args": "",
+   "summary": "Charts and data visualizations",
+   "description": "Charts and data visualizations"
+  },
+  {
+   "name": "debug",
+   "group": "Code",
+   "args": "",
+   "summary": "Turn on debug logging and diagnose",
+   "description": "Turn on debug logging and diagnose"
+  },
+  {
+   "name": "deep-research",
+   "group": "Code",
+   "args": "<question>",
+   "summary": "Research a question across many sources",
+   "description": "Research a question across many sources"
+  },
+  {
+   "name": "design",
+   "group": "Skills",
+   "args": "<brief>",
+   "summary": "Make a design from a brief",
+   "description": "Make a design from a brief"
+  },
+  {
+   "name": "design-consent",
+   "group": "Setup",
+   "args": "",
+   "summary": "Let Claude use your Design projects",
+   "description": "Let Claude use your Design projects"
+  },
+  {
+   "name": "design-login",
+   "group": "Setup",
+   "args": "",
+   "summary": "Authorize design-system access",
+   "description": "Authorize design-system access"
+  },
+  {
+   "name": "design-revoke",
+   "group": "Setup",
+   "args": "",
+   "summary": "Revoke Design project access",
+   "description": "Revoke Design project access"
+  },
+  {
+   "name": "design-sync",
+   "group": "Skills",
+   "args": "",
+   "summary": "Push a design system to claude.ai",
+   "description": "Push a design system to claude.ai"
+  },
+  {
+   "name": "doctor",
+   "group": "Setup",
+   "args": "",
+   "summary": "Check and fix your Claude Code setup",
+   "description": "Check and fix your Claude Code setup"
+  },
+  {
+   "name": "effort",
+   "group": "Model & usage",
+   "args": "[level]",
+   "summary": "Set how hard Claude thinks",
+   "description": "Set how hard Claude thinks"
+  },
+  {
+   "name": "exit",
+   "group": "Session",
+   "args": "",
+   "summary": "Quit Claude in this chat",
+   "description": "Quit Claude in this chat"
+  },
+  {
+   "name": "export",
+   "group": "Session",
+   "args": "[file]",
+   "summary": "Save this chat to a file",
+   "description": "Save this chat to a file"
+  },
+  {
+   "name": "fast",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "Toggle fast mode",
+   "description": "Toggle fast mode"
+  },
+  {
+   "name": "feedback",
+   "group": "Setup",
+   "args": "[text]",
+   "summary": "Send feedback to Anthropic",
+   "description": "Send feedback to Anthropic"
+  },
+  {
+   "name": "fewer-permission-prompts",
+   "group": "Skills",
+   "args": "",
+   "summary": "Allow the safe commands you keep approving",
+   "description": "Allow the safe commands you keep approving"
+  },
+  {
+   "name": "focus",
+   "group": "Session",
+   "args": "",
+   "summary": "Show just your prompt and the answer",
+   "description": "Show just your prompt and the answer"
+  },
+  {
+   "name": "fork",
+   "group": "Session",
+   "args": "",
+   "summary": "Copy this chat into a background session",
+   "description": "Copy this chat into a background session"
+  },
+  {
+   "name": "goal",
+   "group": "Session",
+   "args": "<goal>",
+   "summary": "Set a goal Claude checks before stopping",
+   "description": "Set a goal Claude checks before stopping"
+  },
+  {
+   "name": "help",
+   "group": "Setup",
+   "args": "",
+   "summary": "Help and shortcuts",
+   "description": "Help and shortcuts"
+  },
+  {
+   "name": "hooks",
+   "group": "Setup",
+   "args": "",
+   "summary": "Hooks on tool events",
+   "description": "Hooks on tool events"
+  },
+  {
+   "name": "ide",
+   "group": "Setup",
+   "args": "",
+   "summary": "Connect an editor",
+   "description": "Connect an editor"
+  },
+  {
+   "name": "import",
+   "group": "Setup",
+   "args": "",
+   "summary": "Import settings from another AI tool",
+   "description": "Import settings from another AI tool"
+  },
+  {
+   "name": "init",
+   "group": "Code",
+   "args": "",
+   "summary": "Write a CLAUDE.md for this project",
+   "description": "Write a CLAUDE.md for this project"
+  },
+  {
+   "name": "insights",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "A report on your Claude Code sessions",
+   "description": "A report on your Claude Code sessions"
+  },
+  {
+   "name": "install-github-app",
+   "group": "Setup",
+   "args": "",
+   "summary": "Set up Claude GitHub Actions",
+   "description": "Set up Claude GitHub Actions"
+  },
+  {
+   "name": "install-slack-app",
+   "group": "Setup",
+   "args": "",
+   "summary": "Install the Claude Slack app",
+   "description": "Install the Claude Slack app"
+  },
+  {
+   "name": "keybindings",
+   "group": "Setup",
+   "args": "",
+   "summary": "Edit keyboard shortcuts",
+   "description": "Edit keyboard shortcuts"
+  },
+  {
+   "name": "keybindings-help",
+   "group": "Skills",
+   "args": "<change>",
+   "summary": "Change keyboard shortcuts",
+   "description": "Change keyboard shortcuts"
+  },
+  {
+   "name": "limit-reset",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "Reset the session limit now (weekly)",
+   "description": "Reset the session limit now (weekly)"
+  },
+  {
+   "name": "list-agents",
+   "group": "Setup",
+   "args": "",
+   "summary": "Agents and sessions you can message",
+   "description": "Agents and sessions you can message"
+  },
+  {
+   "name": "login",
+   "group": "Setup",
+   "args": "",
+   "summary": "Sign in",
+   "description": "Sign in"
+  },
+  {
+   "name": "logout",
+   "group": "Setup",
+   "args": "",
+   "summary": "Sign out",
+   "description": "Sign out"
+  },
+  {
+   "name": "loop",
+   "group": "Automate",
+   "args": "[interval] <prompt>",
+   "summary": "Repeat a prompt on an interval",
+   "description": "Repeat a prompt on an interval"
+  },
+  {
+   "name": "low-priority",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "Keep going at lower priority after a limit",
+   "description": "Keep going at lower priority after a limit"
+  },
+  {
+   "name": "mcp",
+   "group": "Setup",
+   "args": "",
+   "summary": "Connected tools and servers",
+   "description": "Connected tools and servers"
+  },
+  {
+   "name": "memory",
+   "group": "Setup",
+   "args": "",
+   "summary": "Edit CLAUDE.md and memory",
+   "description": "Edit CLAUDE.md and memory"
+  },
+  {
+   "name": "mobile",
+   "group": "Setup",
+   "args": "",
+   "summary": "Get the mobile app",
+   "description": "Get the mobile app"
+  },
+  {
+   "name": "model",
+   "group": "Model & usage",
+   "args": "[name]",
+   "summary": "Switch the model",
+   "description": "Switch the model"
+  },
+  {
+   "name": "output-style",
+   "group": "Setup",
+   "args": "",
+   "summary": "How Claude writes its answers",
+   "description": "How Claude writes its answers"
+  },
+  {
+   "name": "passes",
+   "group": "Setup",
+   "args": "",
+   "summary": "Share a free week of Claude Code",
+   "description": "Share a free week of Claude Code"
+  },
+  {
+   "name": "permissions",
+   "group": "Setup",
+   "args": "",
+   "summary": "What Claude may do without asking",
+   "description": "What Claude may do without asking"
+  },
+  {
+   "name": "plan",
+   "group": "Session",
+   "args": "",
+   "summary": "Plan first, then build",
+   "description": "Plan first, then build"
+  },
+  {
+   "name": "plugin",
+   "group": "Setup",
+   "args": "",
+   "summary": "Mods and plugins",
+   "description": "Mods and plugins"
+  },
+  {
+   "name": "plugin-authoring",
+   "group": "Skills",
+   "args": "<what to make>",
+   "summary": "Make or change a GupWorks mod",
+   "description": "Make or change a GupWorks mod"
+  },
+  {
+   "name": "powerup",
+   "group": "Setup",
+   "args": "",
+   "summary": "Quick lessons on Claude Code features",
+   "description": "Quick lessons on Claude Code features"
+  },
+  {
+   "name": "privacy-settings",
+   "group": "Setup",
+   "args": "",
+   "summary": "Privacy settings",
+   "description": "Privacy settings"
+  },
+  {
+   "name": "rate-limit-options",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "Limits and upgrade options",
+   "description": "Limits and upgrade options"
+  },
+  {
+   "name": "recap",
+   "group": "Session",
+   "args": "",
+   "summary": "One-line recap of the session",
+   "description": "One-line recap of the session"
+  },
+  {
+   "name": "release-notes",
+   "group": "Setup",
+   "args": "",
+   "summary": "What's new in Claude Code",
+   "description": "What's new in Claude Code"
+  },
+  {
+   "name": "reload-plugins",
+   "group": "Setup",
+   "args": "",
+   "summary": "Load changed plugins now",
+   "description": "Load changed plugins now"
+  },
+  {
+   "name": "reload-skills",
+   "group": "Setup",
+   "args": "",
+   "summary": "Load changed skills now",
+   "description": "Load changed skills now"
+  },
+  {
+   "name": "remote-control",
+   "group": "Automate",
+   "args": "",
+   "summary": "Control this chat from your phone",
+   "description": "Control this chat from your phone"
+  },
+  {
+   "name": "remote-env",
+   "group": "Automate",
+   "args": "",
+   "summary": "Default environment for cloud agents",
+   "description": "Default environment for cloud agents"
+  },
+  {
+   "name": "rename",
+   "group": "Session",
+   "args": "<name>",
+   "summary": "Rename this chat",
+   "description": "Rename this chat"
+  },
+  {
+   "name": "resume",
+   "group": "Session",
+   "args": "",
+   "summary": "Pick up an earlier conversation",
+   "description": "Pick up an earlier conversation"
+  },
+  {
+   "name": "rewind",
+   "group": "Session",
+   "args": "",
+   "summary": "Go back to an earlier point",
+   "description": "Go back to an earlier point"
+  },
+  {
+   "name": "run",
+   "group": "Code",
+   "args": "",
+   "summary": "Launch the app and check a change",
+   "description": "Launch the app and check a change"
+  },
+  {
+   "name": "run-skill-generator",
+   "group": "Skills",
+   "args": "",
+   "summary": "Write this project's run skill",
+   "description": "Write this project's run skill"
+  },
+  {
+   "name": "sandbox",
+   "group": "Setup",
+   "args": "",
+   "summary": "Sandbox for commands",
+   "description": "Sandbox for commands"
+  },
+  {
+   "name": "schedule",
+   "group": "Automate",
+   "args": "<when> <prompt>",
+   "summary": "Run something later or on a schedule",
+   "description": "Run something later or on a schedule"
+  },
+  {
+   "name": "scroll-speed",
+   "group": "Setup",
+   "args": "",
+   "summary": "Mouse wheel scroll speed",
+   "description": "Mouse wheel scroll speed"
+  },
+  {
+   "name": "security-review",
+   "group": "Code",
+   "args": "",
+   "summary": "Check the changes for security issues",
+   "description": "Check the changes for security issues"
+  },
+  {
+   "name": "setup-bedrock",
+   "group": "Setup",
+   "args": "",
+   "summary": "Amazon Bedrock setup",
+   "description": "Amazon Bedrock setup"
+  },
+  {
+   "name": "setup-vertex",
+   "group": "Setup",
+   "args": "",
+   "summary": "Google Vertex AI setup",
+   "description": "Google Vertex AI setup"
+  },
+  {
+   "name": "simplify",
+   "group": "Code",
+   "args": "",
+   "summary": "Clean up the changed code",
+   "description": "Clean up the changed code"
+  },
+  {
+   "name": "skill-doctor",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "Skills that cost context and go unused",
+   "description": "Skills that cost context and go unused"
+  },
+  {
+   "name": "skills",
+   "group": "Setup",
+   "args": "",
+   "summary": "List the skills Claude has",
+   "description": "List the skills Claude has"
+  },
+  {
+   "name": "slides",
+   "group": "Skills",
+   "args": "<brief>",
+   "summary": "Make a slide deck from a brief",
+   "description": "Make a slide deck from a brief"
+  },
+  {
+   "name": "status",
+   "group": "Setup",
+   "args": "",
+   "summary": "Version, model, account and connection",
+   "description": "Version, model, account and connection"
+  },
+  {
+   "name": "statusline",
+   "group": "Setup",
+   "args": "",
+   "summary": "Set up the status line",
+   "description": "Set up the status line"
+  },
+  {
+   "name": "subtask",
+   "group": "Session",
+   "args": "<task>",
+   "summary": "Send a helper off with this chat's context",
+   "description": "Send a helper off with this chat's context"
+  },
+  {
+   "name": "tasks",
+   "group": "Session",
+   "args": "",
+   "summary": "Everything running in the background",
+   "description": "Everything running in the background"
+  },
+  {
+   "name": "teleport",
+   "group": "Session",
+   "args": "",
+   "summary": "Move this session to the cloud or back",
+   "description": "Move this session to the cloud or back"
+  },
+  {
+   "name": "terminal-setup",
+   "group": "Setup",
+   "args": "",
+   "summary": "Check the terminal setup",
+   "description": "Check the terminal setup"
+  },
+  {
+   "name": "theme",
+   "group": "Setup",
+   "args": "",
+   "summary": "Change the theme",
+   "description": "Change the theme"
+  },
+  {
+   "name": "tui",
+   "group": "Setup",
+   "args": "",
+   "summary": "Fullscreen or classic display",
+   "description": "Fullscreen or classic display"
+  },
+  {
+   "name": "ultrareview",
+   "group": "Code",
+   "args": "",
+   "summary": "Deep cloud review of the branch (paid)",
+   "description": "Deep cloud review of the branch (paid)"
+  },
+  {
+   "name": "update-config",
+   "group": "Skills",
+   "args": "<change>",
+   "summary": "Change Claude Code settings and hooks",
+   "description": "Change Claude Code settings and hooks"
+  },
+  {
+   "name": "upgrade",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "Upgrade your plan",
+   "description": "Upgrade your plan"
+  },
+  {
+   "name": "usage",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "Plan limits, cost and activity",
+   "description": "Plan limits, cost and activity"
+  },
+  {
+   "name": "usage-credits",
+   "group": "Model & usage",
+   "args": "",
+   "summary": "Usage credits",
+   "description": "Usage credits"
+  },
+  {
+   "name": "verify",
+   "group": "Code",
+   "args": "",
+   "summary": "Check a change really works, end to end",
+   "description": "Check a change really works, end to end"
+  },
+  {
+   "name": "voice",
+   "group": "Setup",
+   "args": "",
+   "summary": "Toggle voice mode",
+   "description": "Toggle voice mode"
+  },
+  {
+   "name": "web-setup",
+   "group": "Automate",
+   "args": "",
+   "summary": "Set up cloud sessions with GitHub",
+   "description": "Set up cloud sessions with GitHub"
+  },
+  {
+   "name": "workflow-authoring",
+   "group": "Skills",
+   "args": "",
+   "summary": "Write multi-agent workflow scripts",
+   "description": "Write multi-agent workflow scripts"
+  },
+  {
+   "name": "workflows",
+   "group": "Automate",
+   "args": "",
+   "summary": "Running and finished workflows",
+   "description": "Running and finished workflows"
+  }
+ ]
+}

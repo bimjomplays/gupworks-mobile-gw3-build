@@ -1,0 +1,68 @@
+{
+ "models": [
+  {
+   "id": "claude-opus-5-5",
+   "label": "Opus 5.5",
+   "provider": "Claude",
+   "note": "subscription",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
+  },
+  {
+   "id": "claude-sonnet-5-5",
+   "label": "Sonnet 5.5",
+   "provider": "Claude",
+   "note": "subscription",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
+  },
+  {
+   "id": "claude-haiku-5-5",
+   "label": "Haiku 5.5",
+   "provider": "Claude",
+   "note": "subscription",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
+  },
+  {
+   "id": "gpt-6.1-sol",
+   "label": "GPT 6.1 Sol",
+   "provider": "OpenAI",
+   "note": "subscription",
+   "efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
+  },
+  {
+   "id": "local-qwen3.8-27b",
+   "label": "Qwen3.8 27B",
+   "provider": "local",
+   "note": "80K context · images",
+   "efforts": [
+    "none",
+    "low",
+    "medium",
+    "xhigh"
+   ]
+  }
+ ]
+}

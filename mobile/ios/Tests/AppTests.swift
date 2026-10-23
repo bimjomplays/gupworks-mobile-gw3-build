@@ -313,6 +313,164 @@ final class ChatStoreTests: XCTestCase {
     }
 }
 
+// MARK: slice 4
+
+final class AnswerTests: XCTestCase {
+    func chat(_ n: Int) -> String { String(format: "%08d-1111-4222-8333-%012d", n, n) }
+
+    func testDialogFixturesDecode() throws {
+        let perm: ChatFixture = try XCTUnwrap(Demo.load(chat(12), in: "fixtures/chats"))
+        let d = try XCTUnwrap(perm.status.dialog)
+        XCTAssertEqual(d.kind, "permission")
+        XCTAssertTrue(d.canAnswer)
+        XCTAssertEqual(d.choices?.map(\.words), ["Allow once", "Always for this project", "Deny"])
+        XCTAssertEqual(perm.header.door, true)
+
+        let ask: ChatFixture = try XCTUnwrap(Demo.load(chat(13), in: "fixtures/chats"))
+        let a = try XCTUnwrap(ask.status.dialog)
+        XCTAssertEqual(a.kind, "ask")
+        XCTAssertEqual(a.chat, 5)
+        XCTAssertEqual(a.choices?.last?.input, true)
+
+        let plan: ChatFixture = try XCTUnwrap(Demo.load(chat(14), in: "fixtures/chats"))
+        XCTAssertEqual(plan.status.dialog?.kind, "plan")
+        XCTAssertFalse(plan.status.dialog?.plan?.isEmpty ?? true)
+
+        let old: ChatFixture = try XCTUnwrap(Demo.load(chat(15), in: "fixtures/chats"))
+        XCTAssertFalse(old.status.dialog?.canAnswer ?? true, "an older hold: Answer this on the PC")
+        XCTAssertEqual(old.header.door, false)
+
+        let rewind: RewindReply = try XCTUnwrap(Demo.load("rewind"))
+        XCTAssertEqual(rewind.dialog.kind, "rewind")
+        XCTAssertTrue(rewind.dialog.choices?.contains { $0.label == "Restore conversation" } ?? false)
+    }
+
+    func testSheetsFixturesDecode() throws {
+        let c: CommandsReply = try XCTUnwrap(Demo.load("commands"))
+        XCTAssertEqual(c.pinned, ["compact", "code-review", "loop"])
+        XCTAssertTrue(c.commands.contains { $0.name == "btw" && $0.needsArgs })
+        XCTAssertFalse(c.commands.first { $0.name == "compact" }?.needsArgs ?? true, "[focus] is optional")
+        let m: ModelsReply = try XCTUnwrap(Demo.load("models"))
+        XCTAssertFalse(m.models.isEmpty)
+        XCTAssertTrue(m.models.allSatisfy { !$0.id.isEmpty && !$0.label.isEmpty })
+    }
+
+    func testAnswerBodies() throws {
+        let one = try JSONSerialization.jsonObject(with: JSONEncoder().encode(DialogAnswer(sig: "s1", choice: 2))) as? [String: Any]
+        XCTAssertEqual(one?.keys.sorted(), ["choice", "sig"])
+        let ticks = try JSONSerialization.jsonObject(with: JSONEncoder().encode(DialogAnswer(sig: "s1", ticks: [1, 3], text: "x"))) as? [String: Any]
+        XCTAssertEqual(ticks?["ticks"] as? [Int], [1, 3])
+        let skip = try JSONSerialization.jsonObject(with: JSONEncoder().encode(DialogAnswer(sig: "s1", action: "skip"))) as? [String: Any]
+        XCTAssertEqual(skip?["action"] as? String, "skip")
+    }
+
+    func testDefaultEffort() {
+        XCTAssertEqual(ChatStore.defaultEffort(["low", "medium", "high", "max"]), "high")
+        XCTAssertEqual(ChatStore.defaultEffort(["low", "medium"]), "medium")
+        XCTAssertEqual(ChatStore.defaultEffort(["minimal"]), "minimal")
+        XCTAssertEqual(ChatStore.defaultEffort([]), "")
+    }
+
+    func testMeterLinesAndCache() {
+        let now = Date(timeIntervalSince1970: 1_792_000_000)
+        XCTAssertEqual(Format.meterLine(Meter(label: "ctx", percent: 34, tokens: 51_000, switchAt: 150_000), now: now),
+                       "51K of 150K · 34%")
+        let resets = ISO8601DateFormatter().string(from: now.addingTimeInterval(3 * 3600 + 15 * 60 + 20))
+        XCTAssertEqual(Format.meterLine(Meter(label: "5h", percent: 5, resets: resets), now: now), "5% · resets in 3h 15m")
+        XCTAssertEqual(Format.meterLine(Meter(label: "wk", percent: 21.4), now: now), "21%")
+        let warm = ChatHeader.Cache(at: (now.timeIntervalSince1970 - 15 * 60) * 1000, ttlMin: 60)
+        XCTAssertEqual(Format.cacheLeft(warm, now: now), "45m")
+        let cold = ChatHeader.Cache(at: (now.timeIntervalSince1970 - 2 * 3600) * 1000, ttlMin: 60)
+        XCTAssertNil(Format.cacheLeft(cold, now: now))
+        XCTAssertEqual(Format.tokens(1_200_000), "1.2M")
+    }
+
+    func testMessageTextForCopy() {
+        let md = [MD(t: "p", text: "Fixed it."),
+                  MD(t: "list", items: [MDItem(level: 0, text: "one", n: 1), MDItem(level: 1, text: "two")]),
+                  MD(t: "code", lang: "sh", code: "ls")]
+        XCTAssertEqual(MessageActions.plain(md), "Fixed it.\n\n1. one\n  - two\n\nls")
+        XCTAssertEqual(MessageActions.quote("a\nb"), "a b")
+        XCTAssertEqual(MessageActions.quote(String(repeating: "x", count: 100)).count, 80)
+    }
+}
+
+@MainActor
+final class AnswerStoreTests: XCTestCase {
+    func chat(_ n: Int) -> String { String(format: "%08d-1111-4222-8333-%012d", n, n) }
+
+    func testDemoAnswerTakesTheCardAway() async throws {
+        let s = ChatStore(id: chat(12), pairing: nil, demo: true)
+        await s.run()
+        let d = try XCTUnwrap(s.dialog)
+        await s.answer(DialogAnswer(sig: d.sig ?? "", choice: 1))
+        XCTAssertNil(s.dialog)
+        XCTAssertTrue(s.working)
+    }
+
+    func testAnOlderHoldIsAnsweredOnThePC() async throws {
+        let s = ChatStore(id: chat(15), pairing: nil, demo: true)
+        await s.run()
+        let d = try XCTUnwrap(s.dialog)
+        XCTAssertFalse(d.canAnswer)
+    }
+
+    func testRefusedErrors() {
+        XCTAssertEqual(APIError.refused("This chat started on an older GupWorks.", old: true, dialog: nil).message,
+                       "This chat started on an older GupWorks.")
+    }
+
+    func testPickBypassAndPins() async throws {
+        let s = ChatStore(id: "00000009-1111-4222-8333-000000000009", pairing: nil, demo: true)
+        await s.run()
+        XCTAssertEqual(s.header?.door, true)
+        await s.loadModels()
+        let m = try XCTUnwrap(s.models.first { $0.id != s.header?.modelId && !$0.efforts.isEmpty })
+        await s.pick(model: m, effort: "nonsense")
+        XCTAssertEqual(s.header?.modelId, m.id)
+        XCTAssertEqual(s.header?.effort, ChatStore.defaultEffort(m.efforts))
+        XCTAssertEqual(s.header?.pending, true)
+
+        XCTAssertEqual(s.header?.bypass, true)
+        await s.setBypass(false)
+        XCTAssertEqual(s.header?.bypass, false)
+        await s.setBypass(true)
+        XCTAssertEqual(s.header?.bypass, true)
+
+        await s.loadCommands()
+        await s.togglePin("btw")
+        XCTAssertEqual(s.commands?.pinned.last, "btw")
+        await s.togglePin("btw")
+        XCTAssertFalse(s.commands?.pinned.contains("btw") ?? true)
+    }
+
+    func testCommandsRunOrFillTheBox() async throws {
+        let s = ChatStore(id: "00000009-1111-4222-8333-000000000009", pairing: nil, demo: true)
+        await s.run()
+        await s.loadCommands()
+        let btw = try XCTUnwrap(s.commands?.commands.first { $0.name == "btw" })
+        await s.run(btw)
+        XCTAssertEqual(s.draft, "/btw ")
+        let compact = try XCTUnwrap(s.commands?.commands.first { $0.name == "compact" })
+        let before = s.turns.count
+        await s.run(compact)
+        XCTAssertEqual(s.turns.count, before + 1)
+        XCTAssertEqual(s.turns.last?.prompt.text, "/compact")
+        XCTAssertEqual(s.commands?.recent.first, "compact")
+    }
+
+    func testRewindPutsTheMessageBack() async throws {
+        let s = ChatStore(id: "00000009-1111-4222-8333-000000000009", pairing: nil, demo: true)
+        await s.run()
+        let t = try XCTUnwrap(s.turns.last { $0.rewind == true })
+        await s.startRewind(t)
+        let d = try XCTUnwrap(s.rewindDialog)
+        await s.finishRewind(d.choices?.first { $0.label == "Restore conversation" })
+        XCTAssertNil(s.rewindDialog)
+        XCTAssertEqual(s.draft, t.prompt.text)
+    }
+}
+
 private extension Result {
     var problem: Failure? {
         if case .failure(let f) = self { return f }

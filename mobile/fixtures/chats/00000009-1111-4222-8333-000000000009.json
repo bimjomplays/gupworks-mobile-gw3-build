@@ -9,6 +9,8 @@
   "provider": "Claude",
   "effort": "medium",
   "bypass": true,
+  "mode": "bypass",
+  "door": true,
   "usage": [
    {
     "label": "ctx",
@@ -29,15 +31,19 @@
   ],
   "branch": "",
   "folder": "/work/lumen-studio",
-  "running": false,
+  "running": true,
   "state": "done",
-  "pinned": false
+  "pinned": false,
+  "cache": {
+   "at": 1791999100000,
+   "ttlMin": 60
+  }
  },
  "status": {
   "state": "done",
   "ts": 1791992800000,
   "live": false,
-  "running": false
+  "running": true
  },
  "turns": {
   "turns": [
@@ -155,7 +161,8 @@
       ]
      }
     ],
-    "rev": "65dd86861066"
+    "rev": "b7d4321d1006",
+    "rewind": true
    },
    {
     "id": "000dbbb9-0000-4000-8000-0000000dbbb9",
@@ -275,7 +282,8 @@
       ]
      }
     ],
-    "rev": "561507b36e61"
+    "rev": "32549e543055",
+    "rewind": true
    }
   ],
   "more": false
