@@ -20,10 +20,10 @@ final class PairLinkTests: XCTestCase {
     }
 
     func testRejectsOtherLinks() {
-        XCTAssertEqual(PairLink.parse("https://example.com").failure, .notOurs)
-        XCTAssertEqual(PairLink.parse("gupworks3://other?v=1").failure, .notOurs)
-        XCTAssertEqual(PairLink.parse(link("https://desktop.example.ts.net", v: "2")).failure, .newerVersion)
-        XCTAssertEqual(PairLink.parse(link("https://desktop.example.ts.net") + "&code=x").failure, .notOurs)
+        XCTAssertEqual(PairLink.parse("https://example.com").problem, .notOurs)
+        XCTAssertEqual(PairLink.parse("gupworks3://other?v=1").problem, .notOurs)
+        XCTAssertEqual(PairLink.parse(link("https://desktop.example.ts.net", v: "2")).problem, .newerVersion)
+        XCTAssertEqual(PairLink.parse(link("https://desktop.example.ts.net") + "&code=x").problem, .notOurs)
     }
 
     func testOnlyTailnetHttpsAddresses() {
@@ -31,13 +31,13 @@ final class PairLinkTests: XCTestCase {
                     "https://desktop.ts.net", "https://user" + "@" + "desktop.example.ts.net",
                     "https://desktop.example.ts.net/path", "https://desktop.example.ts.net/?x=1",
                     "https://desktop.example.ts.net.evil.com"] {
-            XCTAssertEqual(PairLink.parse(link(bad)).failure, .badAddress, bad)
+            XCTAssertEqual(PairLink.parse(link(bad)).problem, .badAddress, bad)
         }
     }
 
     func testCodeShape() {
-        XCTAssertEqual(PairLink.parse(link("https://desktop.example.ts.net", code: "short")).failure, .badCode)
-        XCTAssertEqual(PairLink.parse(link("https://desktop.example.ts.net", code: code + "!")).failure, .badCode)
+        XCTAssertEqual(PairLink.parse(link("https://desktop.example.ts.net", code: "short")).problem, .badCode)
+        XCTAssertEqual(PairLink.parse(link("https://desktop.example.ts.net", code: code + "!")).problem, .badCode)
     }
 }
 
@@ -76,7 +76,7 @@ final class FixtureTests: XCTestCase {
 }
 
 private extension Result {
-    var failure: Failure? {
+    var problem: Failure? {
         if case .failure(let f) = self { return f }
         return nil
     }

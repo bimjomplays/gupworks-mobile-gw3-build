@@ -14,6 +14,11 @@ final class ScreenshotTests: XCTestCase {
         return app
     }
 
+    /// any element whose label contains `text` (rows combine their texts into one accessibility element)
+    private func find(_ app: XCUIApplication, _ text: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@", text)).firstMatch
+    }
+
     private func shot(_ name: String) {
         let png = XCUIScreen.main.screenshot().pngRepresentation
         let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
@@ -28,31 +33,30 @@ final class ScreenshotTests: XCTestCase {
 
     func testD1ChatsList() {
         let app = launch()
-        XCTAssertTrue(app.staticTexts["Wallpaper ideas"].waitForExistence(timeout: 20))
-        XCTAssertTrue(app.staticTexts["Lumen Studio website"].exists)
+        XCTAssertTrue(find(app, "Wallpaper ideas").waitForExistence(timeout: 20))
+        XCTAssertTrue(find(app, "Lumen Studio website").exists)
         sleep(1)
         shot("d1-chats")
     }
 
     func testD1Search() {
         let app = launch()
-        XCTAssertTrue(app.staticTexts["Wallpaper ideas"].waitForExistence(timeout: 20))
+        XCTAssertTrue(find(app, "Wallpaper ideas").waitForExistence(timeout: 20))
         let field = app.searchFields.firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("re")
-        XCTAssertTrue(app.staticTexts["Recipe scaler"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.staticTexts["Wallpaper ideas"].exists)
+        XCTAssertTrue(find(app, "Recipe scaler").waitForExistence(timeout: 5))
+        XCTAssertFalse(find(app, "Wallpaper ideas").exists)
         sleep(1)
         shot("d1-search")
     }
 
     func testSettings() {
         let app = launch()
-        XCTAssertTrue(app.staticTexts["Wallpaper ideas"].waitForExistence(timeout: 20))
+        XCTAssertTrue(find(app, "Wallpaper ideas").waitForExistence(timeout: 20))
         app.buttons["settings"].tap()
-        XCTAssertTrue(app.staticTexts["This PC"].waitForExistence(timeout: 5)
-                      || app.staticTexts["THIS PC"].waitForExistence(timeout: 1))
+        XCTAssertTrue(find(app, "This PC").waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["unpair"].exists)
         sleep(1)
         shot("settings")
@@ -60,7 +64,7 @@ final class ScreenshotTests: XCTestCase {
 
     func testPairing() {
         let app = launch(["-unpaired"])
-        XCTAssertTrue(app.staticTexts["Pair with your PC"].waitForExistence(timeout: 20))
+        XCTAssertTrue(find(app, "Pair with your PC").waitForExistence(timeout: 20))
         let field = app.textFields["pairCode"]
         field.tap()
         field.typeText("https://example.com\n")

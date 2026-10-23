@@ -28,14 +28,16 @@ struct ChatsListView: View {
             .searchable(text: $query, prompt: "Search")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button { showSettings = true } label: { Image(systemName: "gearshape") }
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape").foregroundStyle(Theme.rowTitle)
+                    }
                         .accessibilityLabel("Settings")
                         .accessibilityIdentifier("settings")
                 }
                 DefaultToolbarItem(kind: .search, placement: .bottomBar)
                 ToolbarSpacer(.fixed, placement: .bottomBar)
                 ToolbarItem(placement: .bottomBar) {
-                    Button {} label: { Image(systemName: "square.and.pencil") }
+                    Button {} label: { Image(systemName: "square.and.pencil").foregroundStyle(Theme.rowTitle) }
                         .disabled(true)  // slice 3
                         .accessibilityLabel("New chat")
                 }

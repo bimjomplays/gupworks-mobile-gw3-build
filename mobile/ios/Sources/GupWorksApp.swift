@@ -6,7 +6,10 @@ struct GupWorksApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            Group {
+                // as the unit tests' host the app shows nothing (no camera prompt left behind for the UI tests)
+                if NSClassFromString("XCTestCase") != nil { Color.clear } else { RootView() }
+            }
                 .environment(model)
                 .preferredColorScheme(.dark)
                 .tint(Theme.blue)

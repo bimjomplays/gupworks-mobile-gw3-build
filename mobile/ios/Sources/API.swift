@@ -1,5 +1,4 @@
 import Foundation
-import UIKit
 
 // What gw3-phone sends (tools/gw3_phone.py; the demo copies are in mobile/fixtures/).
 
@@ -74,8 +73,9 @@ final class APIClient {
         return URLSession(configuration: c, delegate: NoRedirects(), delegateQueue: nil)
     }()
 
-    func pair(_ link: PairLink) async throws -> Pairing {
-        let body = ["code": link.code, "device": UIDevice.current.name]
+    /// `device` is the name the PC lists this phone under (`gw3-phone status`)
+    func pair(_ link: PairLink, device: String) async throws -> Pairing {
+        let body = ["code": link.code, "device": device]
         let reply: PairReply = try await request(link.baseURL, "/v1/pair", token: nil, method: "POST", body: body)
         return Pairing(baseURL: link.baseURL, token: reply.token, pairedAt: Date(), pcName: reply.pc)
     }

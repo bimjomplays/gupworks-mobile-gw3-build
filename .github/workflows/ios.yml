@@ -82,7 +82,9 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
           xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 \
-            --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
+            --cellularMode active --cellularBars 4 --batteryState discharging --batteryLevel 100
+          # the simulator has no camera, but a pending permission prompt would cover the screenshots
+          xcrun simctl privacy "$udid" grant camera app.gupworks3.phone || true
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
       - name: Test
         env:
@@ -93,7 +95,9 @@ jobs:
             -derivedDataPath build -resultBundlePath shots.xcresult \
             CODE_SIGNING_ALLOWED=NO test > test.log 2>&1 \
             || { grep -E "error:|failed|XCTAssert" test.log | head -80; tail -60 test.log; exit 1; }
-          grep -E "Test Suite .* (passed|failed)|Executed" test.log | tail -6
+          grep -E "Test Suite '[^']*\.xctest' (passed|failed)|Test Case .* (passed|failed)" test.log
+          xcrun xcresulttool get test-results summary --path shots.xcresult --compact \
+            | python3 -c 'import json,sys; s=json.load(sys.stdin); print("tests:", s.get("result"), s.get("totalTestCount"), "total,", s.get("passedTestCount"), "passed,", s.get("failedTestCount"), "failed")' || true
       - name: Collect screenshots
         if: always()
         run: |

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 
 /// The app's state: the pairing (Keychain), the last home list and what went wrong last.
 @Observable
@@ -30,7 +31,7 @@ final class AppModel {
     var isPaired: Bool { pairing != nil }
 
     func pair(with link: PairLink) async throws {
-        let p = try await api.pair(link)
+        let p = try await api.pair(link, device: UIDevice.current.name)
         guard PairingStore.save(p) else { throw APIError.server("The phone couldn't keep the key (Keychain).") }
         pairing = p
         error = nil
