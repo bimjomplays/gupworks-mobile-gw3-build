@@ -583,6 +583,7 @@ final class VoiceTests: XCTestCase {
     }
 }
 
+@MainActor
 final class ProjectTests: XCTestCase {
     let lumen = "lumen-studio"
 
