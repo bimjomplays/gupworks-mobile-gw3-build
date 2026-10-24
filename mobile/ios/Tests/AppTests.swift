@@ -565,11 +565,27 @@ final class VoiceTests: XCTestCase {
     }
 
     func testWhyThePCDidntDoIt() {
-        XCTAssertEqual(VoiceMath.why(APIError.unreachable), "your PC couldn't be reached")
+        XCTAssertEqual(VoiceMath.why(APIError.unreachable(.unknown)), "your PC couldn't be reached")
         XCTAssertEqual(VoiceMath.why(APIError.server("Voice isn't set up on this PC.")),
                        "the PC said: Voice isn't set up on this PC.")
         XCTAssertEqual(VoiceMath.why(APIError.notPaired), "your PC doesn't know this phone anymore")
         XCTAssertEqual(VoiceMath.why(CancellationError()), "your PC couldn't be reached")
+    }
+
+    func testNoAnswerSaysWhichStepFailed() {
+        XCTAssertEqual(APIError.from(URLError(.cannotFindHost)), .unreachable(.noName))
+        XCTAssertEqual(APIError.from(URLError(.dnsLookupFailed)), .unreachable(.noName))
+        XCTAssertEqual(APIError.from(URLError(.timedOut)), .unreachable(.timeout))
+        XCTAssertEqual(APIError.from(URLError(.cannotConnectToHost)), .unreachable(.refused))
+        XCTAssertEqual(APIError.from(URLError(.notConnectedToInternet)), .unreachable(.offline))
+        XCTAssertEqual(APIError.from(URLError(.serverCertificateUntrusted)), .unreachable(.secure))
+        XCTAssertEqual(APIError.from(URLError(.unknown)), .unreachable(.unknown))
+        XCTAssertEqual(APIError.from(CancellationError()), .unreachable(.unknown))
+        XCTAssertEqual(APIError.from(APIError.notPaired), .notPaired)  // the PC's own answers stay as they are
+        XCTAssertTrue(APIError.unreachable(.timeout).isUnreachable)
+        XCTAssertFalse(APIError.notPaired.isUnreachable)
+        XCTAssertTrue(APIError.unreachable(.noName).message.contains("Use Tailscale DNS"))
+        XCTAssertTrue(APIError.unreachable(.unknown).message.hasPrefix("Can't reach your PC."))
     }
 
     func testVoiceReplyDecodes() throws {

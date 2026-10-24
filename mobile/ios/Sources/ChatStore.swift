@@ -288,7 +288,7 @@ final class ChatStore {
         } catch let e as APIError {
             fail(clientId, e.message)
         } catch {
-            fail(clientId, APIError.unreachable.message)
+            fail(clientId, APIError.from(error).message)
         }
     }
 
@@ -332,7 +332,7 @@ final class ChatStore {
         } catch let e as APIError {
             actionError = e.message
         } catch {
-            actionError = APIError.unreachable.message
+            actionError = APIError.from(error).message
         }
     }
 
@@ -379,7 +379,7 @@ final class ChatStore {
         } catch let e as APIError {
             actionError = e.message
         } catch {
-            actionError = APIError.unreachable.message
+            actionError = APIError.from(error).message
         }
     }
 
@@ -411,7 +411,7 @@ final class ChatStore {
             actionError = e.message
         } catch {
             header = before
-            actionError = APIError.unreachable.message
+            actionError = APIError.from(error).message
         }
     }
 
@@ -446,7 +446,7 @@ final class ChatStore {
             actionError = e.message
         } catch {
             commands?.pinned = before
-            actionError = APIError.unreachable.message
+            actionError = APIError.from(error).message
         }
     }
 
@@ -494,7 +494,7 @@ final class ChatStore {
         } catch let e as APIError {
             actionError = e.message
         } catch {
-            actionError = APIError.unreachable.message
+            actionError = APIError.from(error).message
         }
     }
 
@@ -516,7 +516,7 @@ final class ChatStore {
         } catch let e as APIError {
             actionError = e.message
         } catch {
-            actionError = APIError.unreachable.message
+            actionError = APIError.from(error).message
         }
     }
 

@@ -72,7 +72,7 @@ final class ProjectStore {
             view = try await api.project(p, id)
             error = nil
         } catch {
-            self.error = error as? APIError ?? .unreachable
+            self.error = APIError.from(error)
         }
     }
 
@@ -90,7 +90,7 @@ final class ProjectStore {
         do {
             view = try await api.moveThread(p, project: id, thread: thread, move)
         } catch {
-            actionError = (error as? APIError)?.message ?? APIError.unreachable.message
+            actionError = APIError.from(error).message
         }
     }
 
@@ -107,7 +107,7 @@ final class ProjectStore {
             view = try await api.newThread(p, project: id, text: text).project
             return true
         } catch {
-            actionError = (error as? APIError)?.message ?? APIError.unreachable.message
+            actionError = APIError.from(error).message
             return false
         }
     }
@@ -119,7 +119,7 @@ final class ProjectStore {
         do {
             view = try await api.pauseProject(p, id, on)
         } catch {
-            actionError = (error as? APIError)?.message ?? APIError.unreachable.message
+            actionError = APIError.from(error).message
         }
     }
 
@@ -130,7 +130,7 @@ final class ProjectStore {
             view = try await api.archiveProject(p, id, on)
             return true
         } catch {
-            actionError = (error as? APIError)?.message ?? APIError.unreachable.message
+            actionError = APIError.from(error).message
             return false
         }
     }
@@ -143,7 +143,7 @@ final class ProjectStore {
         do {
             library = try await api.library(p, project: id)
         } catch {
-            actionError = (error as? APIError)?.message ?? APIError.unreachable.message
+            actionError = APIError.from(error).message
         }
     }
 
@@ -191,7 +191,7 @@ final class ProjectStore {
         do {
             schedules = try await api.schedules(p, project: id)
         } catch {
-            actionError = (error as? APIError)?.message ?? APIError.unreachable.message
+            actionError = APIError.from(error).message
         }
     }
 

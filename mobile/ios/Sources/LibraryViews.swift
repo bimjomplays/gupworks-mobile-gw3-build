@@ -54,7 +54,7 @@ struct LibraryFolderView: View {
             list = try await store.folder(row.path)
             error = nil
         } catch {
-            self.error = (error as? APIError)?.message ?? APIError.unreachable.message
+            self.error = APIError.from(error).message
         }
     }
 }
@@ -274,7 +274,7 @@ struct NoteView: View {
             file = try await store.file(row.path)
             error = nil
         } catch {
-            self.error = (error as? APIError)?.message ?? APIError.unreachable.message
+            self.error = APIError.from(error).message
         }
     }
 
@@ -293,7 +293,7 @@ struct NoteView: View {
         } catch APIError.conflict(let message, let theirs, let version) {
             conflict = Conflict(theirs: theirs, version: version, message: message)
         } catch {
-            store.actionError = (error as? APIError)?.message ?? APIError.unreachable.message
+            store.actionError = APIError.from(error).message
         }
     }
 

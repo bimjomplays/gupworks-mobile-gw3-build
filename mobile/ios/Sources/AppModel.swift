@@ -91,7 +91,7 @@ final class AppModel {
         } catch let e as APIError {
             error = e
         } catch {
-            self.error = .unreachable
+            self.error = APIError.from(error)
         }
     }
 
@@ -107,7 +107,7 @@ final class AppModel {
             try await api.editChat(p, id, e)
             return true
         } catch {
-            actionError = (error as? APIError)?.message ?? APIError.unreachable.message
+            actionError = APIError.from(error).message
             await refresh()
             return false
         }
@@ -124,7 +124,7 @@ final class AppModel {
             try await api.deleteChat(p, id)
             return true
         } catch {
-            actionError = (error as? APIError)?.message ?? APIError.unreachable.message
+            actionError = APIError.from(error).message
             await refresh()
             return false
         }

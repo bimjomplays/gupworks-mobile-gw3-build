@@ -191,7 +191,7 @@ struct RewindReply: Codable, Equatable {
 
 enum APIError: Error, Equatable {
     case notPaired           // 401: the PC doesn't know this phone (anymore)
-    case unreachable         // no answer: Tailscale off, PC asleep, service stopped
+    case unreachable(NoAnswer)  // no answer: Tailscale off, PC asleep, the name not found (NoAnswer says which)
     case server(String)      // the PC answered with an error
     /// an answer the PC turned down: the chat's hold is older (`old`), or the question changed (the new `dialog`)
     case refused(String, old: Bool, dialog: Dialog?)
@@ -201,11 +201,66 @@ enum APIError: Error, Equatable {
     var message: String {
         switch self {
         case .notPaired: return "Your PC doesn't know this phone anymore. Pair again."
-        case .unreachable:
-            return "Can't reach your PC. Is Tailscale on? In the Tailscale app, also check that Use Tailscale DNS is on."
+        case .unreachable(let why): return why.message
         case .server(let text): return text
         case .refused(let text, _, _): return text
         case .conflict(let text, _, _): return text
+        }
+    }
+
+    var isUnreachable: Bool {
+        if case .unreachable = self { return true }
+        return false
+    }
+
+    /// any error as one of these: the PC's own answers stay, a failed connection says which step failed
+    static func from(_ error: Error) -> APIError {
+        if let e = error as? APIError { return e }
+        return .unreachable(NoAnswer(error))
+    }
+}
+
+/// Which step of reaching the PC failed, from the iPhone's network error. The PC's address is a Tailscale name
+/// that only Tailscale's DNS knows; ordinary DNS either doesn't know it or (with Funnel on) points it at
+/// Tailscale's public relays, where the phone's port just times out.
+enum NoAnswer: Equatable {
+    case unknown
+    case noName      // the name lookup failed
+    case timeout     // nothing answered in time
+    case refused     // something answered and turned the connection down
+    case offline     // this iPhone has no network
+    case secure      // the secure connection (its certificate) failed
+
+    init(_ error: Error) {
+        guard let e = error as? URLError else { self = .unknown; return }
+        switch e.code {
+        case .cannotFindHost, .dnsLookupFailed: self = .noName
+        case .timedOut: self = .timeout
+        case .cannotConnectToHost: self = .refused
+        case .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff: self = .offline
+        case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate,
+             .serverCertificateNotYetValid, .serverCertificateHasUnknownRoot:
+            self = .secure
+        default: self = .unknown
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .unknown:
+            return "Can't reach your PC. Is Tailscale on? In the Tailscale app, also check that Use Tailscale DNS is on."
+        case .noName:
+            return "Can't find your PC's name. In the Tailscale app, turn on Use Tailscale DNS, and turn off any other "
+                + "VPN or DNS app (NextDNS, Cloudflare WARP, AdGuard)."
+        case .timeout:
+            return "Your PC didn't answer. In the Tailscale app, check it's connected and Use Tailscale DNS is on; if "
+                + "both are, turn Tailscale off and on. The PC must be awake."
+        case .refused:
+            return "Your PC turned the connection down. Is GupWorks' phone service set up on the PC?"
+        case .offline:
+            return "This iPhone is offline."
+        case .secure:
+            return "The secure connection to your PC failed. Check the iPhone's date and time, then try again."
         }
     }
 }
@@ -421,7 +476,7 @@ final class APIClient {
                 } catch let e as APIError {
                     continuation.finish(throwing: e)
                 } catch {
-                    continuation.finish(throwing: Task.isCancelled ? CancellationError() as Error : APIError.unreachable)
+                    continuation.finish(throwing: Task.isCancelled ? CancellationError() as Error : APIError.from(error))
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
@@ -479,7 +534,7 @@ final class APIClient {
         do {
             (data, response) = try await (via ?? (slow ? slowSession : session)).data(for: req)
         } catch {
-            throw APIError.unreachable
+            throw APIError.from(error)
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401 {

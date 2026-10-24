@@ -136,7 +136,7 @@ struct PairingView: View {
                 } catch let e as APIError {
                     problem = e.message
                 } catch {
-                    problem = APIError.unreachable.message
+                    problem = APIError.from(error).message
                 }
                 busy = false
             }

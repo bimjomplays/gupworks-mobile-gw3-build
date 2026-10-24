@@ -324,7 +324,7 @@ struct ChatView: View {
         if store.gone {
             Notice(icon: "trash", text: "This chat isn't on the PC anymore.")
         } else if let e = store.error {
-            Notice(icon: "exclamationmark.triangle", text: e == .unreachable ? "Reconnecting\u{2026} " + e.message : e.message)
+            Notice(icon: "exclamationmark.triangle", text: e.isUnreachable ? "Reconnecting\u{2026} " + e.message : e.message)
         } else if store.isNew {
             if store.outbox.isEmpty {
                 Notice(icon: "bubble.left", text: "A new chat on your PC. It starts with your first message.")
