@@ -625,6 +625,13 @@ final class ProjectTests: XCTestCase {
         XCTAssertEqual(DemoProject.apply("pause", to: "zz", in: v), v)
     }
 
+    func testDemoMarkdownKeepsTables() {
+        let blocks = DemoProject.blocks("# Palette\n\n| Role | Colour |\n|---|---|\n| Accent | #a84e24 |\n\n- Sand")
+        XCTAssertEqual(blocks.map(\.t), ["h", "table", "list"])
+        XCTAssertEqual(blocks[1].head, ["Role", "Colour"])
+        XCTAssertEqual(blocks[1].rows, [["Accent", "#a84e24"]])
+    }
+
     func testNewThreadShowsWorking() throws {
         let v = DemoProject.add("Add a footer\nwith the address", to: try fixture().view)
         XCTAssertEqual(v.counts.working, 3)

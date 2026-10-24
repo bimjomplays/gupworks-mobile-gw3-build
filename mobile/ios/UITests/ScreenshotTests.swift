@@ -293,6 +293,11 @@ final class ScreenshotTests: XCTestCase {
         app.buttons["Pin"].tap()
         sleep(1)
         let recipe = find(app, "Recipe scaler")
+        // the project folders push it down under the search bar: up a little first
+        let win = app.windows.firstMatch
+        win.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+            .press(forDuration: 0.05, thenDragTo: win.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)))
+        sleep(1)
         drag(app, recipe, from: 0.9, to: 0.45)
         XCTAssertTrue(app.buttons["Archive"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Delete"].exists)

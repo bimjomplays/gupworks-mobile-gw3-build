@@ -36,7 +36,7 @@ struct ProjectSheet: View {
             VStack(spacing: 0) {
                 TabsBar(tab: $tab, threads: store.view?.counts.threads)
                 switch tab {
-                case .threads: ThreadsTab(store: store, open: open)
+                case .threads: ThreadsTab(store: store, open: open) { path.append(NewThreadRoute()) }
                 case .library: LibraryTab(store: store)
                 case .scheduled: ScheduledTab(store: store)
                 }
@@ -111,13 +111,20 @@ private struct TabsBar: View {
 private struct ThreadsTab: View {
     let store: ProjectStore
     let open: (String) -> Void
+    let newThread: () -> Void
     @State private var unfolded: [String: Bool] = [:]
     @State private var stopping: ThreadItem?
 
     var body: some View {
+        VStack(spacing: 0) {
+            if let v = store.view { topLine(v) }
+            list
+        }
+    }
+
+    private var list: some View {
         List {
             if let v = store.view {
-                topLine(v)
                 ForEach(v.groups) { g in
                     let isOpen = unfolded[g.state] ?? !g.folded
                     Section {
@@ -175,19 +182,23 @@ private struct ThreadsTab: View {
             .foregroundStyle(ChatStyle.dim)
             .lineLimit(1)
             Spacer(minLength: 4)
-            NavigationLink(value: NewThreadRoute()) {
-                Label("New thread", systemImage: "plus")
-                    .font(.system(size: 15))
-                    .foregroundStyle(Color(hex: 0xCFCFCF))
-                    .frame(minHeight: 44)
+            Button(action: newThread) {
+                HStack(spacing: 7) {
+                    Image(systemName: "plus")
+                    Text("New thread")
+                }
+                .font(.system(size: 15))
+                .foregroundStyle(Color(hex: 0xCFCFCF))
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .fixedSize()
             .accessibilityIdentifier("newThread")
         }
-        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 12))
-        .listRowBackground(Color.clear)
-        .listRowSeparator(.hidden)
+        .padding(.leading, 20)
+        .padding(.trailing, 14)
+        .padding(.top, 4)
     }
 
     private func row(_ t: ThreadItem) -> some View {

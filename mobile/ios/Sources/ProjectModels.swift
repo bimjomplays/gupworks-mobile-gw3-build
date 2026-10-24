@@ -310,11 +310,29 @@ enum DemoProject {
     static func blocks(_ text: String) -> [MD] {
         var out: [MD] = []
         var items: [MDItem] = []
+        var table: [[String]] = []
         func flush() {
             if !items.isEmpty { out.append(MD(t: "list", items: items)); items = [] }
+            if let head = table.first {
+                out.append(MD(t: "table", head: head, rows: Array(table.dropFirst()),
+                              align: head.map { _ in "left" }))
+                table = []
+            }
+        }
+        func cells(_ line: String) -> [String] {
+            line.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "|"))
+                .components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
         }
         for para in text.components(separatedBy: "\n\n") {
             for line in para.split(separator: "\n").map(String.init) {
+                if line.hasPrefix("|") {
+                    if !items.isEmpty { out.append(MD(t: "list", items: items)); items = [] }
+                    let c = cells(line)
+                    // the |---|---| line under the head
+                    if !c.allSatisfy({ $0.allSatisfy { "-:".contains($0) } }) { table.append(c) }
+                    continue
+                }
+                if !table.isEmpty { flush() }
                 if line.hasPrefix("#") {
                     flush()
                     let level = line.prefix { $0 == "#" }.count
