@@ -240,8 +240,10 @@ struct Composer: View {
 
     // MARK: voice (D8)
 
-    private func micDown() {
-        switch voice.press.down(at: Date(), recording: voice.phase == .recording) {
+    /// `at` is the touch's own time, not when the handler ran: a busy first start can delay the
+    /// release by more than the hold time, and a tap mustn't turn into push-to-talk because of that
+    private func micDown(at t: Date) {
+        switch voice.press.down(at: t, recording: voice.phase == .recording) {
         case .start:
             focused = false
             Task { await voice.start() }
@@ -249,8 +251,8 @@ struct Composer: View {
         }
     }
 
-    private func micUp() {
-        switch voice.press.up(at: Date(), recording: voice.phase == .recording) {
+    private func micUp(at t: Date) {
+        switch voice.press.up(at: t, recording: voice.phase == .recording) {
         case .start:
             focused = false
             Task { await voice.start() }
@@ -600,8 +602,8 @@ private struct FileLine: View {
 struct VoiceKey: View {
     let recording: Bool
     let busy: Bool
-    let down: () -> Void
-    let up: () -> Void
+    let down: (Date) -> Void
+    let up: (Date) -> Void
 
     var body: some View {
         ZStack {
@@ -620,16 +622,17 @@ struct VoiceKey: View {
         .opacity(busy ? 0.4 : 1)
         .contentShape(Circle())
         .gesture(DragGesture(minimumDistance: 0)
-            .onChanged { _ in down() }
-            .onEnded { _ in up() })
+            .onChanged { down($0.time) }
+            .onEnded { up($0.time) })
         .accessibilityElement()
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(recording || busy ? "Send what you said" : "Record")
         .accessibilityHint(recording || busy ? "" : "Tap to record, or hold to talk and let go to put it in the box")
         .accessibilityIdentifier("mic")
         .accessibilityAction {
-            down()
-            up()
+            let now = Date()
+            down(now)
+            up(now)
         }
     }
 }
