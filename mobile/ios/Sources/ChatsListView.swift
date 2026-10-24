@@ -11,6 +11,7 @@ struct ChatsListView: View {
     @State private var renaming: ChatRow?
     @State private var newTitle = ""
     @State private var deleting: ChatRow?
+    @State private var openFolders: [String: Bool] = [:]  // folders opened or closed here (else the PC's)
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -58,7 +59,7 @@ struct ChatsListView: View {
                 }
             }
             .navigationDestination(for: ChatRoute.self) { r in
-                ChatView(id: r.id, pairing: model.pairing, demo: model.demo)
+                ChatView(id: r.id, pairing: model.pairing, demo: model.demo, projectSheet: r.sheet)
             }
             .navigationDestination(for: NewChatRoute.self) { _ in
                 ChatView(id: nil, pairing: model.pairing, demo: model.demo)
@@ -82,6 +83,7 @@ struct ChatsListView: View {
                 Text(ChatActions.deleteNote)
             }
         }
+        .environment(\.openChat, { (id: String) in path.append(ChatRoute(id: id)) })
         .alert("That didn't work", isPresented: Binding(get: { model.actionError != nil },
                                                        set: { if !$0 { model.actionError = nil } })) {
             Button("OK", role: .cancel) {}
@@ -112,10 +114,24 @@ struct ChatsListView: View {
 
         if q.isEmpty || !projects.isEmpty {
             Section {
-                ForEach(projects) { p in
-                    ProjectRowView(project: p)
-                        .onTapGesture { if let id = p.mainChatId { path.append(ChatRoute(id: id)) } }
-                        .accessibilityAddTraits(p.mainChatId == nil ? [] : .isButton)
+                // the desktop sidebar's order and folders; a search lists the matches flat
+                ForEach(ProjectLayout.rows(projects, layout: q.isEmpty ? home.layout : nil, open: openFolders)) { row in
+                    switch row {
+                    case .folder(let f, let count):
+                        FolderRowView(folder: f, count: count, open: openFolders[f.id] ?? !f.collapsed)
+                            .onTapGesture {
+                                withAnimation { openFolders[f.id] = !(openFolders[f.id] ?? !f.collapsed) }
+                            }
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityIdentifier("folder-\(f.name)")
+                    case .project(let p, let inFolder):
+                        ProjectRowView(project: p)
+                            .padding(.leading, inFolder ? 22 : 0)
+                            .onTapGesture {
+                                if let id = p.mainChatId { path.append(ChatRoute(id: id, sheet: true)) }
+                            }
+                            .accessibilityAddTraits(p.mainChatId == nil ? [] : .isButton)
+                    }
                 }
                 if projects.isEmpty {
                     emptyRow(home.projectsError.map { "Projects can't be read right now (\($0))." } ?? "No projects yet.")
@@ -199,6 +215,37 @@ struct ChatsListView: View {
 /// A chat pushed on the list's stack.
 struct ChatRoute: Hashable {
     let id: String
+    /// a project's main chat from its row: its threads sheet comes up at once (D9)
+    var sheet = false
+}
+
+/// A project folder from the desktop sidebar: tap to open or close it.
+private struct FolderRowView: View {
+    let folder: LayoutEntry.Folder
+    let count: Int
+    let open: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.secondary)
+                .rotationEffect(.degrees(open ? 90 : 0))
+                .frame(width: 28)
+            Text(folder.name)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.section)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Text("\(count)").font(.subheadline).foregroundStyle(Theme.secondary).monospacedDigit()
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(open ? "open" : "closed")
+    }
 }
 
 /// What the list's swipes and long-press and a chat's ⋯ menu share.

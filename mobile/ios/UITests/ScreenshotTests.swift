@@ -128,8 +128,8 @@ final class ScreenshotTests: XCTestCase {
     }
 
     func testD11MainChat() {
-        let app = launch()
-        open(app, "Lumen Studio website", waitFor: "THREAD NEEDS YOU")
+        // straight in (`-open`), so the project sheet that comes up from the list row isn't over the chat
+        let app = openChat(lumen, waitFor: "THREAD NEEDS YOU")
         XCTAssertTrue(find(app, "Main chat").exists)
         XCTAssertTrue(find(app, "Land it as is").exists)
         sleep(1)
@@ -539,8 +539,8 @@ final class ScreenshotTests: XCTestCase {
     }
 
     func testThreadNeedsYouAnswers() {
-        let app = launch()
-        open(app, "Lumen Studio website", waitFor: "THREAD NEEDS YOU")
+        // straight in (`-open`), so the project sheet that comes up from the list row isn't over the chat
+        let app = openChat(lumen, waitFor: "THREAD NEEDS YOU")
         let first = app.buttons["askOption-0"]
         XCTAssertTrue(first.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(first.frame.height, 44)
@@ -650,5 +650,207 @@ final class ScreenshotTests: XCTestCase {
         if keyboard.exists { XCTAssertLessThanOrEqual(note.frame.maxY, keyboard.frame.minY) }
         XCTAssertTrue(note.exists)
         shot("d8-on-iphone-done")
+    }
+
+    // MARK: slice 6: projects (D9)
+
+    private let lumen = "00000066-1111-4222-8333-000000000066"
+
+    /// the Lumen main chat with its sheet at full height (the Threads button)
+    private func openThreads(_ extra: [String] = []) -> XCUIApplication {
+        let app = launch(["-open", lumen] + extra)
+        XCTAssertTrue(app.descendants(matching: .any)["chatTitle"].waitForExistence(timeout: 20))
+        let button = app.buttons["threadsButton"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10))
+        button.tap()
+        XCTAssertTrue(el(app, "tab-threads").waitForExistence(timeout: 5))
+        XCTAssertTrue(el(app, "thread-a6").waitForExistence(timeout: 5))
+        sleep(1)
+        return app
+    }
+
+    func testD9Project() {
+        // from the list row: the main chat with its sheet at half height
+        let app = launch()
+        XCTAssertTrue(find(app, "Wallpaper ideas").waitForExistence(timeout: 20))
+        find(app, "Lumen Studio website").tap()
+        XCTAssertTrue(el(app, "tab-threads").waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, "Contrast pass").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Contact page form").exists)
+        XCTAssertTrue(find(app, "2 working").exists)
+        XCTAssertTrue(app.buttons["threadsButton"].exists)
+        sleep(2)
+        shot("d9-project")
+    }
+
+    func testD9ThreadsFull() {
+        let app = openThreads()
+        XCTAssertTrue(find(app, "Gallery lightbox fix").exists)
+        XCTAssertTrue(find(app, "Usage").exists)
+        shot("d9-threads")
+        // a folded group opens on tap
+        el(app, "group-Done").tap()
+        XCTAssertTrue(el(app, "thread-a1").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d9-done-open")
+    }
+
+    func testD9SwipePauseAndDone() {
+        let app = openThreads()
+        drag(app, el(app, "thread-a6"), from: 0.9, to: 0.4)
+        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Pause"].exists)
+        sleep(1)
+        shot("d9-swipe")
+        app.buttons["Pause"].tap()
+        // a6 leaves Needs you for Idle, with the paused glyph
+        XCTAssertTrue(find(app, "Idle").waitForExistence(timeout: 5))
+        XCTAssertFalse(find(app, "1 needs you").exists)
+        XCTAssertTrue(find(app, "Paused").exists)
+        sleep(1)
+        shot("d9-paused")
+        drag(app, el(app, "thread-a6"), from: 0.9, to: 0.4)
+        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
+        app.buttons["Done"].tap()
+        XCTAssertTrue(el(app, "thread-a6").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Done").exists)
+        // the working thread swipes to Pause and Archive (the PC marks only idle or waiting threads done)
+        drag(app, el(app, "thread-a4"), from: 0.9, to: 0.4)
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Archive"].exists)
+    }
+
+    func testD9LongPressThread() {
+        let app = openThreads()
+        el(app, "thread-a4").press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Stop\u{2026}"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Open chat"].exists)
+        sleep(1)
+        shot("d9-press")
+        app.buttons["Stop\u{2026}"].tap()
+        XCTAssertTrue(find(app, "Stop \u{201C}Contact page form\u{201D}?").waitForExistence(timeout: 5))
+    }
+
+    func testD9NewThread() {
+        let app = openThreads()
+        app.buttons["newThread"].tap()
+        let box = app.textViews["newThreadText"]
+        XCTAssertTrue(box.waitForExistence(timeout: 5))
+        box.typeText("Add the studio hours to the footer")
+        sleep(1)
+        shot("d9-new-thread")
+        app.buttons["startThread"].tap()
+        XCTAssertTrue(find(app, "Add the studio hours to the footer").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "3 working").exists)
+        sleep(1)
+        shot("d9-new-thread-started")
+    }
+
+    func testD9OpenThread() {
+        let app = openThreads()
+        el(app, "thread-a5").tap()
+        // the sheet goes and the thread's chat is pushed over the main chat
+        XCTAssertTrue(find(app, "All five pages pass").waitForExistence(timeout: 10))
+        XCTAssertFalse(el(app, "tab-threads").exists)
+        sleep(1)
+        shot("d9-open-thread")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(find(app, "THREAD NEEDS YOU").waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["threadsButton"].exists)
+    }
+
+    func testD9Library() {
+        let app = openThreads()
+        el(app, "tab-library").tap()
+        XCTAssertTrue(el(app, "lib-Ideas").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Pinned").exists)
+        XCTAssertTrue(find(app, "From threads").exists)
+        sleep(1)
+        shot("d9-library")
+        el(app, "lib-Memory").tap()
+        XCTAssertTrue(el(app, "lib-MEMORY.md").waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        el(app, "lib-Palette.md").tap()
+        XCTAssertTrue(el(app, "noteText").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d9-note")
+        app.buttons["noteEdit"].tap()
+        let editor = app.textViews["noteEditor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.typeText("\n- Sand for the footer")
+        sleep(1)
+        shot("d9-note-edit")
+        app.buttons["noteSave"].tap()
+        XCTAssertTrue(el(app, "noteSaved").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Sand for the footer").exists)
+        sleep(1)
+        shot("d9-note-saved")
+    }
+
+    func testD9LibraryPicture() {
+        let app = openThreads()
+        el(app, "tab-library").tap()
+        let row = el(app, "lib-contact-form.png")
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
+        XCTAssertTrue(el(app, "libraryPicture").waitForExistence(timeout: 5))
+        sleep(2)
+        shot("d9-library-picture")
+    }
+
+    func testD9NoteConflict() {
+        let app = openThreads(["-noteConflict"])
+        el(app, "tab-library").tap()
+        XCTAssertTrue(el(app, "lib-Ideas").waitForExistence(timeout: 5))
+        el(app, "lib-Ideas").tap()
+        app.buttons["noteEdit"].tap()
+        let editor = app.textViews["noteEditor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.typeText("\n- A night mode")
+        app.buttons["noteSave"].tap()
+        XCTAssertTrue(app.alerts["This note changed on the PC"].waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d9-note-conflict")
+        app.alerts.buttons["Keep mine"].tap()
+        XCTAssertTrue(el(app, "noteSaved").waitForExistence(timeout: 5))
+    }
+
+    func testD9Scheduled() {
+        let app = openThreads()
+        el(app, "tab-scheduled").tap()
+        XCTAssertTrue(find(app, "Lighthouse report").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Portfolio refresh").exists)
+        sleep(1)
+        shot("d9-scheduled")
+    }
+
+    func testD9ProjectMenu() {
+        let app = openChat(lumen, waitFor: "THREAD NEEDS YOU")
+        app.buttons["more"].tap()
+        XCTAssertTrue(app.buttons["Pause project"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Archive project\u{2026}"].exists)
+        sleep(1)
+        shot("d9-project-menu")
+        app.buttons["Pause project"].tap()
+        sleep(1)
+        app.buttons["more"].tap()
+        XCTAssertTrue(app.buttons["Resume project"].waitForExistence(timeout: 5))
+        app.buttons["Project info"].tap()
+        XCTAssertTrue(find(app, "A one-page site").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("d9-project-info")
+    }
+
+    func testHomeFolders() {
+        let app = launch()
+        XCTAssertTrue(find(app, "Wallpaper ideas").waitForExistence(timeout: 20))
+        let folder = el(app, "folder-At home")
+        XCTAssertTrue(folder.exists)
+        XCTAssertTrue(find(app, "Garden planner").exists)
+        sleep(1)
+        shot("d1-folders")
+        folder.tap()
+        XCTAssertTrue(find(app, "Garden planner").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Lumen Studio website").exists)
     }
 }

@@ -1,0 +1,767 @@
+{
+ "now": 1792000000000,
+ "view": {
+  "id": "lumen-studio",
+  "name": "Lumen Studio website",
+  "paused": false,
+  "archived": false,
+  "mainChatId": "00000066-1111-4222-8333-000000000066",
+  "now": 1792000000000,
+  "counts": {
+   "threads": 3,
+   "needs": 1,
+   "working": 2,
+   "checking": 0,
+   "schedules": 3
+  },
+  "quiet": [
+   {
+    "glyph": "needs",
+    "text": "1 needs you"
+   },
+   {
+    "glyph": "spin",
+    "text": "2 working"
+   }
+  ],
+  "groups": [
+   {
+    "state": "needs-you",
+    "label": "Needs you",
+    "count": 1,
+    "folded": false,
+    "threads": [
+     {
+      "id": "a6",
+      "title": "Contrast pass",
+      "chatId": "00000076-2222-4222-8333-000000000076",
+      "state": "needs-you",
+      "status": "waiting",
+      "glyph": "needs",
+      "part": "Site",
+      "detail": "Asks: Land the darker palette?",
+      "holds": [],
+      "right": "Sonnet",
+      "usage": "167K",
+      "expensive": true,
+      "muted": false,
+      "doneOk": false,
+      "moves": [
+       "pause",
+       "stop",
+       "done",
+       "archive"
+      ]
+     }
+    ]
+   },
+   {
+    "state": "working",
+    "label": "Working",
+    "count": 2,
+    "folded": false,
+    "threads": [
+     {
+      "id": "a4",
+      "title": "Contact page form",
+      "chatId": "00000074-2222-4222-8333-000000000074",
+      "state": "working",
+      "status": "running",
+      "glyph": "spin",
+      "part": "Site",
+      "detail": "writing script.js 2m ago",
+      "holds": [],
+      "right": "Sonnet",
+      "usage": "82K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": false,
+      "moves": [
+       "pause",
+       "stop",
+       "archive"
+      ]
+     },
+     {
+      "id": "a5",
+      "title": "Gallery lightbox fix",
+      "chatId": "00000009-1111-4222-8333-000000000009",
+      "state": "working",
+      "status": "running",
+      "glyph": "spin",
+      "part": "Site",
+      "detail": "checking the lightbox 6m ago",
+      "holds": [],
+      "right": "Sonnet",
+      "usage": "19K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": false,
+      "moves": [
+       "pause",
+       "stop",
+       "archive"
+      ]
+     }
+    ]
+   },
+   {
+    "state": "done",
+    "label": "Done",
+    "count": 7,
+    "folded": true,
+    "threads": [
+     {
+      "id": "a1",
+      "title": "Home page hero",
+      "chatId": null,
+      "state": "done",
+      "status": "accepted",
+      "glyph": "check",
+      "part": "Site",
+      "detail": "Home page hero: built and checked",
+      "holds": [],
+      "right": "b81c2e4",
+      "usage": "80K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": true,
+      "moves": [
+       "archive"
+      ]
+     },
+     {
+      "id": "a2",
+      "title": "Nav and footer",
+      "chatId": null,
+      "state": "done",
+      "status": "accepted",
+      "glyph": "check",
+      "part": "Site",
+      "detail": "Nav and footer: built and checked",
+      "holds": [],
+      "right": "3f0d9a1",
+      "usage": "51K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": true,
+      "moves": [
+       "archive"
+      ]
+     },
+     {
+      "id": "a3",
+      "title": "Gallery grid",
+      "chatId": null,
+      "state": "done",
+      "status": "accepted",
+      "glyph": "check",
+      "part": "Site",
+      "detail": "Gallery grid: built and checked",
+      "holds": [],
+      "right": "9e2a7c0",
+      "usage": "73K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": true,
+      "moves": [
+       "archive"
+      ]
+     },
+     {
+      "id": "b1",
+      "title": "Fonts and spacing",
+      "chatId": null,
+      "state": "done",
+      "status": "accepted",
+      "glyph": "check",
+      "part": "Site",
+      "detail": "Fonts and spacing: built and checked",
+      "holds": [],
+      "right": "6c41d83",
+      "usage": "28K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": true,
+      "moves": [
+       "archive"
+      ]
+     },
+     {
+      "id": "b2",
+      "title": "About page",
+      "chatId": null,
+      "state": "done",
+      "status": "accepted",
+      "glyph": "check",
+      "part": "Site",
+      "detail": "About page: built and checked",
+      "holds": [],
+      "right": "e07b5f2",
+      "usage": "46K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": true,
+      "moves": [
+       "archive"
+      ]
+     },
+     {
+      "id": "b3",
+      "title": "Contact details",
+      "chatId": null,
+      "state": "done",
+      "status": "accepted",
+      "glyph": "check",
+      "part": "Site",
+      "detail": "Contact details: built and checked",
+      "holds": [],
+      "right": "15ad6e9",
+      "usage": "15K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": true,
+      "moves": [
+       "archive"
+      ]
+     },
+     {
+      "id": "b4",
+      "title": "Favicon and icons",
+      "chatId": null,
+      "state": "done",
+      "status": "accepted",
+      "glyph": "check",
+      "part": "Site",
+      "detail": "Favicon and icons: built and checked",
+      "holds": [],
+      "right": "c9f3302",
+      "usage": "23K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": true,
+      "moves": [
+       "archive"
+      ]
+     }
+    ]
+   }
+  ],
+  "usage": [
+   {
+    "title": "Main chat",
+    "value": "130K",
+    "detail": "Haiku 130K",
+    "chatId": "00000066-1111-4222-8333-000000000066",
+    "expensive": false
+   },
+   {
+    "title": "10 threads",
+    "value": "583K",
+    "detail": "Sonnet 583K",
+    "chatId": null,
+    "expensive": false
+   },
+   {
+    "title": "Contrast pass",
+    "value": "167K",
+    "detail": "Used much more than the usual thread",
+    "chatId": "00000076-2222-4222-8333-000000000076",
+    "expensive": true
+   }
+  ],
+  "info": [
+   {
+    "label": "Goal",
+    "value": "A one-page site for a small photo studio"
+   },
+   {
+    "label": "Folder",
+    "value": "/work/lumen-studio"
+   },
+   {
+    "label": "Main chat",
+    "value": "Haiku · low"
+   },
+   {
+    "label": "Parts",
+    "value": "Site"
+   },
+   {
+    "label": "Notes",
+    "value": "/Notes/Lumen Studio website"
+   },
+   {
+    "label": "Started",
+    "value": "Oct 5, 2026"
+   }
+  ]
+ },
+ "library": {
+  "folder": null,
+  "title": "Library",
+  "groups": [
+   {
+    "id": "pinned",
+    "label": "Pinned",
+    "count": null,
+    "items": [
+     {
+      "path": "/Notes/Lumen Studio website/Ideas.md",
+      "kind": "note",
+      "title": "Ideas",
+      "sub": "Ideas.md · 3 ideas",
+      "mtime": 1791989200000,
+      "exists": true,
+      "workId": null,
+      "editable": true
+     },
+     {
+      "path": "/Notes/Lumen Studio website/Lumen Studio website.md",
+      "kind": "note",
+      "title": "Project notes",
+      "sub": "Lumen Studio website.md · Yesterday",
+      "mtime": 1791906400000,
+      "exists": true,
+      "workId": null,
+      "editable": true
+     }
+    ]
+   },
+   {
+    "id": "notes",
+    "label": "Notes",
+    "count": 3,
+    "items": [
+     {
+      "path": "/Notes/Lumen Studio website/Palette.md",
+      "kind": "note",
+      "title": "Palette.md",
+      "sub": "The darker palette the contrast pass picked. · 13:06",
+      "mtime": 1791997600000,
+      "exists": true,
+      "workId": null,
+      "editable": true
+     },
+     {
+      "path": "/Notes/Lumen Studio website/Memory",
+      "kind": "folder",
+      "title": "Memory",
+      "sub": "2 notes · what later chats should know",
+      "mtime": 1791982000000,
+      "exists": true,
+      "workId": null,
+      "editable": false
+     },
+     {
+      "path": "/Notes/Lumen Studio website/Contact copy.md",
+      "kind": "note",
+      "title": "Contact copy.md",
+      "sub": "Book a session, ask about prints, or just say hi. · Oct 12",
+      "mtime": 1791827200000,
+      "exists": true,
+      "workId": null,
+      "editable": true
+     }
+    ]
+   },
+   {
+    "id": "threads",
+    "label": "From threads",
+    "count": 3,
+    "items": [
+     {
+      "path": "/work/lumen-studio/contact-form.png",
+      "kind": "image",
+      "title": "contact-form.png",
+      "sub": "Contact page form · 20m",
+      "mtime": 1791998800000,
+      "exists": true,
+      "workId": "a4",
+      "editable": false
+     },
+     {
+      "path": "/work/lumen-studio/contrast-report.md",
+      "kind": "note",
+      "title": "contrast-report.md",
+      "sub": "Contrast pass · 1h",
+      "mtime": 1791996400000,
+      "exists": true,
+      "workId": "a6",
+      "editable": true
+     },
+     {
+      "path": "/work/lumen-studio/lightbox.png",
+      "kind": "image",
+      "title": "lightbox.png",
+      "sub": "Gallery lightbox fix · 50m",
+      "mtime": 1791997000000,
+      "exists": true,
+      "workId": "a5",
+      "editable": false
+     }
+    ]
+   }
+  ],
+  "count": 8
+ },
+ "folders": {
+  "/Notes/Lumen Studio website/Memory": {
+   "folder": "/Notes/Lumen Studio website/Memory",
+   "title": "Memory",
+   "groups": [
+    {
+     "id": "folder",
+     "label": "",
+     "count": 2,
+     "items": [
+      {
+       "path": "/Notes/Lumen Studio website/Memory/MEMORY.md",
+       "kind": "note",
+       "title": "MEMORY.md",
+       "sub": "[Palette](palette.md): the accent and muted colours · 08:46",
+       "mtime": 1791982000000,
+       "exists": true,
+       "workId": null,
+       "editable": true
+      },
+      {
+       "path": "/Notes/Lumen Studio website/Memory/palette.md",
+       "kind": "note",
+       "title": "palette.md",
+       "sub": "the accent and muted colours we settled on · 08:46",
+       "mtime": 1791982000000,
+       "exists": true,
+       "workId": null,
+       "editable": true
+      }
+     ]
+    }
+   ],
+   "count": 2
+  }
+ },
+ "files": {
+  "/Notes/Lumen Studio website/Ideas.md": {
+   "path": "/Notes/Lumen Studio website/Ideas.md",
+   "kind": "note",
+   "title": "Ideas",
+   "name": "Ideas.md",
+   "editable": true,
+   "text": "# Lumen Studio website ideas\n\n## Owner\n\n- A dark mode toggle in the footer\n- Booking straight from the gallery\n\n## AI suggestions\n\n- Lazy-load the gallery pictures\n",
+   "version": "79e614ee55b208ccfde3",
+   "url": null,
+   "mtime": 1791989200000,
+   "blocks": [
+    {
+     "t": "h",
+     "text": "Lumen Studio website ideas",
+     "level": 1
+    },
+    {
+     "t": "h",
+     "text": "Owner",
+     "level": 2
+    },
+    {
+     "t": "list",
+     "items": [
+      {
+       "level": 0,
+       "text": "A dark mode toggle in the footer"
+      },
+      {
+       "level": 0,
+       "text": "Booking straight from the gallery"
+      }
+     ]
+    },
+    {
+     "t": "h",
+     "text": "AI suggestions",
+     "level": 2
+    },
+    {
+     "t": "list",
+     "items": [
+      {
+       "level": 0,
+       "text": "Lazy-load the gallery pictures"
+      }
+     ]
+    }
+   ]
+  },
+  "/Notes/Lumen Studio website/Lumen Studio website.md": {
+   "path": "/Notes/Lumen Studio website/Lumen Studio website.md",
+   "kind": "note",
+   "title": "Lumen Studio website",
+   "name": "Lumen Studio website.md",
+   "editable": true,
+   "text": "# Lumen Studio website\n\nA one-page site for a small photo studio: gallery, about, contact with booking.\n\n## Decisions\n\n- Accent **#a84e24** after the contrast pass (darker than the old #b8572a)\n- No cookie banner: no tracking at all\n",
+   "version": "e179f0b2156b8b7db17c",
+   "url": null,
+   "mtime": 1791906400000,
+   "blocks": [
+    {
+     "t": "h",
+     "text": "Lumen Studio website",
+     "level": 1
+    },
+    {
+     "t": "p",
+     "text": "A one-page site for a small photo studio: gallery, about, contact with booking."
+    },
+    {
+     "t": "h",
+     "text": "Decisions",
+     "level": 2
+    },
+    {
+     "t": "list",
+     "items": [
+      {
+       "level": 0,
+       "text": "Accent **#a84e24** after the contrast pass (darker than the old #b8572a)"
+      },
+      {
+       "level": 0,
+       "text": "No cookie banner: no tracking at all"
+      }
+     ]
+    }
+   ]
+  },
+  "/Notes/Lumen Studio website/Palette.md": {
+   "path": "/Notes/Lumen Studio website/Palette.md",
+   "kind": "note",
+   "title": "Palette",
+   "name": "Palette.md",
+   "editable": true,
+   "text": "# Palette\n\nThe darker palette the contrast pass picked.\n\n| Role | Colour |\n|---|---|\n| Accent | #a84e24 |\n| Muted text | #8c8c8c |\n| Background | #141414 |\n\nEvery page passes AA contrast with these.\n",
+   "version": "01cf4b55f5d96bc892bf",
+   "url": null,
+   "mtime": 1791997600000,
+   "blocks": [
+    {
+     "t": "h",
+     "text": "Palette",
+     "level": 1
+    },
+    {
+     "t": "p",
+     "text": "The darker palette the contrast pass picked."
+    },
+    {
+     "t": "table",
+     "head": [
+      "Role",
+      "Colour"
+     ],
+     "rows": [
+      [
+       "Accent",
+       "#a84e24"
+      ],
+      [
+       "Muted text",
+       "#8c8c8c"
+      ],
+      [
+       "Background",
+       "#141414"
+      ]
+     ],
+     "align": [
+      "left",
+      "left"
+     ]
+    },
+    {
+     "t": "p",
+     "text": "Every page passes AA contrast with these."
+    }
+   ]
+  },
+  "/Notes/Lumen Studio website/Contact copy.md": {
+   "path": "/Notes/Lumen Studio website/Contact copy.md",
+   "kind": "note",
+   "title": "Contact copy",
+   "name": "Contact copy.md",
+   "editable": true,
+   "text": "# Contact page copy\n\nBook a session, ask about prints, or just say hi.\n\n- Reply within two working days\n- Studio visits by appointment\n",
+   "version": "44988bc306b87217df05",
+   "url": null,
+   "mtime": 1791827200000,
+   "blocks": [
+    {
+     "t": "h",
+     "text": "Contact page copy",
+     "level": 1
+    },
+    {
+     "t": "p",
+     "text": "Book a session, ask about prints, or just say hi."
+    },
+    {
+     "t": "list",
+     "items": [
+      {
+       "level": 0,
+       "text": "Reply within two working days"
+      },
+      {
+       "level": 0,
+       "text": "Studio visits by appointment"
+      }
+     ]
+    }
+   ]
+  },
+  "/Notes/Lumen Studio website/Memory/palette.md": {
+   "path": "/Notes/Lumen Studio website/Memory/palette.md",
+   "kind": "note",
+   "title": "palette",
+   "name": "palette.md",
+   "editable": true,
+   "text": "---\nname: palette\ndescription: the accent and muted colours we settled on\n---\n\nAccent #a84e24, muted #8c8c8c.\n",
+   "version": "1da886837821ea0f8c57",
+   "url": null,
+   "mtime": 1791982000000,
+   "blocks": [
+    {
+     "t": "p",
+     "text": "Accent #a84e24, muted #8c8c8c."
+    }
+   ]
+  },
+  "/Notes/Lumen Studio website/Memory/MEMORY.md": {
+   "path": "/Notes/Lumen Studio website/Memory/MEMORY.md",
+   "kind": "note",
+   "title": "MEMORY",
+   "name": "MEMORY.md",
+   "editable": true,
+   "text": "# Lumen memory\n\n- [Palette](palette.md): the accent and muted colours\n",
+   "version": "f668ad53e3b6ed890516",
+   "url": null,
+   "mtime": 1791982000000,
+   "blocks": [
+    {
+     "t": "h",
+     "text": "Lumen memory",
+     "level": 1
+    },
+    {
+     "t": "list",
+     "items": [
+      {
+       "level": 0,
+       "text": "[Palette](palette.md): the accent and muted colours"
+      }
+     ]
+    }
+   ]
+  },
+  "/work/lumen-studio/contact-form.png": {
+   "path": "/work/lumen-studio/contact-form.png",
+   "kind": "image",
+   "title": "contact-form.png",
+   "name": "contact-form.png",
+   "editable": false,
+   "text": null,
+   "version": null,
+   "url": "demo:media/fog.png",
+   "mtime": 1791998800000,
+   "blocks": null
+  },
+  "/work/lumen-studio/lightbox.png": {
+   "path": "/work/lumen-studio/lightbox.png",
+   "kind": "image",
+   "title": "lightbox.png",
+   "name": "lightbox.png",
+   "editable": false,
+   "text": null,
+   "version": null,
+   "url": "demo:media/tide.png",
+   "mtime": 1791997000000,
+   "blocks": null
+  },
+  "/work/lumen-studio/contrast-report.md": {
+   "path": "/work/lumen-studio/contrast-report.md",
+   "kind": "note",
+   "title": "contrast-report",
+   "name": "contrast-report.md",
+   "editable": true,
+   "text": "# Contrast report\n\nEvery page passes AA with the darker accent.\n",
+   "version": "111a8b72564051eb212b",
+   "url": null,
+   "mtime": 1791996400000,
+   "blocks": [
+    {
+     "t": "h",
+     "text": "Contrast report",
+     "level": 1
+    },
+    {
+     "t": "p",
+     "text": "Every page passes AA with the darker accent."
+    }
+   ]
+  }
+ },
+ "schedules": {
+  "groups": [
+   {
+    "label": "Scheduled",
+    "count": 2,
+    "items": [
+     {
+      "id": "s2",
+      "title": "Lighthouse report",
+      "when": "Every day at 7:30 · Sonnet",
+      "paused": false,
+      "running": false,
+      "lastStatus": "ok",
+      "chatId": null,
+      "right": "Tmrw 3:46",
+      "last": "Last run Oct 14",
+      "nextRun": 1792050400000
+     },
+     {
+      "id": "s1",
+      "title": "Broken links check",
+      "when": "Every Monday at 9:00 · Haiku",
+      "paused": false,
+      "running": false,
+      "lastStatus": "ok",
+      "chatId": null,
+      "right": "Sat 13:46",
+      "last": "Last run Oct 10 · no broken links",
+      "nextRun": 1792259200000
+     }
+    ]
+   },
+   {
+    "label": "Paused",
+    "count": 1,
+    "items": [
+     {
+      "id": "s3",
+      "title": "Portfolio refresh",
+      "when": "Every Friday at 17:00 · Sonnet",
+      "paused": true,
+      "running": false,
+      "lastStatus": "skipped",
+      "chatId": null,
+      "right": "",
+      "last": "Skipped Oct 8, 13:46 · PC was off",
+      "nextRun": 0
+     }
+    ]
+   }
+  ],
+  "count": 3,
+  "footer": "Each run is a thread in this project, on the model shown. Schedules run while the projects service is on, even with the window closed.",
+  "empty": ""
+ }
+}

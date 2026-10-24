@@ -31,6 +31,7 @@ struct Home: Codable, Equatable {
     var chats: [ChatRow]
     var archivedCount: Int
     var projectsError: String?
+    var layout: [LayoutEntry]?      // slice 6: the desktop sidebar's order and folders
 }
 
 struct ProjectRow: Codable, Equatable, Identifiable {
@@ -194,6 +195,8 @@ enum APIError: Error, Equatable {
     case server(String)      // the PC answered with an error
     /// an answer the PC turned down: the chat's hold is older (`old`), or the question changed (the new `dialog`)
     case refused(String, old: Bool, dialog: Dialog?)
+    /// a note save the PC turned down: the note changed on the PC since the phone opened it (its text now)
+    case conflict(String, theirs: String, version: String)
 
     var message: String {
         switch self {
@@ -202,6 +205,7 @@ enum APIError: Error, Equatable {
             return "Can't reach your PC. Is Tailscale on? In the Tailscale app, also check that Use Tailscale DNS is on."
         case .server(let text): return text
         case .refused(let text, _, _): return text
+        case .conflict(let text, _, _): return text
         }
     }
 }
@@ -211,6 +215,8 @@ private struct ErrorBody: Decodable {
     var error: String?
     var old: Bool?
     var dialog: Dialog?
+    var text: String?           // a note save's conflict: the PC's text and its version
+    var version: String?
 }
 
 /// Talks to gw3-phone: an ephemeral session (no cookies, cache or stored credentials), no redirects.
@@ -346,6 +352,55 @@ final class APIClient {
                           slow: true)
     }
 
+    // MARK: projects (slice 6)
+
+    func project(_ p: Pairing, _ id: String) async throws -> ProjectView {
+        try await request(p.baseURL, "/v1/projects/\(id)", token: p.token)
+    }
+
+    /// the Library, or one of its folders
+    func library(_ p: Pairing, project: String, folder: String? = nil) async throws -> LibraryList {
+        let q = folder.map { [URLQueryItem(name: "folder", value: $0)] } ?? []
+        return try await request(p.baseURL, "/v1/projects/\(project)/library", token: p.token, query: q)
+    }
+
+    func libraryFile(_ p: Pairing, project: String, path: String) async throws -> LibraryFile {
+        try await request(p.baseURL, "/v1/projects/\(project)/library/file", token: p.token,
+                          query: [URLQueryItem(name: "path", value: path)])
+    }
+
+    /// Saves a note over the version the phone opened; a change on the PC meanwhile comes back as `.conflict`.
+    func saveNote(_ p: Pairing, project: String, _ save: NoteSave) async throws -> NoteSaved {
+        try await request(p.baseURL, "/v1/projects/\(project)/library/file", token: p.token, method: "PUT",
+                          encoding: save)
+    }
+
+    func schedules(_ p: Pairing, project: String) async throws -> ScheduleList {
+        try await request(p.baseURL, "/v1/projects/\(project)/schedules", token: p.token)
+    }
+
+    /// pause | resume | stop | done | archive | unarchive, as the desktop panel's thread menu
+    func moveThread(_ p: Pairing, project: String, thread: String, _ move: String) async throws -> ProjectView {
+        try await request(p.baseURL, "/v1/projects/\(project)/threads/\(thread)/\(move)", token: p.token,
+                          method: "POST", encoding: [String: String]())
+    }
+
+    /// Your own thread (the panel's + New thread), started with its first message.
+    func newThread(_ p: Pairing, project: String, text: String) async throws -> NewThreadReply {
+        try await request(p.baseURL, "/v1/projects/\(project)/threads", token: p.token, method: "POST",
+                          encoding: ["text": text])
+    }
+
+    func pauseProject(_ p: Pairing, _ id: String, _ on: Bool) async throws -> ProjectView {
+        try await request(p.baseURL, "/v1/projects/\(id)/pause", token: p.token, method: "POST",
+                          encoding: ["paused": on])
+    }
+
+    func archiveProject(_ p: Pairing, _ id: String, _ on: Bool) async throws -> ProjectView {
+        try await request(p.baseURL, "/v1/projects/\(id)/archive", token: p.token, method: "POST",
+                          encoding: ["archived": on])
+    }
+
     /// A server-sent events stream (`/v1/home/events`, `/v1/chats/<id>/events`). Ends when the PC closes it; throws
     /// APIError like the other calls.
     func events(_ p: Pairing, _ path: String, query: [URLQueryItem] = []) -> AsyncThrowingStream<SSEEvent, Error> {
@@ -433,19 +488,27 @@ final class APIClient {
             }
             throw APIError.notPaired
         }
-        guard status == 200 else {
-            let e = try? JSONDecoder().decode(ErrorBody.self, from: data)
-            let text = e?.error ?? "The PC answered \(status)."
-            if e?.old == true || e?.dialog != nil {
-                throw APIError.refused(text, old: e?.old == true, dialog: e?.dialog)
-            }
-            throw APIError.server(text)
-        }
+        guard status == 200 else { throw Self.failure(status, data) }
         do {
             return try JSONDecoder().decode(T.self, from: data)
         } catch {
             throw APIError.server("The PC sent something this app can't read. Update GupWorks on the PC or the app.")
         }
+    }
+}
+
+extension APIClient {
+    /// What an error answer (not 200, not 401) means.
+    static func failure(_ status: Int, _ data: Data) -> APIError {
+        let e = try? JSONDecoder().decode(ErrorBody.self, from: data)
+        let text = e?.error ?? "The PC answered \(status)."
+        if status == 409, let theirs = e?.text, let version = e?.version {
+            return .conflict(text, theirs: theirs, version: version)
+        }
+        if e?.old == true || e?.dialog != nil {
+            return .refused(text, old: e?.old == true, dialog: e?.dialog)
+        }
+        return .server(text)
     }
 }
 

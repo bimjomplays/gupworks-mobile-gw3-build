@@ -582,3 +582,117 @@ final class VoiceTests: XCTestCase {
         XCTAssertNil(s.engine)
     }
 }
+
+final class ProjectTests: XCTestCase {
+    let lumen = "lumen-studio"
+
+    func fixture() throws -> ProjectFixture {
+        try XCTUnwrap(Demo.load(lumen, in: "fixtures/projects") as ProjectFixture?)
+    }
+
+    func testFixtureDecodesAsD9() throws {
+        let f = try fixture()
+        XCTAssertEqual(f.view.name, "Lumen Studio website")
+        XCTAssertEqual(f.view.groups.map(\.label), ["Needs you", "Working", "Done"])
+        XCTAssertEqual(f.view.groups.map(\.folded), [false, false, true])
+        XCTAssertEqual(f.view.counts.threads, 3)
+        XCTAssertEqual(f.view.quiet.map(\.text), ["1 needs you", "2 working"])
+        XCTAssertEqual(f.library.groups.map(\.id), ["pinned", "notes", "threads"])
+        XCTAssertEqual(f.schedules.groups.map(\.label), ["Scheduled", "Paused"])
+        XCTAssertNotNil(f.files[f.library.groups[0].items[0].path]?.blocks)
+    }
+
+    func testPauseResumeDoneArchiveRegroup() throws {
+        let v = try fixture().view
+        let paused = DemoProject.apply("pause", to: "a4", in: v)
+        XCTAssertEqual(paused.groups.map(\.state), ["needs-you", "working", "idle", "done"])
+        XCTAssertEqual(paused.counts.working, 1)
+        XCTAssertEqual(paused.counts.threads, 3)
+        XCTAssertEqual(paused.allThreads.first { $0.id == "a4" }?.glyph, "pause")
+        XCTAssertEqual(paused.quiet.map(\.text), ["1 needs you", "1 working"])
+        let resumed = DemoProject.apply("resume", to: "a4", in: paused)
+        XCTAssertEqual(resumed.groups.map(\.state), ["needs-you", "working", "done"])
+        let done = DemoProject.apply("done", to: "a6", in: v)
+        XCTAssertEqual(done.counts.needs, 0)
+        XCTAssertEqual(done.counts.threads, 2)
+        XCTAssertEqual(done.groups.first { $0.state == "done" }?.count, 8)
+        XCTAssertEqual(done.groups.first { $0.state == "done" }?.folded, true)
+        let archived = DemoProject.apply("archive", to: "a5", in: v)
+        XCTAssertEqual(archived.groups.last?.state, "archived")
+        XCTAssertEqual(archived.groups.last?.folded, true)
+        XCTAssertEqual(DemoProject.apply("nope", to: "a5", in: v), v)
+        XCTAssertEqual(DemoProject.apply("pause", to: "zz", in: v), v)
+    }
+
+    func testNewThreadShowsWorking() throws {
+        let v = DemoProject.add("Add a footer\nwith the address", to: try fixture().view)
+        XCTAssertEqual(v.counts.working, 3)
+        XCTAssertEqual(v.groups.first { $0.state == "working" }?.threads.first?.title, "Add a footer")
+    }
+
+    func testDemoStoreMovesAndSaves() async throws {
+        let s = ProjectStore(id: lumen, pairing: nil, demo: true)
+        await s.follow()
+        XCTAssertEqual(s.view?.counts.threads, 3)
+        await s.move("pause", thread: "a5")
+        XCTAssertEqual(s.view?.allThreads.first { $0.id == "a5" }?.state, "idle")
+        let started = await s.newThread("Write the FAQ")
+        let blank = await s.newThread("   ")
+        XCTAssertTrue(started)
+        XCTAssertFalse(blank)
+        await s.setPaused(true)
+        XCTAssertEqual(s.view?.paused, true)
+        await s.loadLibrary()
+        let path = try XCTUnwrap(s.library?.groups[1].items.first?.path)
+        let saved = try await s.save(path: path, text: "# Palette\n\n- Ink\n- Fog", version: nil)
+        XCTAssertEqual(saved.blocks?.first?.t, "h")
+        let reread = try await s.file(path)
+        XCTAssertEqual(reread.text, "# Palette\n\n- Ink\n- Fog")
+        let memory = try await s.folder("/Notes/Lumen Studio website/Memory")
+        XCTAssertFalse(memory.groups.flatMap(\.items).isEmpty)
+        await s.loadSchedules()
+        XCTAssertEqual(s.schedules?.count, 3)
+    }
+
+    func testConflictAndOtherFailures() {
+        let conflict = #"{"error": "This note changed on the PC.", "text": "theirs", "version": "abc", "mtime": 1}"#
+        XCTAssertEqual(APIClient.failure(409, Data(conflict.utf8)),
+                       .conflict("This note changed on the PC.", theirs: "theirs", version: "abc"))
+        XCTAssertEqual(APIClient.failure(409, Data(#"{"error": "Busy."}"#.utf8)), .server("Busy."))
+        XCTAssertEqual(APIClient.failure(400, Data(#"{"error": "That thread can't be done now."}"#.utf8)),
+                       .server("That thread can't be done now."))
+        XCTAssertEqual(APIClient.failure(502, Data("nope".utf8)), .server("The PC answered 502."))
+    }
+
+    func row(_ id: String) -> ProjectRow {
+        ProjectRow(id: id, name: id, state: "idle", detail: "", needs: 0, permission: 0, working: 0, paused: false,
+                   mainChatId: nil)
+    }
+
+    func testFoldersFollowTheDesktop() {
+        let projects = ["a", "b", "c", "d"].map(row)
+        let folder = LayoutEntry.Folder(id: "f1", name: "At home", collapsed: false)
+        let layout = [LayoutEntry(project: "c"), LayoutEntry(folder: folder, projects: ["a", "gone", "b"])]
+        XCTAssertEqual(ProjectLayout.rows(projects, layout: layout, open: [:]).map(\.id),
+                       ["p-c", "f-f1", "p-a", "p-b", "p-d"])
+        XCTAssertEqual(ProjectLayout.rows(projects, layout: layout, open: ["f1": false]).map(\.id),
+                       ["p-c", "f-f1", "p-d"])
+        var closed = folder
+        closed.collapsed = true
+        let shut = [LayoutEntry(folder: closed, projects: ["a"])]
+        XCTAssertEqual(ProjectLayout.rows(projects, layout: shut, open: [:]).map(\.id), ["f-f1", "p-b", "p-c", "p-d"])
+        XCTAssertEqual(ProjectLayout.rows(projects, layout: shut, open: ["f1": true]).map(\.id),
+                       ["f-f1", "p-a", "p-b", "p-c", "p-d"])
+        // a folder with nothing left in it isn't shown; no layout keeps the PC's order
+        let empty = [LayoutEntry(folder: folder, projects: ["gone"])]
+        XCTAssertEqual(ProjectLayout.rows(projects, layout: empty, open: [:]).map(\.id), ["p-a", "p-b", "p-c", "p-d"])
+        XCTAssertEqual(ProjectLayout.rows(projects, layout: nil, open: [:]).map(\.id), ["p-a", "p-b", "p-c", "p-d"])
+    }
+
+    func testHomeLayoutDecodes() throws {
+        let home: Home = try XCTUnwrap(Demo.load("home"))
+        let rows = ProjectLayout.rows(home.projects, layout: home.layout, open: [:])
+        XCTAssertEqual(rows.first?.id, "p-lumen-studio")
+        XCTAssertTrue(rows.contains { if case .folder(let f, 2) = $0 { return f.name == "At home" }; return false })
+    }
+}

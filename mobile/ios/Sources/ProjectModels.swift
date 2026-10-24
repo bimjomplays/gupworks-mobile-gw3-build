@@ -1,0 +1,333 @@
+import Foundation
+
+// Slice 6: what gw3-phone's project routes send (tools/gw3_phone.py, "Slice 6"); the demo's copy is
+// mobile/fixtures/projects/<id>.json.
+
+/// GET /v1/projects/<id> (and each `project` event): the desktop panel's threads, groups, usage and info.
+struct ProjectView: Codable, Equatable {
+    var id: String
+    var name: String
+    var paused: Bool
+    var archived: Bool
+    var mainChatId: String?
+    var now: Double
+    var counts: Counts
+    var quiet: [Quiet]
+    var groups: [ThreadGroup]
+    var usage: [UsageRow]
+    var info: [InfoRow]
+
+    struct Counts: Codable, Equatable {
+        var threads: Int        // not done or archived
+        var needs: Int
+        var working: Int
+        var checking: Int
+        var schedules: Int
+    }
+
+    /// "1 needs you", "2 working" over the list (glyph: needs | spin | review)
+    struct Quiet: Codable, Equatable, Hashable {
+        var glyph: String
+        var text: String
+    }
+
+    struct UsageRow: Codable, Equatable, Hashable {
+        var title: String
+        var value: String
+        var detail: String
+        var chatId: String?
+        var expensive: Bool
+    }
+
+    struct InfoRow: Codable, Equatable, Hashable {
+        var label: String
+        var value: String
+    }
+
+    var allThreads: [ThreadItem] { groups.flatMap(\.threads) }
+}
+
+/// Needs you, Working, Being checked, Up next, Idle, Done, Archived (Done and Archived start folded).
+struct ThreadGroup: Codable, Equatable, Identifiable {
+    var state: String
+    var label: String
+    var count: Int
+    var folded: Bool
+    var threads: [ThreadItem]
+
+    var id: String { state }
+}
+
+/// One thread row, as the panel draws it.
+struct ThreadItem: Codable, Equatable, Identifiable {
+    var id: String              // a6
+    var title: String
+    var chatId: String?
+    var state: String
+    var status: String
+    var glyph: String           // needs | spin | idle | pause | review | ring | check | cross
+    var part: String
+    var detail: String
+    var holds: [String]
+    var right: String           // the model, or a done thread's commit
+    var usage: String           // "167K"
+    var expensive: Bool
+    var muted: Bool
+    var doneOk: Bool
+    var moves: [String]         // pause | resume | stop | done | archive | unarchive
+}
+
+/// GET …/library (or ?folder=): Pinned, Notes, From threads; a folder's notes.
+struct LibraryList: Codable, Equatable {
+    var folder: String?
+    var title: String
+    var count: Int
+    var groups: [LibraryGroup]
+}
+
+struct LibraryGroup: Codable, Equatable, Identifiable {
+    var id: String
+    var label: String
+    var count: Int?
+    var items: [LibraryRow]
+}
+
+struct LibraryRow: Codable, Equatable, Identifiable, Hashable {
+    var path: String
+    var kind: String            // note | folder | image | file
+    var title: String
+    var sub: String
+    var mtime: Double
+    var exists: Bool
+    var workId: String?
+    var editable: Bool
+
+    var id: String { path }
+}
+
+/// GET …/library/file: a note's text and how it reads, a picture's link, or a file the phone only names.
+struct LibraryFile: Codable, Equatable {
+    var path: String
+    var kind: String
+    var title: String
+    var name: String
+    var editable: Bool
+    var text: String?
+    var version: String?
+    var url: String?
+    var mtime: Double
+    var blocks: [MD]?
+}
+
+/// PUT …/library/file: the text to save over `version` (what the phone opened); `force` saves over a change.
+struct NoteSave: Codable, Equatable {
+    var path: String
+    var text: String
+    var version: String?
+    var force: Bool?
+}
+
+struct NoteSaved: Codable, Equatable {
+    var ok: Bool
+    var path: String
+    var version: String
+    var mtime: Double
+    var blocks: [MD]?
+}
+
+/// GET …/schedules: Scheduled and Paused.
+struct ScheduleList: Codable, Equatable {
+    var groups: [ScheduleGroup]
+    var count: Int
+    var footer: String
+}
+
+struct ScheduleGroup: Codable, Equatable, Identifiable {
+    var label: String
+    var count: Int
+    var items: [ScheduleRow]
+
+    var id: String { label }
+}
+
+struct ScheduleRow: Codable, Equatable, Identifiable {
+    var id: String
+    var title: String
+    var when: String
+    var paused: Bool
+    var running: Bool
+    var lastStatus: String?
+    var chatId: String?
+    var right: String
+    var last: String
+    var nextRun: Double?
+}
+
+/// POST …/threads: the new thread and the view with it.
+struct NewThreadReply: Codable, Equatable {
+    var workId: String?
+    var chatId: String?
+    var project: ProjectView
+}
+
+/// mobile/fixtures/projects/<id>.json: one project's answers for the demo.
+struct ProjectFixture: Codable {
+    var now: Double
+    var view: ProjectView
+    var library: LibraryList
+    var folders: [String: LibraryList]
+    var files: [String: LibraryFile]
+    var schedules: ScheduleList
+}
+
+// MARK: the home list's folders (projects-ui.json's sidebarFolders, as the desktop sidebar has them)
+
+/// One entry of Home.layout: a project on its own, or a folder of projects.
+struct LayoutEntry: Codable, Equatable {
+    var project: String?
+    var folder: Folder?
+    var projects: [String]?
+
+    struct Folder: Codable, Equatable {
+        var id: String
+        var name: String
+        var collapsed: Bool
+    }
+}
+
+/// The Projects section's rows: projects in the desktop's order, folders with theirs (projects the layout
+/// doesn't name come last, as on the desktop).
+enum ProjectLayout {
+    enum Row: Equatable, Identifiable {
+        case project(ProjectRow, inFolder: Bool)
+        case folder(LayoutEntry.Folder, count: Int)
+
+        var id: String {
+            switch self {
+            case .project(let p, _): return "p-" + p.id
+            case .folder(let f, _): return "f-" + f.id
+            }
+        }
+    }
+
+    /// `open` says which folders are open (by id); a folder not in it uses its own `collapsed`.
+    static func rows(_ projects: [ProjectRow], layout: [LayoutEntry]?, open: [String: Bool]) -> [Row] {
+        guard let layout, !layout.isEmpty else { return projects.map { .project($0, inFolder: false) } }
+        let byId = Dictionary(projects.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var used = Set<String>()
+        var out: [Row] = []
+        for e in layout {
+            if let f = e.folder {
+                let inside = (e.projects ?? []).compactMap { byId[$0] }.filter { !used.contains($0.id) }
+                guard !inside.isEmpty else { continue }
+                used.formUnion(inside.map(\.id))
+                out.append(.folder(f, count: inside.count))
+                if open[f.id] ?? !f.collapsed {
+                    out += inside.map { .project($0, inFolder: true) }
+                }
+            } else if let id = e.project, let p = byId[id], !used.contains(id) {
+                used.insert(id)
+                out.append(.project(p, inFolder: false))
+            }
+        }
+        out += projects.filter { !used.contains($0.id) }.map { .project($0, inFolder: false) }
+        return out
+    }
+}
+
+// MARK: the demo's thread moves (nothing leaves the phone)
+
+enum DemoProject {
+    static let order = ["needs-you", "working", "checking", "up-next", "idle", "done", "archived"]
+    static let labels = ["needs-you": "Needs you", "working": "Working", "checking": "Being checked",
+                         "up-next": "Up next", "idle": "Idle", "done": "Done", "archived": "Archived"]
+
+    /// The view after `move` on thread `id`, as the PC's would read (states, glyphs, moves, counts).
+    static func apply(_ move: String, to id: String, in v: ProjectView) -> ProjectView {
+        var threads = v.allThreads
+        guard let i = threads.firstIndex(where: { $0.id == id }) else { return v }
+        var t = threads[i]
+        switch move {
+        case "pause":
+            (t.status, t.state, t.glyph, t.moves) = ("paused", "idle", "pause", ["resume", "stop", "done", "archive"])
+            t.detail = "paused"
+        case "resume":
+            (t.status, t.state, t.glyph, t.moves) = ("running", "working", "spin", ["pause", "stop", "archive"])
+            t.detail = "Picking up where it stopped"
+        case "stop":
+            (t.status, t.state, t.glyph, t.moves) = ("stopped", "idle", "idle", ["done", "archive"])
+        case "done":
+            (t.status, t.state, t.glyph, t.moves, t.doneOk) = ("accepted", "done", "check", ["archive"], true)
+        case "archive":
+            (t.state, t.moves) = ("archived", ["unarchive"])
+        case "unarchive":
+            t.state = t.status == "accepted" ? "done" : "idle"
+            t.moves = ["archive"]
+        default:
+            return v
+        }
+        threads[i] = t
+        return regroup(v, threads)
+    }
+
+    /// A thread started from the phone: it shows as working at once.
+    static func add(_ text: String, to v: ProjectView) -> ProjectView {
+        let n = v.allThreads.count + 1
+        let title = text.split(separator: "\n").first.map { String($0.prefix(60)) } ?? "New thread"
+        let t = ThreadItem(id: "d\(n)", title: title, chatId: nil, state: "working", status: "running", glyph: "spin",
+                           part: "", detail: "Starting", holds: [], right: "Sonnet", usage: "", expensive: false,
+                           muted: false, doneOk: false, moves: ["pause", "stop", "archive"])
+        return regroup(v, [t] + v.allThreads)
+    }
+
+    static func regroup(_ v: ProjectView, _ threads: [ThreadItem]) -> ProjectView {
+        var out = v
+        out.groups = order.compactMap { s in
+            let items = threads.filter { $0.state == s }
+            guard !items.isEmpty else { return nil }
+            let was = v.groups.first { $0.state == s }
+            return ThreadGroup(state: s, label: labels[s] ?? s, count: items.count,
+                               folded: was?.folded ?? (s == "done" || s == "archived"), threads: items)
+        }
+        let count = { (s: String) in threads.filter { $0.state == s }.count }
+        out.counts.threads = threads.filter { $0.state != "done" && $0.state != "archived" }.count
+        out.counts.needs = count("needs-you")
+        out.counts.working = count("working")
+        out.counts.checking = count("checking")
+        out.quiet = []
+        if out.counts.needs > 0 {
+            out.quiet.append(.init(glyph: "needs", text: out.counts.needs == 1 ? "1 needs you"
+                                                     : "\(out.counts.needs) need you"))
+        }
+        if out.counts.working > 0 { out.quiet.append(.init(glyph: "spin", text: "\(out.counts.working) working")) }
+        if out.counts.checking > 0 {
+            out.quiet.append(.init(glyph: "review", text: "\(out.counts.checking) being checked"))
+        }
+        return out
+    }
+
+    /// The demo's own rough Markdown for a saved note (the PC renders the real one).
+    static func blocks(_ text: String) -> [MD] {
+        var out: [MD] = []
+        var items: [MDItem] = []
+        func flush() {
+            if !items.isEmpty { out.append(MD(t: "list", items: items)); items = [] }
+        }
+        for para in text.components(separatedBy: "\n\n") {
+            for line in para.split(separator: "\n").map(String.init) {
+                if line.hasPrefix("#") {
+                    flush()
+                    let level = line.prefix { $0 == "#" }.count
+                    out.append(MD(t: "h", text: line.dropFirst(level).trimmingCharacters(in: .whitespaces), level: level))
+                } else if line.hasPrefix("- ") {
+                    items.append(MDItem(level: 0, text: String(line.dropFirst(2))))
+                } else {
+                    flush()
+                    out.append(MD(t: "p", text: line))
+                }
+            }
+            flush()
+        }
+        return out
+    }
+}

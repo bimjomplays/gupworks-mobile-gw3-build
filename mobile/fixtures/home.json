@@ -13,7 +13,7 @@
    "mainChatId": "00000065-1111-4222-8333-000000000065"
   },
   {
-   "id": "lumen-studio-3c4d",
+   "id": "lumen-studio",
    "name": "Lumen Studio website",
    "state": "needs",
    "detail": "2 threads working",
@@ -33,6 +33,22 @@
    "working": 0,
    "paused": false,
    "mainChatId": "00000067-1111-4222-8333-000000000067"
+  }
+ ],
+ "layout": [
+  {
+   "project": "lumen-studio"
+  },
+  {
+   "folder": {
+    "id": "f-home",
+    "name": "At home",
+    "collapsed": false
+   },
+   "projects": [
+    "garden-planner-1a2b",
+    "home-server-5e6f"
+   ]
   }
  ],
  "setups": [],

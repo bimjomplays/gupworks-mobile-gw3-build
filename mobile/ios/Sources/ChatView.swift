@@ -21,16 +21,109 @@ struct ChatView: View {
     @State private var newTitle = ""
     @State private var confirmDelete = false
     @State private var selecting: SelectedText?
+    // slice 6: a project's main chat has the D9 sheet (threads, Library, Scheduled)
+    @State private var project: ProjectStore?
+    @State private var showProject = false
+    @State private var projectDetent: PresentationDetent = .medium
+    @State private var projectTab: ProjectTab = .threads
+    @State private var projectPath = NavigationPath()
+    @State private var pendingChat: String?
+    @State private var opensSheet: Bool
+    @State private var confirmArchiveProject = false
+    @Environment(\.openChat) private var openChat
     @Environment(\.scenePhase) private var phase
     @Environment(\.dismiss) private var dismiss
     @Environment(AppModel.self) private var model
 
-    init(id: String?, pairing: Pairing?, demo: Bool) {
+    /// `projectSheet`: a project's main chat opened from the list shows its threads sheet at once (D9)
+    init(id: String?, pairing: Pairing?, demo: Bool, projectSheet: Bool = false) {
         _store = State(initialValue: ChatStore(id: id ?? "", pairing: pairing, demo: demo))
+        _opensSheet = State(initialValue: projectSheet)
     }
 
     var body: some View {
-        sheets(alerts(chat))
+        projectParts(sheets(alerts(chat)))
+    }
+
+    /// the project's id when this is its main chat
+    private var mainOf: String? {
+        guard let h = store.header, h.role == "main" else { return nil }
+        return h.project?.id
+    }
+
+    /// split from body so the compiler can type-check it
+    private func projectParts(_ v: some View) -> some View {
+        v
+            .onChange(of: mainOf, initial: true) { _, pid in
+                guard let pid else { return }
+                if project?.id != pid { project = ProjectStore(id: pid, pairing: model.pairing, demo: model.demo) }
+                if opensSheet {
+                    opensSheet = false
+                    projectDetent = .medium
+                    showProject = true
+                }
+            }
+            .task(id: "\(phase == .active) \(project?.id ?? "")") {
+                if phase == .active, let project { await project.follow() }
+            }
+            .sheet(isPresented: $showProject, onDismiss: {
+                if let id = pendingChat {
+                    pendingChat = nil
+                    openChat?(id)
+                }
+            }) {
+                if let project {
+                    ProjectSheet(store: project, tab: $projectTab, path: $projectPath, detent: $projectDetent) { id in
+                        pendingChat = id
+                        showProject = false
+                    }
+                }
+            }
+            .confirmationDialog("Archive \u{201C}\(project?.view?.name ?? "this project")\u{201D}?",
+                                isPresented: $confirmArchiveProject, titleVisibility: .visible) {
+                Button("Archive", role: .destructive) {
+                    guard let project else { return }
+                    Task { if await project.setArchived(true) { dismiss() } }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("It leaves your projects on the PC and the phone; its threads stop. It can be brought back from "
+                     + "the PC's archive.")
+            }
+            .alert("That didn't work", isPresented: Binding(get: { !showProject && project?.actionError != nil },
+                                                           set: { if !$0 { project?.actionError = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(project?.actionError ?? "")
+            }
+    }
+
+    /// The sheet closes first when something else is shown (one sheet at a time).
+    private func overSheet(_ show: @escaping () -> Void) {
+        guard showProject else { return show() }
+        showProject = false
+        Task {
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            show()
+        }
+    }
+
+    /// The Threads button: the sheet at full height (D9), or closed when it's already there.
+    private func toggleThreads() {
+        if showProject && projectDetent == .large {
+            showProject = false
+        } else {
+            projectTab = .threads
+            projectPath = NavigationPath()
+            projectDetent = .large
+            showProject = true
+        }
+    }
+
+    private func showProjectInfo() {
+        projectPath = NavigationPath([ProjectInfoRoute()])
+        projectDetent = .large
+        showProject = true
     }
 
     private var chat: some View {
@@ -104,7 +197,7 @@ struct ChatView: View {
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Composer(store: store, usage: store.header?.usage ?? [], asking: asking) { showDetails = true }
+            Composer(store: store, usage: store.header?.usage ?? [], asking: asking) { overSheet { showDetails = true } }
         }
         .navigationBarTitleDisplayMode(.inline)
         // a solid bar under the title, as in D2: turns scroll under it instead of showing through
@@ -176,11 +269,14 @@ struct ChatView: View {
     /// D7's long-press actions and the thread card's answers, for the turns below
     private var actions: MessageActions {
         let s = store
-        let rewind: ((Turn) -> Void)? = s.working || s.rewinding ? nil : { t in Task { await s.startRewind(t) } }
+        // these come up as their own sheet or dialog, so the project sheet steps aside first
+        let rewind: ((Turn) -> Void)? = s.working || s.rewinding ? nil : { t in
+            overSheet { Task { await s.startRewind(t) } }
+        }
         return MessageActions(
             rewind: rewind,
             btw: { text in s.put("/btw about \u{201C}\(MessageActions.quote(text))\u{201D}: ") },
-            select: { text in selecting = SelectedText(text: text) },
+            select: { text in overSheet { selecting = SelectedText(text: text) } },
             reply: { text in Task { await s.send(text: text, attachments: []) } }
         )
     }
@@ -245,7 +341,7 @@ struct ChatView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .principal) {
-            Button { showDetails = true } label: {
+            Button { overSheet { showDetails = true } } label: {
                 if store.isNew {
                     Text("New chat").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.title)
                 } else {
@@ -257,8 +353,42 @@ struct ChatView: View {
                 .accessibilityIdentifier("chatTitle")
         }
         .sharedBackgroundVisibility(.hidden)
+        if let project {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: toggleThreads) {
+                    Image(systemName: "sidebar.left")
+                        .foregroundStyle(Theme.rowTitle)
+                        .overlay(alignment: .topTrailing) {
+                            if let n = project.view?.counts.threads, n > 0 {
+                                Text("\(n)")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 5)
+                                    .frame(minWidth: 17, minHeight: 17)
+                                    .background(Color(hex: 0x2F5FB3), in: Capsule())
+                                    .offset(x: 10, y: -9)
+                            }
+                        }
+                }
+                .accessibilityLabel("Threads")
+                .accessibilityValue(project.view.map { Format.plural($0.counts.threads, "thread") } ?? "")
+                .accessibilityIdentifier("threadsButton")
+            }
+        }
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
+                if let v = project?.view {
+                    Section(v.name) {
+                        Button("Project info", systemImage: "info.circle", action: showProjectInfo)
+                        Button(v.paused ? "Resume project" : "Pause project",
+                               systemImage: v.paused ? "play" : "pause") {
+                            Task { await project?.setPaused(!v.paused) }
+                        }
+                        Button("Archive project\u{2026}", systemImage: "archivebox") {
+                            overSheet { confirmArchiveProject = true }
+                        }
+                    }
+                }
                 Section {
                     // slice 8
                     Button("Claude's browser", systemImage: "globe") {}.disabled(true)
