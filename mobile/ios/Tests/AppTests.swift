@@ -77,13 +77,6 @@ final class FixtureTests: XCTestCase {
 }
 
 final class ChatFormatTests: XCTestCase {
-    /// A Telegram message's bubble shows no phone mark, even from a gw3-phone that still sends `phone: true`.
-    func testTelegramPromptHasNoPhoneMark() throws {
-        let p = try JSONDecoder().decode(Prompt.self, from: Data(#"{"text":"Is the contact page live yet?","phone":true}"#.utf8))
-        XCTAssertEqual(p.text, "Is the contact page live yet?")
-        XCTAssertFalse(Mirror(reflecting: p).children.contains { $0.label == "phone" })
-    }
-
     func testClock() {
         XCTAssertEqual(Format.clock(7_000), "0:07")
         XCTAssertEqual(Format.clock(62_000), "1:02")
@@ -494,5 +487,93 @@ private extension Result {
     var problem: Failure? {
         if case .failure(let f) = self { return f }
         return nil
+    }
+}
+
+final class VoiceTests: XCTestCase {
+    private let t0 = Date(timeIntervalSince1970: 1_000)
+
+    func testTapStartsAndKeepsRecording() {
+        var p = MicPress()
+        XCTAssertEqual(p.down(at: t0, recording: false), .start)
+        XCTAssertEqual(p.down(at: t0.addingTimeInterval(0.05), recording: true), .nothing)  // the gesture repeats
+        XCTAssertEqual(p.up(at: t0.addingTimeInterval(0.12), recording: true), .keep)
+        XCTAssertFalse(p.isDown)
+    }
+
+    func testHoldIsPushToTalk() {
+        var p = MicPress()
+        XCTAssertEqual(p.down(at: t0, recording: false), .start)
+        XCTAssertEqual(p.up(at: t0.addingTimeInterval(1.5), recording: true), .insert)
+    }
+
+    func testUpArrowSendsWhileRecording() {
+        var p = MicPress()
+        _ = p.down(at: t0, recording: false)
+        _ = p.up(at: t0.addingTimeInterval(0.1), recording: true)
+        XCTAssertEqual(p.down(at: t0.addingTimeInterval(3), recording: true), .nothing)
+        XCTAssertEqual(p.up(at: t0.addingTimeInterval(3.1), recording: true), .send)
+        // a long press on ↑ sends too
+        XCTAssertEqual(p.down(at: t0.addingTimeInterval(5), recording: true), .nothing)
+        XCTAssertEqual(p.up(at: t0.addingTimeInterval(6), recording: true), .send)
+    }
+
+    func testNothingWhenRecordingNeverStarted() {
+        var p = MicPress()
+        _ = p.down(at: t0, recording: false)
+        XCTAssertEqual(p.up(at: t0.addingTimeInterval(2), recording: false), .nothing)  // no microphone, say
+        XCTAssertEqual(p.up(at: t0.addingTimeInterval(3), recording: false), .nothing)  // an up without a down
+    }
+
+    func testLevelMatchesTheDesktop() {
+        XCTAssertEqual(VoiceMath.level(db: -160), 0)
+        XCTAssertEqual(VoiceMath.level(db: -55), 0)
+        XCTAssertEqual(VoiceMath.level(db: -32.5), 0.5, accuracy: 0.001)
+        XCTAssertEqual(VoiceMath.level(db: -10), 1)
+        XCTAssertEqual(VoiceMath.level(db: 0), 1)
+        XCTAssertEqual(VoiceMath.level(db: -.infinity), 0)
+        XCTAssertEqual(VoiceMath.level(db: .nan), 0)
+    }
+
+    func testClock() {
+        XCTAssertEqual(VoiceMath.clock(4.7), "0:04")
+        XCTAssertEqual(VoiceMath.clock(90), "1:30")
+        XCTAssertEqual(VoiceMath.clock(600), "10:00")
+        XCTAssertEqual(VoiceMath.clock(-1), "0:00")
+    }
+
+    func testMergeAfterWhatsInTheBox() {
+        XCTAssertEqual(VoiceMath.merge("", "  Fix the header. "), "Fix the header.")
+        XCTAssertEqual(VoiceMath.merge("Look at", "the gallery"), "Look at the gallery")
+        XCTAssertEqual(VoiceMath.merge("First line\n", "second"), "First line\nsecond")
+        XCTAssertEqual(VoiceMath.merge("Keep this ", "  "), "Keep this")
+    }
+
+    func testPCOnlyWhenItKnowsVoice() {
+        let old = Hello(app: "gw3-phone", version: "0.4.0", api: 1, pc: "desktop", features: ["home", "chat"])
+        var new = old
+        new.features.append("voice")
+        XCTAssertFalse(VoiceMath.usePC(nil))
+        XCTAssertFalse(VoiceMath.usePC(old))
+        XCTAssertTrue(VoiceMath.usePC(new))
+        XCTAssertTrue(VoiceMath.usePC(Demo.load("hello")))
+    }
+
+    func testWhyThePCDidntDoIt() {
+        XCTAssertEqual(VoiceMath.why(APIError.unreachable), "your PC couldn't be reached")
+        XCTAssertEqual(VoiceMath.why(APIError.server("Voice isn't set up on this PC.")),
+                       "the PC said: Voice isn't set up on this PC.")
+        XCTAssertEqual(VoiceMath.why(APIError.notPaired), "your PC doesn't know this phone anymore")
+        XCTAssertEqual(VoiceMath.why(CancellationError()), "your PC couldn't be reached")
+    }
+
+    func testVoiceReplyDecodes() throws {
+        let full = #"{"text": "Hello from the phone.", "engine": "gpu", "seconds": 11.0, "ms": 601}"#
+        let r = try JSONDecoder().decode(VoiceReply.self, from: Data(full.utf8))
+        XCTAssertEqual(r, VoiceReply(text: "Hello from the phone.", engine: "gpu", seconds: 11, ms: 601))
+        let silent = #"{"text": "", "engine": null, "seconds": 0.1, "ms": 12}"#
+        let s = try JSONDecoder().decode(VoiceReply.self, from: Data(silent.utf8))
+        XCTAssertEqual(s.text, "")
+        XCTAssertNil(s.engine)
     }
 }

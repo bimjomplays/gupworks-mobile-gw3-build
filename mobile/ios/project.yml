@@ -10,7 +10,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.4.0"
+    MARKETING_VERSION: "0.5.0"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   GupWorks3:
@@ -45,6 +45,12 @@ targets:
         NSCameraUsageDescription: >-
           GupWorks uses the camera to scan the pairing code your PC shows and to take photos you send to a chat on your
           PC. Nothing else is recorded or sent anywhere.
+        NSMicrophoneUsageDescription: >-
+          GupWorks records your voice only while you hold or tap the mic in a chat, so your PC can turn it into text
+          for Claude. The recording is deleted once it's text.
+        NSSpeechRecognitionUsageDescription: >-
+          When your PC can't be reached, GupWorks turns your recording into text on this iPhone instead. Nothing is
+          sent anywhere else.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.gupworks3.phone

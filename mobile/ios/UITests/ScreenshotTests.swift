@@ -550,4 +550,93 @@ final class ScreenshotTests: XCTestCase {
         sleep(1)
         shot("thread-answered")
     }
+
+    // MARK: slice 5: voice (the demo's PC hears "Also let a swipe down close the lightbox on phones.")
+
+    private let said = "Also let a swipe down close the lightbox on phones"
+
+    func testD8Recording() {
+        let app = launch()
+        open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
+        unfoldLast(app)
+        XCTAssertTrue(find(app, "Checked all five pages").waitForExistence(timeout: 5))
+        let mic = app.buttons["mic"]
+        XCTAssertTrue(mic.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(mic.frame.width, 44)
+        mic.tap()
+        XCTAssertTrue(find(app, "Listening").waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["voiceCancel"].exists)
+        XCTAssertTrue(app.buttons["voiceStop"].exists)
+        XCTAssertFalse(app.buttons["attach"].exists, "the recorder takes the whole bottom")
+        XCTAssertFalse(app.buttons["usage"].exists)
+        sleep(4)  // the timer reads 0:04 as the mockup
+        shot("d8-voice")
+        // ■: the words go in the box to check first
+        app.buttons["voiceStop"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["transcribing"].waitForExistence(timeout: 5))
+        let box = app.textFields["composer"].exists ? app.textFields["composer"] : app.textViews["composer"]
+        let filled = NSPredicate(format: "value CONTAINS[c] %@", said)
+        expectation(for: filled, evaluatedWith: box)
+        waitForExpectations(timeout: 10)
+        XCTAssertTrue(app.buttons["send"].exists)
+        XCTAssertFalse(app.buttons["mic"].exists, "words in the box: ↑ instead of the mic")
+        sleep(1)
+        shot("d8-into-box")
+    }
+
+    func testD8SendStraightAway() {
+        let app = launch()
+        open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
+        app.buttons["mic"].tap()
+        XCTAssertTrue(find(app, "Listening").waitForExistence(timeout: 5))
+        sleep(2)
+        app.buttons["mic"].tap()  // ↑ now
+        XCTAssertTrue(find(app, said).waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, "This is the demo").waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["mic"].waitForExistence(timeout: 5), "the box is empty again")
+        sleep(1)
+        shot("d8-sent")
+    }
+
+    func testD8Cancel() {
+        let app = launch()
+        open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
+        app.buttons["mic"].tap()
+        XCTAssertTrue(find(app, "Listening").waitForExistence(timeout: 5))
+        sleep(1)
+        app.buttons["voiceCancel"].tap()
+        XCTAssertTrue(app.buttons["attach"].waitForExistence(timeout: 5))
+        XCTAssertFalse(find(app, "Listening").exists)
+        sleep(2)  // nothing comes in later
+        XCTAssertFalse(find(app, said).exists)
+        XCTAssertTrue(app.buttons["mic"].exists)
+    }
+
+    func testD8HoldToTalk() {
+        let app = launch()
+        open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
+        app.buttons["mic"].press(forDuration: 2.5)
+        let box = app.textFields["composer"].exists ? app.textFields["composer"] : app.textViews["composer"]
+        expectation(for: NSPredicate(format: "value CONTAINS[c] %@", said), evaluatedWith: box)
+        waitForExpectations(timeout: 10)
+        XCTAssertFalse(find(app, "Listening").exists, "letting go ends the recording")
+        XCTAssertFalse(find(app, "This is the demo").exists, "push-to-talk doesn't send")
+        sleep(1)
+        shot("d8-hold")
+    }
+
+    func testD8OnDeviceFallback() {
+        let app = launch(["-voice-offline"])
+        open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
+        app.buttons["mic"].tap()
+        XCTAssertTrue(find(app, "Listening").waitForExistence(timeout: 5))
+        sleep(2)
+        app.buttons["voiceStop"].tap()
+        XCTAssertTrue(find(app, "Transcribing on this iPhone").waitForExistence(timeout: 5))
+        shot("d8-on-iphone")
+        XCTAssertTrue(app.descendants(matching: .any)["voiceNote"].waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, "Transcribed on this iPhone").exists)
+        sleep(1)
+        shot("d8-on-iphone-done")
+    }
 }

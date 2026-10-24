@@ -73,6 +73,8 @@ final class ChatStore {
     private let pairing: Pairing?
     private let demo: Bool
     private let api = APIClient()
+    /// D8: the composer's recorder
+    let voice: VoiceController
     private var demoCards: [String: CardDetail] = [:]
     private var loaded = false
 
@@ -80,6 +82,7 @@ final class ChatStore {
         self.id = id
         self.pairing = pairing
         self.demo = demo
+        self.voice = VoiceController(pairing: pairing, demo: demo)
     }
 
     var baseURL: URL? { pairing?.baseURL }

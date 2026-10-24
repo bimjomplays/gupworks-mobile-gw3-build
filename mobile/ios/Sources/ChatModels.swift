@@ -116,6 +116,7 @@ struct Turn: Codable, Equatable, Identifiable {
 struct Prompt: Codable, Equatable {
     var text: String?
     var images: [String]?
+    var phone: Bool?
     var bookmarked: Bool?
     var plugin: String?
     var notice: String?

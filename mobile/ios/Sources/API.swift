@@ -10,6 +10,14 @@ struct Hello: Codable, Equatable {
     var features: [String]
 }
 
+/// POST /v1/voice: the words, and how the PC got them ("gpu", "cpu"; none when the clip was silent)
+struct VoiceReply: Codable, Equatable {
+    var text: String
+    var engine: String?
+    var seconds: Double?
+    var ms: Int?
+}
+
 struct PairReply: Codable {
     var token: String
     var pc: String
@@ -210,6 +218,10 @@ final class APIClient {
     private let session = APIClient.makeSession(timeout: 12)
     /// answers and rewinds: the PC presses keys and waits for Claude to redraw between them
     private let slowSession = APIClient.makeSession(timeout: 60)
+    /// "is the PC there?" before a recording goes up: a short wait, so Airplane Mode falls back to the iPhone quickly
+    private let quickSession = APIClient.makeSession(timeout: 4)
+    /// a recording: up to 10 minutes of speech, which whisper on the CPU (no GPU) takes a while over
+    private let voiceSession = APIClient.makeSession(timeout: 300)
 
     private static func makeSession(timeout: TimeInterval) -> URLSession {
         let c = URLSessionConfiguration.ephemeral
@@ -229,6 +241,11 @@ final class APIClient {
 
     func hello(_ p: Pairing) async throws -> Hello {
         try await request(p.baseURL, "/v1/hello", token: p.token)
+    }
+
+    /// hello with a short wait (voice asks it while recording)
+    func quickHello(_ p: Pairing) async throws -> Hello {
+        try await perform(p.baseURL, "/v1/hello", token: p.token, via: quickSession)
     }
 
     func home(_ p: Pairing) async throws -> Home {
@@ -283,6 +300,14 @@ final class APIClient {
         let q = [URLQueryItem(name: "name", value: name), URLQueryItem(name: "chat", value: chat)]
         return try await perform(p.baseURL, "/v1/uploads", token: p.token, method: "POST", query: q, raw: data,
                                  contentType: type)
+    }
+
+    // MARK: voice (slice 5)
+
+    /// A recording (AAC in .m4a) turned into text by the PC's whisper; the PC deletes the audio once it answers.
+    func voice(_ p: Pairing, _ audio: Data) async throws -> VoiceReply {
+        try await perform(p.baseURL, "/v1/voice", token: p.token, method: "POST", raw: audio, contentType: "audio/mp4",
+                          via: voiceSession)
     }
 
     // MARK: answering, picking, commands (slice 4)
@@ -384,7 +409,8 @@ final class APIClient {
 
     private func perform<T: Decodable>(_ base: URL, _ path: String, token: String?, method: String = "GET",
                                        query: [URLQueryItem] = [], json: Data? = nil, raw: Data? = nil,
-                                       contentType: String? = nil, slow: Bool = false) async throws -> T {
+                                       contentType: String? = nil, slow: Bool = false,
+                                       via: URLSession? = nil) async throws -> T {
         var req = Self.makeRequest(base, path, token: token, query: query)
         req.httpMethod = method
         if let json {
@@ -396,7 +422,7 @@ final class APIClient {
         }
         let data: Data, response: URLResponse
         do {
-            (data, response) = try await (slow ? slowSession : session).data(for: req)
+            (data, response) = try await (via ?? (slow ? slowSession : session)).data(for: req)
         } catch {
             throw APIError.unreachable
         }

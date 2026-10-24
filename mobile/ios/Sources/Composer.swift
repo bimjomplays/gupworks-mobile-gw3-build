@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 /// D3: + (Photos, Camera, Files), the text field, / and the mic at rest; ↑ once there's something to send, and ■ while
 /// Claude works (a message sent then waits as *queued*). The usage pill floats above it.
+/// D8: the mic turns the box into the recorder (× cancel, waveform, timer, ■ into the box, ↑ send).
 struct Composer: View {
     @Bindable var store: ChatStore
     let usage: [Meter]
@@ -26,13 +27,17 @@ struct Composer: View {
     static let border = Color(hex: 0x2E2E33)
     static let uploadMax = 30 * 1024 * 1024  // gw3-phone's UPLOAD_MAX
 
+    private var voice: VoiceController { store.voice }
+    /// the box is the recorder (D8)
+    private var recorder: Bool { voice.phase != .idle }
+
     private var hasContent: Bool {
         !store.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
     }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            if !asking, let ctx = usage.first(where: { $0.label == "ctx" })?.percent {
+            if !asking, !recorder, let ctx = usage.first(where: { $0.label == "ctx" })?.percent {
                 Button(action: details) {
                     UsagePill(ctx: ctx, fiveHours: usage.first { $0.label == "5h" }?.percent)
                 }
@@ -44,10 +49,18 @@ struct Composer: View {
                 AttachmentStrip(attachments: $attachments)
             }
             HStack(alignment: .bottom, spacing: 8) {
-                plusMenu
+                if !recorder { plusMenu }
                 field
             }
             .padding(.horizontal, 16)
+            if let note = voice.note {
+                Text(note)
+                    .font(.system(size: 13))
+                    .foregroundStyle(ChatStyle.dim)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 24)
+                    .accessibilityIdentifier("voiceNote")
+            }
         }
         .padding(.top, 6)
         .padding(.bottom, 6)
@@ -81,6 +94,8 @@ struct Composer: View {
             }
         }
         .onChange(of: store.focusTick) { focused = true }
+        .onChange(of: voice.limitTick) { Task { await finishVoice(send: false) } }
+        .onDisappear { voice.cancel() }
         .alert("Can't attach that", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -109,30 +124,87 @@ struct Composer: View {
 
     private var field: some View {
         HStack(alignment: .bottom, spacing: 0) {
-            TextField("", text: $store.draft,
-                      prompt: Text(asking ? "Answer or ask\u{2026}" : "Ask Claude anything\u{2026}")
-                          .foregroundStyle(Color(hex: 0x8A8A90)),
-                      axis: .vertical)
-                .font(.system(size: 17))
-                .foregroundStyle(Theme.title)
-                .lineLimit(1...6)
-                .focused($focused)
-                .padding(.vertical, 15)
-                .accessibilityIdentifier("composer")
-            Spacer(minLength: 4)
+            if recorder {
+                recorderBar
+            } else {
+                typing
+            }
             trailing
         }
-        .padding(.leading, 18)
+        .padding(.leading, recorder ? 4 : 18)
         .padding(.trailing, 4)
         .frame(minHeight: 52)
         .background(Self.fill, in: RoundedRectangle(cornerRadius: 26))
-        .overlay(RoundedRectangle(cornerRadius: 26).stroke(Self.border, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 26)
+            .stroke(voice.phase == .recording ? Theme.blue : Self.border, lineWidth: voice.phase == .recording ? 1.5 : 1))
+    }
+
+    @ViewBuilder
+    private var typing: some View {
+        TextField("", text: $store.draft,
+                  prompt: Text(asking ? "Answer or ask\u{2026}" : "Ask Claude anything\u{2026}")
+                      .foregroundStyle(Color(hex: 0x8A8A90)),
+                  axis: .vertical)
+            .font(.system(size: 17))
+            .foregroundStyle(Theme.title)
+            .lineLimit(1...6)
+            .focused($focused)
+            .padding(.vertical, 15)
+            .accessibilityIdentifier("composer")
+        Spacer(minLength: 4)
+    }
+
+    /// D8: × · Listening… · waveform · 0:04 (or Transcribing… once it stopped)
+    private var recorderBar: some View {
+        HStack(spacing: 6) {
+            Button { voice.cancel() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(Theme.rowTitle)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Cancel recording")
+            .accessibilityIdentifier("voiceCancel")
+            if voice.phase == .recording {
+                Text("Listening\u{2026}")
+                    .font(.system(size: 17))
+                    .foregroundStyle(Theme.title)
+                    .lineLimit(1)
+                    .layoutPriority(2)
+                Waveform(levels: voice.levels)
+                    .frame(minWidth: 30, maxWidth: 86)
+                    .frame(height: 20)
+                    .accessibilityHidden(true)
+                Text(VoiceMath.clock(voice.elapsed))
+                    .font(.system(size: 17))
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.rowTitle)
+                    .lineLimit(1)
+                    .layoutPriority(2)
+                    .accessibilityLabel("Recording, \(Int(voice.elapsed)) seconds")
+                    .accessibilityIdentifier("voiceTimer")
+            } else {
+                ProgressView().controlSize(.small).tint(Theme.rowTitle)
+                Text(voice.onPhone ? "Transcribing on this iPhone\u{2026}" : "Transcribing\u{2026}")
+                    .font(.system(size: 17))
+                    .foregroundStyle(Theme.rowTitle)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .accessibilityIdentifier("transcribing")
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
     }
 
     @ViewBuilder
     private var trailing: some View {
         HStack(spacing: 2) {
-            if store.working {
+            if recorder {
+                if voice.phase == .recording { intoBoxButton }
+            } else if store.working {
                 if hasContent { sendButton }
                 stopButton(small: hasContent)
             } else if hasContent {
@@ -140,15 +212,71 @@ struct Composer: View {
                 sendButton
             } else {
                 slash
-                // voice comes with slice 5
-                Image(systemName: "mic")
-                    .font(.system(size: 18))
-                    .foregroundStyle(Theme.rowTitle)
-                    .frame(width: 44, height: 44)
-                    .accessibilityHidden(true)
+            }
+            // last and in one place, so a hold that starts here as the mic ends here as ↑
+            if recorder || !hasContent {
+                VoiceKey(recording: voice.phase == .recording, busy: voice.phase == .transcribing,
+                         down: micDown, up: micUp)
             }
         }
         .padding(.bottom, 4)
+    }
+
+    /// ■ in the recorder: the words go in the box to check first
+    private var intoBoxButton: some View {
+        Button {
+            Task { await finishVoice(send: false) }
+        } label: {
+            Image(systemName: "stop.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Theme.title)
+                .frame(width: 44, height: 44)
+                .background(Color(hex: 0x333338), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Stop and put the words in the box")
+        .accessibilityIdentifier("voiceStop")
+    }
+
+    // MARK: voice (D8)
+
+    private func micDown() {
+        switch voice.press.down(at: Date(), recording: voice.phase == .recording) {
+        case .start:
+            focused = false
+            Task { await voice.start() }
+        default: break
+        }
+    }
+
+    private func micUp() {
+        switch voice.press.up(at: Date(), recording: voice.phase == .recording) {
+        case .insert: Task { await finishVoice(send: false) }
+        case .send: Task { await finishVoice(send: true) }
+        default: break
+        }
+    }
+
+    /// The recording becomes text: in the box (■, push-to-talk) or sent as it is (↑).
+    private func finishVoice(send: Bool) async {
+        guard let t = await voice.finish() else { return }
+        let said = t.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if said.isEmpty {
+            voice.show("Nothing heard. Try again a little closer to the microphone.")
+            return
+        }
+        if t.source == .phone {
+            voice.show("Transcribed on this iPhone: \(t.why ?? "your PC couldn't be reached").")
+        }
+        let words = VoiceMath.merge(store.draft, said)
+        if send {
+            store.draft = ""
+            let picked = attachments
+            attachments = []
+            await store.send(text: words, attachments: picked)
+        } else {
+            store.put(words)
+        }
     }
 
     /// "/" in a small square: the commands sheet (D4)
@@ -461,6 +589,67 @@ private struct FileLine: View {
             .foregroundStyle(ChatStyle.dim)
             .lineLimit(1)
             .truncationMode(.middle)
+    }
+}
+
+/// The mic at rest, ↑ while recording. Tap: record (it stays on). Hold: push-to-talk, letting go puts the words in the
+/// box. ↑: send what was said. One view in both looks, so a hold that starts on the mic ends on it.
+struct VoiceKey: View {
+    let recording: Bool
+    let busy: Bool
+    let down: () -> Void
+    let up: () -> Void
+
+    var body: some View {
+        ZStack {
+            if recording || busy {
+                Circle().fill(Color(hex: 0xF0F0F0))
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color(hex: 0x181818))
+            } else {
+                Image(systemName: "mic")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Theme.rowTitle)
+            }
+        }
+        .frame(width: 44, height: 44)
+        .opacity(busy ? 0.4 : 1)
+        .contentShape(Circle())
+        .gesture(DragGesture(minimumDistance: 0)
+            .onChanged { _ in down() }
+            .onEnded { _ in up() })
+        .accessibilityElement()
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(recording || busy ? "Send what you said" : "Record")
+        .accessibilityHint(recording || busy ? "" : "Tap to record, or hold to talk and let go to put it in the box")
+        .accessibilityIdentifier("mic")
+        .accessibilityAction {
+            down()
+            up()
+        }
+    }
+}
+
+/// The recording's loudness as blue bars, newest on the right, then dots for what's still to come.
+struct Waveform: View {
+    let levels: [Float]
+
+    var body: some View {
+        Canvas { ctx, size in
+            let step: CGFloat = 5, w: CGFloat = 2.5
+            let slots = max(4, Int(size.width / step))
+            let shown = levels.suffix(max(0, slots - 3))
+            for (i, level) in shown.enumerated() {
+                let h = max(4, CGFloat(level) * size.height)
+                let r = CGRect(x: CGFloat(i) * step, y: (size.height - h) / 2, width: w, height: h)
+                ctx.fill(Path(roundedRect: r, cornerRadius: w / 2), with: .color(Theme.blue))
+            }
+            for i in shown.count..<slots {
+                let r = CGRect(x: CGFloat(i) * step, y: (size.height - w) / 2, width: w, height: w)
+                ctx.fill(Path(ellipseIn: r), with: .color(ChatStyle.dim.opacity(0.7)))
+            }
+        }
     }
 }
 
