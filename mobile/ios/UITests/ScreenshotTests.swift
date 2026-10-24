@@ -555,6 +555,16 @@ final class ScreenshotTests: XCTestCase {
 
     private let said = "Also let a swipe down close the lightbox on phones"
 
+    /// waits until the recorder has given the box back and the words are in it
+    private func expectInBox(_ app: XCUIApplication) {
+        XCTAssertTrue(app.buttons["attach"].waitForExistence(timeout: 10), "the box is back")
+        let field = app.textFields["composer"], view = app.textViews["composer"]
+        XCTAssertTrue(field.waitForExistence(timeout: 2) || view.exists)
+        let box = field.exists ? field : view
+        expectation(for: NSPredicate(format: "value CONTAINS[c] %@", said), evaluatedWith: box)
+        waitForExpectations(timeout: 10)
+    }
+
     func testD8Recording() {
         let app = launch()
         open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
@@ -569,15 +579,12 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.buttons["voiceStop"].exists)
         XCTAssertFalse(app.buttons["attach"].exists, "the recorder takes the whole bottom")
         XCTAssertFalse(app.buttons["usage"].exists)
-        sleep(4)  // the timer reads 0:04 as the mockup
+        // the timer at 0:04, as the mockup (the label changes once a second)
+        _ = find(app, "Recording, 4 seconds").waitForExistence(timeout: 8)
         shot("d8-voice")
         // ■: the words go in the box to check first
         app.buttons["voiceStop"].tap()
-        XCTAssertTrue(app.descendants(matching: .any)["transcribing"].waitForExistence(timeout: 5))
-        let box = app.textFields["composer"].exists ? app.textFields["composer"] : app.textViews["composer"]
-        let filled = NSPredicate(format: "value CONTAINS[c] %@", said)
-        expectation(for: filled, evaluatedWith: box)
-        waitForExpectations(timeout: 10)
+        expectInBox(app)
         XCTAssertTrue(app.buttons["send"].exists)
         XCTAssertFalse(app.buttons["mic"].exists, "words in the box: ↑ instead of the mic")
         sleep(1)
@@ -616,9 +623,7 @@ final class ScreenshotTests: XCTestCase {
         let app = launch()
         open(app, "Gallery lightbox fix", waitFor: "All five pages pass")
         app.buttons["mic"].press(forDuration: 2.5)
-        let box = app.textFields["composer"].exists ? app.textFields["composer"] : app.textViews["composer"]
-        expectation(for: NSPredicate(format: "value CONTAINS[c] %@", said), evaluatedWith: box)
-        waitForExpectations(timeout: 10)
+        expectInBox(app)
         XCTAssertFalse(find(app, "Listening").exists, "letting go ends the recording")
         XCTAssertFalse(find(app, "This is the demo").exists, "push-to-talk doesn't send")
         sleep(1)
@@ -636,6 +641,7 @@ final class ScreenshotTests: XCTestCase {
         shot("d8-on-iphone")
         XCTAssertTrue(app.descendants(matching: .any)["voiceNote"].waitForExistence(timeout: 10))
         XCTAssertTrue(find(app, "Transcribed on this iPhone").exists)
+        expectInBox(app)
         sleep(1)
         shot("d8-on-iphone-done")
     }

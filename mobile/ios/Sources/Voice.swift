@@ -35,7 +35,8 @@ struct MicPress {
     }
 
     mutating func up(at t: Date, recording: Bool) -> Action {
-        guard let d = downAt else { return .nothing }
+        // a quick tap can end before its touch-down was reported: it's still a tap
+        guard let d = downAt else { return recording ? .send : .start }
         downAt = nil
         if !startedHere { return recording ? .send : .nothing }
         guard recording else { return .nothing }  // it never started (no permission, say)

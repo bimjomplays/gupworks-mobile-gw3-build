@@ -522,7 +522,12 @@ final class VoiceTests: XCTestCase {
         var p = MicPress()
         _ = p.down(at: t0, recording: false)
         XCTAssertEqual(p.up(at: t0.addingTimeInterval(2), recording: false), .nothing)  // no microphone, say
-        XCTAssertEqual(p.up(at: t0.addingTimeInterval(3), recording: false), .nothing)  // an up without a down
+    }
+
+    func testTapWithoutItsTouchDownStillCounts() {
+        var p = MicPress()
+        XCTAssertEqual(p.up(at: t0, recording: false), .start)
+        XCTAssertEqual(p.up(at: t0.addingTimeInterval(2), recording: true), .send)
     }
 
     func testLevelMatchesTheDesktop() {

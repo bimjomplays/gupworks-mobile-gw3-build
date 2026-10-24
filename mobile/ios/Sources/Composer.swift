@@ -251,6 +251,9 @@ struct Composer: View {
 
     private func micUp() {
         switch voice.press.up(at: Date(), recording: voice.phase == .recording) {
+        case .start:
+            focused = false
+            Task { await voice.start() }
         case .insert: Task { await finishVoice(send: false) }
         case .send: Task { await finishVoice(send: true) }
         default: break
