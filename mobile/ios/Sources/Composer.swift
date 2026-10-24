@@ -45,14 +45,7 @@ struct Composer: View {
                 .accessibilityIdentifier("usage")
                 .padding(.horizontal, 16)
             }
-            if !attachments.isEmpty {
-                AttachmentStrip(attachments: $attachments)
-            }
-            HStack(alignment: .bottom, spacing: 8) {
-                if !recorder { plusMenu }
-                field
-            }
-            .padding(.horizontal, 16)
+            // above the box, so the keyboard that comes up with the words never hides it
             if let note = voice.note {
                 Text(note)
                     .font(.system(size: 13))
@@ -61,6 +54,14 @@ struct Composer: View {
                     .padding(.horizontal, 24)
                     .accessibilityIdentifier("voiceNote")
             }
+            if !attachments.isEmpty {
+                AttachmentStrip(attachments: $attachments)
+            }
+            HStack(alignment: .bottom, spacing: 8) {
+                if !recorder { plusMenu }
+                field
+            }
+            .padding(.horizontal, 16)
         }
         .padding(.top, 6)
         .padding(.bottom, 6)
@@ -271,7 +272,7 @@ struct Composer: View {
             return
         }
         if t.source == .phone {
-            voice.show("Transcribed on this iPhone: \(t.why ?? "your PC couldn't be reached").")
+            voice.show("Transcribed on this iPhone: \(t.why ?? "your PC couldn't be reached").", seconds: 8)
         }
         let words = VoiceMath.merge(store.draft, said)
         if send {

@@ -639,10 +639,16 @@ final class ScreenshotTests: XCTestCase {
         app.buttons["voiceStop"].tap()
         XCTAssertTrue(find(app, "Transcribing on this iPhone").waitForExistence(timeout: 5))
         shot("d8-on-iphone")
-        XCTAssertTrue(app.descendants(matching: .any)["voiceNote"].waitForExistence(timeout: 10))
+        let note = app.descendants(matching: .any)["voiceNote"]
+        XCTAssertTrue(note.waitForExistence(timeout: 10))
         XCTAssertTrue(find(app, "Transcribed on this iPhone").exists)
         expectInBox(app)
-        sleep(1)
+        // the note stays readable: above the box, clear of the keyboard
+        let box = app.buttons["attach"].frame
+        XCTAssertLessThanOrEqual(note.frame.maxY, box.minY + 1)
+        let keyboard = app.keyboards.firstMatch
+        if keyboard.exists { XCTAssertLessThanOrEqual(note.frame.maxY, keyboard.frame.minY) }
+        XCTAssertTrue(note.exists)
         shot("d8-on-iphone-done")
     }
 }
