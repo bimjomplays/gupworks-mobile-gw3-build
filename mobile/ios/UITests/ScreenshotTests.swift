@@ -61,6 +61,11 @@ final class ScreenshotTests: XCTestCase {
         }
         XCTAssertFalse(el(app, "chatTitle").exists, "a new chat has no title yet")
         XCTAssertTrue(app.buttons["gauge"].value.map { "\($0)" }?.contains("Opus 5.5") ?? false)
+        // a fresh simulator's first keyboard shows a slide-to-type tip; it's not part of the app
+        if app.buttons["Continue"].waitForExistence(timeout: 2) {
+            app.buttons["Continue"].tap()
+            XCTAssertTrue(hasFocus(box(app)))
+        }
         sleep(1)
         shot("5a-new-chat")
         box(app).typeText("Plan a picnic for six")
@@ -182,7 +187,7 @@ final class ScreenshotTests: XCTestCase {
         app.buttons["moreModels"].tap()
         XCTAssertTrue(app.buttons["model-gpt-5.6-luna"].waitForExistence(timeout: 5))
         app.buttons["closeModels"].tap()
-        XCTAssertTrue(find(app, "Model and effort").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["closeModels"].waitForNonExistence(timeout: 5))
         let value = app.buttons["gauge"].value.map { "\($0)" } ?? ""
         XCTAssertTrue(value.contains("Sonnet 5.5") && value.contains("low"), value)
     }

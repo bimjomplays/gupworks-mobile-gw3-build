@@ -160,6 +160,7 @@ struct Composer: View {
                 slash
             }
             VoiceKey(recording: voice.phase == .recording, busy: voice.phase == .transcribing, down: micDown, up: micUp)
+                .padding(.horizontal, voice.phase == .recording || voice.phase == .transcribing ? -1 : -3.5)
             if !recorder {
                 if store.working {
                     if hasContent { sendButton }
@@ -663,7 +664,8 @@ struct VoiceKey: View {
                     .foregroundStyle(Composer.ink)
             }
         }
-        .frame(width: recording || busy ? 42 : 37, height: 40)
+        // a 44 pt target that lays out as the mockup's narrower slot (the rest overlaps the gaps beside it)
+        .frame(width: 44, height: 44)
         .opacity(busy ? 0.4 : 1)
         .contentShape(Rectangle())
         .gesture(DragGesture(minimumDistance: 0)

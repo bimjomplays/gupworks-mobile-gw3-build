@@ -233,7 +233,7 @@ struct ChatView: View {
                 store.onMade = shell.made
                 if store.isNew {
                     try? await Task.sleep(nanoseconds: 350_000_000)
-                    store.focus()
+                    if !shell.menuIsOpen() { store.focus() }
                 }
             }
         }
@@ -419,11 +419,12 @@ struct ChatView: View {
             ToolbarItem(placement: .principal) {
                 // 5e: just the title; the gauge holds the model. A tap opens the chat's details (D5).
                 Button { overSheet { showDetails = true } } label: {
-                    Text(store.header?.title ?? " ")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Theme.title)
-                        .lineLimit(1)
-                        .frame(maxWidth: 230)
+                    // its own width (centred by the bar), cut at 230 pt when long
+                    ViewThatFits(in: .horizontal) {
+                        titleText.fixedSize()
+                        titleText.frame(width: 230)
+                    }
+                    .frame(maxWidth: 230)
                 }
                 .buttonStyle(.plain)
                 .disabled(store.header == nil)
@@ -466,6 +467,13 @@ struct ChatView: View {
                 moreMenu
             }
         }
+    }
+
+    private var titleText: some View {
+        Text(store.header?.title ?? " ")
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(Theme.title)
+            .lineLimit(1)
     }
 
     private var moreMenu: some View {
@@ -539,7 +547,9 @@ private struct TemporaryNote: View {
                 .foregroundStyle(Color(hex: 0x98989F))
                 .padding(.top, 16)
         }
-        .padding(.horizontal, 44)
+        // a set width: the empty chat's scroll view offers the overlay too little room to wrap in
+        .frame(width: 310)
+        .fixedSize(horizontal: false, vertical: true)
         .allowsHitTesting(false)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("temporaryNote")

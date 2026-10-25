@@ -24,7 +24,7 @@ struct MenuView: View {
     @State private var dragY: CGFloat = 0
     @State private var dragFrom = 0
     /// the long-press that started sorting still holds the row
-    @State private var pressDriving = false
+    @GestureState private var holding = false
     @State private var slotTick = 0
     @State private var liftTick = 0
     @State private var renaming: ChatRow?
@@ -54,6 +54,10 @@ struct MenuView: View {
                 finishSorting()
                 endSearch()
             }
+        }
+        .onChange(of: holding) { _, h in
+            // the finger left (or the touch was cancelled): the pin settles in its slot
+            if !h { drop() }
         }
         .sensoryFeedback(.selection, trigger: slotTick)
         .sensoryFeedback(.impact(weight: .medium), trigger: liftTick)
@@ -206,7 +210,6 @@ struct MenuView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { if !sorting { open(item) } }
                 .gesture(liftGesture(item))
-                .simultaneousGesture(moveGesture(item), including: sorting ? .all : .subviews)
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("pin-\(item.title)")
@@ -260,38 +263,19 @@ struct MenuView: View {
 
     // MARK: 5d: sorting
 
-    /// long-press a pin: every pin gets its handle and the pressed one follows your finger
+    /// long-press a pin: every pin gets its handle and the pressed one follows your finger; while sorting, each
+    /// pin is picked up the same way. One fixed gesture: changing a row's gestures mid-touch cancels the touch.
     private func liftGesture(_ item: PinItem) -> some Gesture {
         LongPressGesture(minimumDuration: 0.4)
             .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("menu")))
+            .updating($holding) { v, holding, _ in
+                if case .second(true, _) = v { holding = true }
+            }
             .onChanged { v in
-                switch v {
-                case .second(true, let d):
-                    if !sorting && dragged == nil {
-                        pressDriving = true
-                        startSorting(lifting: item)
-                    }
-                    if pressDriving, let d { follow(item, d.translation.height) }
-                default: break
-                }
+                guard case .second(true, let d) = v else { return }
+                if !sorting { startSorting(lifting: item) } else if dragged == nil { lift(item) }
+                if let d { follow(item, d.translation.height) }
             }
-            .onEnded { _ in
-                if pressDriving {
-                    pressDriving = false
-                    drop()
-                }
-            }
-    }
-
-    /// while sorting, a pin moves under your finger (no long-press needed again)
-    private func moveGesture(_ item: PinItem) -> some Gesture {
-        DragGesture(minimumDistance: 4, coordinateSpace: .named("menu"))
-            .onChanged { d in
-                guard sorting, !pressDriving else { return }
-                if dragged == nil { lift(item) }
-                follow(item, d.translation.height)
-            }
-            .onEnded { _ in if !pressDriving { drop() } }
     }
 
     private func startSorting(lifting item: PinItem?) {

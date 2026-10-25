@@ -35,6 +35,8 @@ struct ChatShell {
     var made: (String) -> Void
     /// something waits on you: the menu button's violet dot
     var menuDot: Bool
+    /// read when the keyboard would come up: not over an open menu
+    var menuIsOpen: () -> Bool = { false }
 }
 
 /// 5a-5d: ChatGPT's layout. The app opens on a new chat with the keyboard up; the menu slides out from the left
@@ -149,7 +151,8 @@ struct MainView: View {
                                   madeId = id
                                   if temporary { temporaryId = id }
                               },
-                              menuDot: model.needsYou)
+                              menuDot: model.needsYou,
+                              menuIsOpen: { menuOpen })
         switch current {
         case .new:
             ChatView(id: nil, pairing: model.pairing, demo: model.demo, shell: shell)
