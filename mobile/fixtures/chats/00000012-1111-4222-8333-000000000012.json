@@ -15,18 +15,19 @@
    {
     "label": "ctx",
     "percent": 12,
-    "tokens": 18000,
-    "switchAt": 150000,
+    "tokens": 24000,
+    "switchAt": 200000,
     "auto": true
    },
    {
     "label": "5h",
-    "percent": 5,
-    "resets": "2026-10-14T19:46:40.000Z"
+    "percent": 18,
+    "resets": "2026-10-14T20:58:40.000Z"
    },
    {
     "label": "wk",
-    "percent": 21
+    "percent": 41,
+    "resets": "2026-10-17T17:46:40.000Z"
    }
   ],
   "branch": "",

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The D mockups' colours (docs/mobile-mockups/build_d.py): flat, dark, no gradients.
 enum Theme {
-    static let background = Color(hex: 0x181818)
+    static let background = Color(hex: 0x000000)  // the overhaul's black (5a-5h)
     static let title = Color(hex: 0xF0F0F0)
     static let rowTitle = Color(hex: 0xE2E2E2)
     static let secondary = Color(hex: 0x8A8A8A)

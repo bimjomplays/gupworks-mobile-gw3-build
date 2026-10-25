@@ -60,9 +60,20 @@
    "model": "Opus 5.5",
    "provider": "Claude",
    "lastActive": 1791999980000,
-   "pinned": false,
-   "pinnedAt": 0,
+   "pinned": true,
+   "pinnedAt": 1791990000000,
    "running": true
+  },
+  {
+   "id": "00000009-1111-4222-8333-000000000009",
+   "title": "Gallery lightbox fix",
+   "state": "done",
+   "model": "Opus 5.5",
+   "provider": "Claude",
+   "lastActive": 1790900000000,
+   "pinned": true,
+   "pinnedAt": 1791980000000,
+   "running": false
   },
   {
    "id": "00000002-1111-4222-8333-000000000002",
@@ -71,8 +82,8 @@
    "model": "GPT 6.1 Sol",
    "provider": "OpenAI",
    "lastActive": 1791989200000,
-   "pinned": false,
-   "pinnedAt": 0,
+   "pinned": true,
+   "pinnedAt": 1791970000000,
    "running": false
   },
   {
@@ -99,7 +110,7 @@
   },
   {
    "id": "00000005-1111-4222-8333-000000000005",
-   "title": "Bike gear ratios",
+   "title": "Mortgage math",
    "state": "idle",
    "model": "Sonnet 5.5",
    "provider": "Claude",
@@ -110,7 +121,7 @@
   },
   {
    "id": "00000006-1111-4222-8333-000000000006",
-   "title": "Weekend plan",
+   "title": "Sourdough timing",
    "state": "idle",
    "model": "Opus 5.5",
    "provider": "Claude",
@@ -121,7 +132,7 @@
   },
   {
    "id": "00000007-1111-4222-8333-000000000007",
-   "title": "Sourdough timing",
+   "title": "Birthday card ideas",
    "state": "idle",
    "model": "Haiku 5.5",
    "provider": "Claude",
@@ -140,18 +151,41 @@
    "pinned": false,
    "pinnedAt": 0,
    "running": false
-  },
-  {
-   "id": "00000009-1111-4222-8333-000000000009",
-   "title": "Gallery lightbox fix",
-   "state": "done",
-   "model": "Opus 5.5",
-   "provider": "Claude",
-   "lastActive": 1790900000000,
-   "pinned": false,
-   "pinnedAt": 0,
-   "running": false
   }
  ],
- "archivedCount": 4
+ "archivedCount": 4,
+ "pinned": [
+  {
+   "kind": "project",
+   "id": "lumen-studio"
+  },
+  {
+   "kind": "project",
+   "id": "home-server-5e6f"
+  },
+  {
+   "kind": "chat",
+   "id": "00000001-1111-4222-8333-000000000001"
+  },
+  {
+   "kind": "chat",
+   "id": "00000009-1111-4222-8333-000000000009"
+  },
+  {
+   "kind": "chat",
+   "id": "00000002-1111-4222-8333-000000000002"
+  }
+ ],
+ "usage": [
+  {
+   "label": "5h",
+   "percent": 18,
+   "resets": "2026-10-14T20:58:40.000Z"
+  },
+  {
+   "label": "wk",
+   "percent": 41,
+   "resets": "2026-10-17T17:46:40.000Z"
+  }
+ ]
 }

@@ -32,6 +32,29 @@ struct Home: Codable, Equatable {
     var archivedCount: Int
     var projectsError: String?
     var layout: [LayoutEntry]?      // slice 6: the desktop sidebar's order and folders
+    var pinned: [PinRef]?           // the menu's Pinned: chats and projects in the order set on the phone (gw3-phone 0.8)
+    var usage: [Meter]?             // the account's 5-hour and weekly limits, for a new chat's rings
+}
+
+/// One row of Pinned: a chat or a project.
+struct PinRef: Codable, Equatable, Hashable {
+    var kind: String       // chat | project
+    var id: String
+}
+
+struct PinnedBody: Codable, Equatable {
+    var pinned: [PinRef]
+}
+
+/// GET /v1/search: chats whose words match, with the line that matched.
+struct SearchReply: Codable, Equatable {
+    var chats: [SearchHit]
+}
+
+struct SearchHit: Codable, Equatable, Identifiable {
+    var id: String
+    var title: String
+    var snippet: String?
 }
 
 struct ProjectRow: Codable, Equatable, Identifiable {
@@ -55,6 +78,7 @@ struct ChatRow: Codable, Equatable, Identifiable {
     var lastActive: Double // ms since 1970 on the PC's clock
     var pinned: Bool
     var running: Bool
+    var pinnedAt: Double?
 }
 
 /// A message for a chat: its words and the uploads it names (UploadReply.path).
@@ -84,9 +108,21 @@ struct SendReply: Codable, Equatable {
     var queue: [QueueItem]
 }
 
+/// POST /v1/chats: the first message, and the model and effort picked before it (a temporary chat is forgotten
+/// for good once it's deleted).
+struct NewChatBody: Codable, Equatable {
+    var clientId: String
+    var text: String
+    var files: [String]
+    var model: String?
+    var effort: String?
+    var temporary: Bool?
+}
+
 struct NewChatReply: Codable, Equatable {
     var id: String
     var started: Bool
+    var temporary: Bool?
 }
 
 struct UploadReply: Codable, Equatable {
@@ -153,6 +189,7 @@ struct ModelInfo: Codable, Equatable, Identifiable {
 
 struct ModelsReply: Codable, Equatable {
     var models: [ModelInfo]
+    var `default`: PickBody?        // what a new chat starts on (gw3-phone 0.8)
 }
 
 struct CommandInfo: Codable, Equatable, Identifiable {
@@ -343,7 +380,7 @@ final class APIClient {
     }
 
     /// A new chat with its first message; the answer names it.
-    func newChat(_ p: Pairing, _ m: OutgoingBody) async throws -> NewChatReply {
+    func newChat(_ p: Pairing, _ m: NewChatBody) async throws -> NewChatReply {
         try await request(p.baseURL, "/v1/chats", token: p.token, method: "POST", encoding: m)
     }
 
@@ -394,6 +431,21 @@ final class APIClient {
 
     func commands(_ p: Pairing, chat: String) async throws -> CommandsReply {
         try await request(p.baseURL, "/v1/chats/\(chat)/commands", token: p.token)
+    }
+
+    /// the commands for a chat not made yet
+    func commands(_ p: Pairing) async throws -> CommandsReply {
+        try await request(p.baseURL, "/v1/commands", token: p.token)
+    }
+
+    /// Pinned in a new order (chats joining or leaving it are pinned or unpinned); the answer is the new home.
+    func setPinned(_ p: Pairing, _ pinned: [PinRef]) async throws -> Home {
+        try await request(p.baseURL, "/v1/home/pinned", token: p.token, method: "PUT", encoding: PinnedBody(pinned: pinned))
+    }
+
+    /// chats whose words match (titles are matched on the phone)
+    func search(_ p: Pairing, _ q: String) async throws -> SearchReply {
+        try await request(p.baseURL, "/v1/search", token: p.token, query: [URLQueryItem(name: "q", value: q)])
     }
 
     /// the pinned commands, the same list the desktop's palette pins
@@ -627,8 +679,20 @@ enum Demo {
         guard var h: Home = load("home") else { return nil }
         let shift = Date().timeIntervalSince1970 * 1000 - h.now
         h.now += shift
-        h.chats = h.chats.map { var c = $0; c.lastActive += shift; return c }
+        h.chats = h.chats.map { var c = $0; c.lastActive += shift; c.pinnedAt = c.pinnedAt.map { $0 + shift }; return c }
+        h.usage = h.usage.map { shiftResets($0, by: shift) }
         return h
+    }
+
+    /// meters' reset times moved by `ms`
+    static func shiftResets(_ meters: [Meter], by ms: Double) -> [Meter] {
+        meters.map { m in
+            var m = m
+            if let r = m.resets, let at = Format.isoDate(r) {
+                m.resets = ISO8601DateFormatter().string(from: at.addingTimeInterval(ms / 1000))
+            }
+            return m
+        }
     }
 
     static var pairing: Pairing {

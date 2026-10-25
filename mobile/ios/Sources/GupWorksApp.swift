@@ -17,7 +17,7 @@ struct GupWorksApp: App {
     }
 }
 
-/// Not paired: the pairing screen. Paired: the chats list, live while the app is in front.
+/// Not paired: the pairing screen. Paired: a new chat with the menu beside it (5a), live while the app is in front.
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var phase
@@ -25,7 +25,7 @@ struct RootView: View {
     var body: some View {
         Group {
             if model.isPaired {
-                ChatsListView()
+                MainView()
             } else {
                 PairingView()
             }

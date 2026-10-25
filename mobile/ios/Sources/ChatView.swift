@@ -5,14 +5,13 @@ struct CardRoute: Hashable {
     let id: String
 }
 
-/// A new chat pushed on the list's stack (each one fresh).
-struct NewChatRoute: Hashable {
-    let n = UUID()
-}
-
-/// D2/D3/D6: one chat, live from the PC, with the composer; `id` nil is a new chat, made by its first message.
+/// D2/D3/D6, 5a/5e: one chat, live from the PC, with the box; `id` nil is a new chat, made by its first message.
+/// The main screen's chat has a `shell` (the menu button, the temporary switch); a project's thread pushed over it
+/// has none and goes back instead.
 struct ChatView: View {
+    let shell: ChatShell?
     @State private var store: ChatStore
+    @State private var usageOpen = false
     @State private var folds: [String: Bool] = [:]
     @State private var showDetails = false
     @State private var position = ScrollPosition(edge: .bottom)
@@ -36,7 +35,8 @@ struct ChatView: View {
     @Environment(AppModel.self) private var model
 
     /// `projectSheet`: a project's main chat opened from the list shows its threads sheet at once (D9)
-    init(id: String?, pairing: Pairing?, demo: Bool, projectSheet: Bool = false) {
+    init(id: String?, pairing: Pairing?, demo: Bool, projectSheet: Bool = false, shell: ChatShell? = nil) {
+        self.shell = shell
         _store = State(initialValue: ChatStore(id: id ?? "", pairing: pairing, demo: demo))
         _opensSheet = State(initialValue: projectSheet)
     }
@@ -83,7 +83,7 @@ struct ChatView: View {
                                 isPresented: $confirmArchiveProject, titleVisibility: .visible) {
                 Button("Archive", role: .destructive) {
                     guard let project else { return }
-                    Task { if await project.setArchived(true) { dismiss() } }
+                    Task { if await project.setArchived(true) { leave() } }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
@@ -196,8 +196,46 @@ struct ChatView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
+        .overlay {
+            if store.isNew && store.temporary && store.outbox.isEmpty && store.queue.isEmpty {
+                TemporaryNote()
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if usageOpen {
+                // 5g: the card over a dimmed chat; the box below stays as it is
+                ZStack(alignment: .bottom) {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea(edges: .top)
+                        .contentShape(Rectangle())
+                        .onTapGesture { usageOpen = false }
+                        .accessibilityLabel("Close usage")
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityIdentifier("closeUsage")
+                    UsageCard(usage: usage, now: Date())
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 14)
+                        .onTapGesture { usageOpen = false }
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: usageOpen)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Composer(store: store, usage: store.header?.usage ?? [], asking: asking) { overSheet { showDetails = true } }
+            Composer(store: store, usage: usage, asking: asking, usageOpen: $usageOpen)
+        }
+        .onChange(of: shell?.temporary ?? false, initial: true) { _, on in
+            if store.isNew { store.temporary = on }
+        }
+        .task {
+            // 5a: a new chat on the main screen takes the keyboard at once
+            if let shell {
+                store.onMade = shell.made
+                if store.isNew {
+                    try? await Task.sleep(nanoseconds: 350_000_000)
+                    store.focus()
+                }
+            }
         }
         .navigationBarTitleDisplayMode(.inline)
         // a solid bar under the title, as in D2: turns scroll under it instead of showing through
@@ -250,7 +288,7 @@ struct ChatView: View {
         .confirmationDialog("Delete this chat?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 let id = store.id
-                Task { if await model.delete(id) { dismiss() } }
+                Task { if await model.delete(id) { leave() } }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -311,7 +349,19 @@ struct ChatView: View {
 
     private func archive() {
         let id = store.id
-        Task { if await model.edit(id, ChatEdit(archived: true)) { dismiss() } }
+        Task { if await model.edit(id, ChatEdit(archived: true)) { leave() } }
+    }
+
+    /// the chat went away: the main screen gets a new chat, a thread goes back
+    private func leave() {
+        if let shell { shell.leave() } else { dismiss() }
+    }
+
+    /// the rings' meters: the chat's (a new chat: the account's 5-hour and week, from home)
+    private var usage: [Meter] {
+        var u = store.header?.usage ?? []
+        for m in model.home?.usage ?? [] where !u.contains(where: { $0.label == m.label }) { u.append(m) }
+        return u
     }
 
     /// a thread's question waits in this chat: the composer reads "Answer or ask…"
@@ -326,9 +376,7 @@ struct ChatView: View {
         } else if let e = store.error {
             Notice(icon: "exclamationmark.triangle", text: e.isUnreachable ? "Reconnecting\u{2026} " + e.message : e.message)
         } else if store.isNew {
-            if store.outbox.isEmpty {
-                Notice(icon: "bubble.left", text: "A new chat on your PC. It starts with your first message.")
-            }
+            EmptyView()
         } else if store.header != nil && store.turns.isEmpty {
             if store.queue.isEmpty && store.outbox.isEmpty {
                 Notice(icon: "bubble.left", text: "No messages yet.")
@@ -340,119 +388,161 @@ struct ChatView: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .principal) {
-            Button { overSheet { showDetails = true } } label: {
-                if store.isNew {
-                    Text("New chat").font(.system(size: 17, weight: .semibold)).foregroundStyle(Theme.title)
-                } else {
-                    TitleView(header: store.header)
-                }
-            }
-                .buttonStyle(.plain)
-                .disabled(store.header == nil)
-                .accessibilityIdentifier("chatTitle")
-        }
-        .sharedBackgroundVisibility(.hidden)
-        if let project {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(action: toggleThreads) {
-                    Image(systemName: "sidebar.left")
+        if let shell {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: shell.openMenu) {
+                    Icons.menu()
                         .foregroundStyle(Theme.rowTitle)
                         .overlay(alignment: .topTrailing) {
-                            if let n = project.view?.counts.threads, n > 0 {
-                                Text("\(n)")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 5)
-                                    .frame(minWidth: 17, minHeight: 17)
-                                    .background(Color(hex: 0x2F5FB3), in: Capsule())
-                                    .offset(x: 10, y: -9)
+                            if shell.menuDot {
+                                Circle().fill(Theme.violet).frame(width: 9, height: 9).offset(x: 3, y: -1)
                             }
                         }
                 }
-                .accessibilityLabel("Threads")
-                .accessibilityValue(project.view.map { Format.plural($0.counts.threads, "thread") } ?? "")
-                .accessibilityIdentifier("threadsButton")
+                .accessibilityLabel("Menu")
+                .accessibilityValue(shell.menuDot ? "Something needs you" : "")
+                .accessibilityIdentifier("menu")
             }
         }
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                if let v = project?.view {
-                    Section(v.name) {
-                        Button("Project info", systemImage: "info.circle", action: showProjectInfo)
-                        Button(v.paused ? "Resume project" : "Pause project",
-                               systemImage: v.paused ? "play" : "pause") {
-                            Task { await project?.setPaused(!v.paused) }
-                        }
-                        Button("Archive project\u{2026}", systemImage: "archivebox") {
-                            overSheet { confirmArchiveProject = true }
-                        }
+        if store.isNew {
+            if let shell {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: shell.toggleTemporary) {
+                        Icons.temporary(on: shell.temporary).foregroundStyle(Theme.rowTitle)
                     }
+                    .accessibilityLabel("Temporary chat")
+                    .accessibilityValue(shell.temporary ? "On" : "Off")
+                    .accessibilityIdentifier("temporaryChat")
+                }
+            }
+        } else {
+            ToolbarItem(placement: .principal) {
+                // 5e: just the title; the gauge holds the model. A tap opens the chat's details (D5).
+                Button { overSheet { showDetails = true } } label: {
+                    Text(store.header?.title ?? " ")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Theme.title)
+                        .lineLimit(1)
+                        .frame(maxWidth: 230)
+                }
+                .buttonStyle(.plain)
+                .disabled(store.header == nil)
+                .accessibilityLabel(titleLabel)
+                .accessibilityIdentifier("chatTitle")
+            }
+            .sharedBackgroundVisibility(.hidden)
+            if let project {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: toggleThreads) {
+                        Image(systemName: "sidebar.left")
+                            .foregroundStyle(Theme.rowTitle)
+                            .overlay(alignment: .topTrailing) {
+                                if let n = project.view?.counts.threads, n > 0 {
+                                    Text("\(n)")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 5)
+                                        .frame(minWidth: 17, minHeight: 17)
+                                        .background(Color(hex: 0x2F5FB3), in: Capsule())
+                                        .offset(x: 10, y: -9)
+                                }
+                            }
+                    }
+                    .accessibilityLabel("Threads")
+                    .accessibilityValue(project.view.map { Format.plural($0.counts.threads, "thread") } ?? "")
+                    .accessibilityIdentifier("threadsButton")
+                }
+            }
+            if let shell {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(action: shell.newChat) {
+                        Image(systemName: "square.and.pencil").foregroundStyle(Theme.rowTitle)
+                    }
+                    .accessibilityLabel("New chat")
+                    .accessibilityIdentifier("compose")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                moreMenu
+            }
+        }
+    }
+
+    private var moreMenu: some View {
+        Menu {
+            if let v = project?.view, let pid = project?.id {
+                Section(v.name) {
+                    Button("Project info", systemImage: "info.circle", action: showProjectInfo)
+                    let pinnedProject = model.isPinned(project: pid)
+                    Button(pinnedProject ? "Unpin" : "Pin", systemImage: pinnedProject ? "pin.slash" : "pin") {
+                        Task { await model.togglePin(project: pid) }
+                    }
+                    Button(v.paused ? "Resume project" : "Pause project",
+                           systemImage: v.paused ? "play" : "pause") {
+                        Task { await project?.setPaused(!v.paused) }
+                    }
+                    Button("Archive project\u{2026}", systemImage: "archivebox") {
+                        overSheet { confirmArchiveProject = true }
+                    }
+                }
+            }
+            Section {
+                // slice 8
+                Button("Claude's browser", systemImage: "globe") {}.disabled(true)
+                Button("Claude's screen", systemImage: "display") {}.disabled(true)
+                Button("Your messages", systemImage: "list.bullet") {}.disabled(true)
+            }
+            if store.editable && !store.temporary {
+                Section {
+                    Button("Rename", systemImage: "pencil") {
+                        newTitle = store.header?.title ?? ""
+                        renaming = true
+                    }
+                    Button(pinned ? "Unpin" : "Pin to top", systemImage: pinned ? "pin.slash" : "pin", action: pin)
+                    Button("Archive", systemImage: "archivebox", action: archive)
                 }
                 Section {
-                    // slice 8
-                    Button("Claude's browser", systemImage: "globe") {}.disabled(true)
-                    Button("Claude's screen", systemImage: "display") {}.disabled(true)
-                    Button("Your messages", systemImage: "list.bullet") {}.disabled(true)
+                    Button("Delete\u{2026}", systemImage: "trash", role: .destructive) { confirmDelete = true }
                 }
-                if store.editable {
-                    Section {
-                        Button("Rename", systemImage: "pencil") {
-                            newTitle = store.header?.title ?? ""
-                            renaming = true
-                        }
-                        Button(pinned ? "Unpin" : "Pin to top", systemImage: pinned ? "pin.slash" : "pin", action: pin)
-                        Button("Archive", systemImage: "archivebox", action: archive)
-                    }
-                    Section {
-                        Button("Delete\u{2026}", systemImage: "trash", role: .destructive) { confirmDelete = true }
-                    }
-                }
-            } label: {
-                Image(systemName: "ellipsis").foregroundStyle(Theme.rowTitle)
             }
-            .disabled(store.header == nil)
-            .accessibilityLabel("More")
-            .accessibilityIdentifier("more")
+        } label: {
+            Image(systemName: "ellipsis").foregroundStyle(Theme.rowTitle)
         }
+        .disabled(store.header == nil)
+        .accessibilityLabel("More")
+        .accessibilityIdentifier("more")
+    }
+
+    /// the title for VoiceOver, with what the old second line said: "Main chat · Haiku 5.5", "Opus 5.5 · medium · Bypass"
+    private var titleLabel: String {
+        guard let h = store.header else { return "Chat" }
+        if h.role == "main" { return "\(h.title), Main chat · \(h.model)" }
+        let parts = [h.model, h.effort].filter { !$0.isEmpty } + (h.bypass ? ["Bypass"] : [])
+        return "\(h.title), \(parts.joined(separator: " · "))"
     }
 }
 
-/// "Gallery lightbox fix" over "Opus 5.5 · medium · Bypass ⌄" (Bypass in red); a main chat says "Main chat · Haiku 5.5".
-private struct TitleView: View {
-    let header: ChatHeader?
-
+/// 5b: what a temporary chat means, in the middle of the empty chat.
+private struct TemporaryNote: View {
     var body: some View {
-        VStack(spacing: 1) {
-            Text(header?.title ?? " ")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Theme.title)
-                .lineLimit(1)
-            if let h = header {
-                HStack(spacing: 4) {
-                    subtitle(h)
-                        .font(.system(size: 13))
-                        .foregroundStyle(ChatStyle.dim)
-                        .lineLimit(1)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(ChatStyle.dim)
-                }
-            }
+        VStack(spacing: 0) {
+            Text("Temporary chat")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Color(hex: 0xECECEC))
+            Text("Not saved in your chats. Deleted for good when you leave.")
+                .font(.system(size: 15.5))
+                .foregroundStyle(Color(hex: 0xB4B4B8))
+                .multilineTextAlignment(.center)
+                .padding(.top, 4)
+            Label("No memory or recall", systemImage: "circle.slash")
+                .font(.system(size: 14.5))
+                .foregroundStyle(Color(hex: 0x98989F))
+                .padding(.top, 16)
         }
-        .frame(maxWidth: 260)
+        .padding(.horizontal, 44)
+        .allowsHitTesting(false)
         .accessibilityElement(children: .combine)
-    }
-
-    private func subtitle(_ h: ChatHeader) -> Text {
-        if h.role == "main" {
-            return Text("Main chat · \(h.model)")
-        }
-        let parts = [h.model, h.effort].filter { !$0.isEmpty }.joined(separator: " · ")
-        if h.bypass {
-            return Text("\(parts) · \(Text("Bypass").foregroundStyle(Color(hex: 0xE07C7C)))")
-        }
-        return Text(parts)
+        .accessibilityIdentifier("temporaryNote")
     }
 }
 

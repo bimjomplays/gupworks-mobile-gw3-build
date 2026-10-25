@@ -60,6 +60,14 @@ final class ChatStore {
     /// a Bypass flip on its way (Shift+Tab on the PC takes a moment)
     private(set) var switchingMode = false
     private(set) var models: [ModelInfo] = []
+    /// what a new chat starts on (the PC's default), until one is picked in the gauge's sheet
+    private(set) var defaultPick: PickBody?
+    /// a new chat's model and effort, picked before its first message
+    private(set) var newPick: PickBody?
+    /// a temporary chat: made with `temporary`, deleted for good when you leave it (5b)
+    var temporary = false
+    /// the chat was made by its first message (the shell keeps its id, to show it in the menu or delete it)
+    var onMade: ((String) -> Void)?
     private(set) var commands: CommandsReply?
     /// /rewind's confirm page, open on the PC for the prompt `rewindText`
     private(set) var rewindDialog: Dialog?
@@ -276,9 +284,13 @@ final class ChatStore {
             }
             let body = OutgoingBody(clientId: clientId, text: m.text, files: m.attachments.compactMap(\.uploaded))
             if isNew {
-                let made = try await api.newChat(p, body)
+                let pick = newPick
+                let made = try await api.newChat(p, NewChatBody(clientId: clientId, text: body.text, files: body.files,
+                                                               model: pick?.model, effort: pick?.effort,
+                                                               temporary: temporary ? true : nil))
                 update(clientId) { $0.accepted = true; $0.turnsBefore = [] }
                 id = made.id  // the view's task starts following the new chat
+                onMade?(made.id)
             } else {
                 let before = Set(turns.map(\.id))
                 let reply = try await api.send(p, chat: id, body)
@@ -385,16 +397,44 @@ final class ChatStore {
 
     func loadModels() async {
         if demo {
-            if models.isEmpty, let m: ModelsReply = Demo.load("models") { models = m.models }
+            if models.isEmpty, let m: ModelsReply = Demo.load("models") {
+                models = m.models
+                defaultPick = m.default
+            }
             return
         }
         guard let p = pairing, let m = try? await api.models(p) else { return }
         models = m.models
+        defaultPick = m.default
+    }
+
+    /// The model the next turn runs on: the chat's, or a new chat's pick (else the PC's default).
+    var currentModel: ModelInfo? {
+        if isNew {
+            let want = newPick?.model ?? defaultPick?.model
+            return models.first { $0.id == want } ?? models.first
+        }
+        guard let h = header else { return nil }
+        return models.first { $0.id == h.modelId } ?? models.first { $0.label == h.model }
+    }
+
+    /// the effort the next turn runs at
+    var currentEffort: String? {
+        if isNew {
+            guard let m = currentModel else { return newPick?.effort ?? defaultPick?.effort }
+            let want = newPick?.effort ?? (m.id == defaultPick?.model ? defaultPick?.effort : nil)
+            return want.flatMap { m.efforts.contains($0) ? $0 : nil } ?? Self.defaultEffort(m.efforts)
+        }
+        return header?.effort
     }
 
     /// The model and effort for the next turn, as the desktop's picker sets them.
     func pick(model: ModelInfo, effort: String?) async {
         let effort = effort.flatMap { model.efforts.contains($0) ? $0 : nil } ?? Self.defaultEffort(model.efforts)
+        if isNew {  // kept on the phone; the first message makes the chat on it
+            newPick = PickBody(model: model.id, effort: effort)
+            return
+        }
         let before = header
         header?.model = model.label
         header?.modelId = model.id
@@ -425,8 +465,10 @@ final class ChatStore {
             if commands == nil { commands = Demo.load("commands") }
             return
         }
-        guard let p = pairing, !isNew else { return }
-        if let c = try? await api.commands(p, chat: id) { commands = c }
+        guard let p = pairing else { return }
+        let c: CommandsReply?
+        if isNew { c = try? await api.commands(p) } else { c = try? await api.commands(p, chat: id) }
+        if let c { commands = c }
     }
 
     /// Pins a command, or unpins it: the desktop's palette has the same pins.
@@ -467,6 +509,11 @@ final class ChatStore {
     /// words into the composer, keyboard up
     func put(_ text: String) {
         draft = text
+        focusTick += 1
+    }
+
+    /// the box takes the keyboard (5a: a new chat opens with it up)
+    func focus() {
         focusTick += 1
     }
 
@@ -568,13 +615,16 @@ final class ChatStore {
         guard let m = outbox.first(where: { $0.clientId == clientId }) else { return }
         outbox.removeAll { $0.clientId == clientId }
         if isNew {
+            let m0 = currentModel, effort = currentEffort ?? "medium"
             id = "demo-new"
             loaded = true
             header = ChatHeader(id: id, title: m.text.isEmpty ? "New chat" : String(m.text.prefix(40)), role: "chat",
-                                model: "Opus 5.5", modelId: "claude-opus-5-5", provider: "Claude", effort: "medium",
+                                model: m0?.label ?? "Opus 5.5", modelId: m0?.id ?? "claude-opus-5-5",
+                                provider: m0?.provider ?? "Claude", effort: effort,
                                 bypass: false, usage: [], branch: nil, folder: nil, running: true, state: "idle",
                                 project: nil, pinned: false)
             status = ChatStatus(state: "idle", ts: Date().timeIntervalSince1970 * 1000, live: true, running: true)
+            onMade?(id)
         }
         if working {
             queue.append(QueueItem(clientId: clientId, text: m.text, ts: Date().timeIntervalSince1970 * 1000,
@@ -624,13 +674,7 @@ final class ChatStore {
         let shift = Date().timeIntervalSince1970 * 1000 - f.now
         header = f.header
         if let at = f.header.cache?.at { header?.cache?.at = at + shift }
-        header?.usage = f.header.usage.map { m in
-            var m = m
-            if let r = m.resets, let at = Format.isoDate(r) {
-                m.resets = ISO8601DateFormatter().string(from: at.addingTimeInterval(shift / 1000))
-            }
-            return m
-        }
+        header?.usage = Demo.shiftResets(f.header.usage, by: shift)
         status = f.status
         turns = f.turns.turns.map { $0.shifted(shift) }
         more = false

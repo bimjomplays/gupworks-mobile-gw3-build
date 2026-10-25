@@ -130,8 +130,84 @@ final class AppModel {
         }
     }
 
+    // MARK: the menu (5c, 5d)
+
+    /// Pinned in its order: chats and projects (an older PC without the order: its pinned chats).
+    var pinnedItems: [PinItem] {
+        guard let h = home else { return [] }
+        let chats = h.setups + h.chats
+        guard let order = h.pinned else { return chats.filter(\.pinned).map { .chat($0) } }
+        return order.compactMap { r in
+            if r.kind == "project" { return h.projects.first { $0.id == r.id }.map { .project($0) } }
+            return chats.first { $0.id == r.id }.map { .chat($0) }
+        }
+    }
+
+    /// every other chat, newest first
+    var recents: [ChatRow] {
+        guard let h = home else { return [] }
+        let pinned = Set(pinnedItems.compactMap { if case .chat(let c) = $0 { return c.id } else { return nil } })
+        return (h.setups + h.chats).filter { !pinned.contains($0.id) && !$0.pinned }
+            .sorted { $0.lastActive > $1.lastActive }
+    }
+
+    /// a project or chat waits on you: the menu button's violet dot
+    var needsYou: Bool {
+        guard let h = home else { return false }
+        let waiting: Set<String> = ["needs", "permission"]
+        return h.projects.contains { waiting.contains($0.state) } || (h.setups + h.chats).contains { waiting.contains($0.state) }
+    }
+
+    func isPinned(project id: String) -> Bool {
+        home?.pinned?.contains(PinRef(kind: "project", id: id)) ?? false
+    }
+
+    /// Pins a project (first in Pinned) or unpins it; projects are pinned only on the phone.
+    func togglePin(project id: String) async {
+        let ref = PinRef(kind: "project", id: id)
+        var order = pinnedItems.map(\.ref)
+        if order.contains(ref) { order.removeAll { $0 == ref } } else { order.insert(ref, at: 0) }
+        await setPinned(order)
+    }
+
+    /// Pinned in a new order (5d's Done, or a pin or unpin): shown at once, then sent; the PC answers with the home.
+    func setPinned(_ order: [PinRef]) async {
+        guard var h = home else { return }
+        let chats = Set(order.filter { $0.kind == "chat" }.map(\.id))
+        h.pinned = order
+        h.setups = h.setups.map { var c = $0; c.pinned = chats.contains(c.id); return c }
+        h.chats = h.chats.map { var c = $0; c.pinned = chats.contains(c.id); return c }
+        home = h
+        if demo { return }
+        guard let p = pairing else { return }
+        do {
+            home = try await api.setPinned(p, order)
+        } catch {
+            actionError = APIError.from(error).message
+            await refresh()
+        }
+    }
+
+    /// Chats whose words match (5c's search): the PC's search; the demo's comes from its fixture.
+    func search(_ q: String) async -> [SearchHit] {
+        let q = q.trimmingCharacters(in: .whitespaces)
+        guard q.count >= 2 else { return [] }
+        if demo {
+            let r: SearchReply? = Demo.load("search")
+            return r?.chats ?? []
+        }
+        guard let p = pairing else { return [] }
+        return (try? await api.search(p, q))?.chats ?? []
+    }
+
     private func showLocally(_ id: String, _ e: ChatEdit, deleted: Bool) {
         guard var h = home else { return }
+        let ref = PinRef(kind: "chat", id: id)
+        if deleted || e.archived == true || e.pinned == false {
+            h.pinned?.removeAll { $0 == ref }
+        } else if e.pinned == true, h.pinned?.contains(ref) == false {
+            h.pinned?.insert(ref, at: 0)  // a fresh pin goes first, as the PC lists it
+        }
         var archived = 0
         func change(_ rows: [ChatRow]) -> [ChatRow] {
             var out: [ChatRow] = []
@@ -152,5 +228,27 @@ final class AppModel {
         h.chats = change(h.chats)
         h.archivedCount += archived
         home = h
+    }
+}
+
+/// One row of the menu's Pinned.
+enum PinItem: Identifiable, Equatable {
+    case chat(ChatRow)
+    case project(ProjectRow)
+
+    var ref: PinRef {
+        switch self {
+        case .chat(let c): return PinRef(kind: "chat", id: c.id)
+        case .project(let p): return PinRef(kind: "project", id: p.id)
+        }
+    }
+
+    var id: String { "\(ref.kind)-\(ref.id)" }
+
+    var title: String {
+        switch self {
+        case .chat(let c): return c.title
+        case .project(let p): return p.name
+        }
     }
 }
