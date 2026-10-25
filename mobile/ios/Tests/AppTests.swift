@@ -720,3 +720,97 @@ final class ProjectTests: XCTestCase {
         XCTAssertTrue(rows.contains { if case .folder(let f, 2) = $0 { return f.name == "At home" }; return false })
     }
 }
+
+// MARK: the overhaul (5a-5h)
+
+@MainActor
+final class MenuAndBoxTests: XCTestCase {
+    func testPinnedKeepsItsOrderAndRecentsTheRest() throws {
+        let home: Home = try XCTUnwrap(Demo.load("home"))
+        let pins = AppModel.pinnedItems(home)
+        XCTAssertEqual(pins.map(\.title), ["Lumen Studio website", "Home server", "Wallpaper ideas",
+                                           "Gallery lightbox fix", "Carrot picture"])
+        let recents = AppModel.recents(home)
+        XCTAssertFalse(recents.contains { r in pins.contains { $0.ref == PinRef(kind: "chat", id: r.id) } })
+        XCTAssertEqual(recents.map(\.lastActive), recents.map(\.lastActive).sorted(by: >))
+        XCTAssertEqual(recents.count + 3, (home.setups + home.chats).count)
+
+        // an older PC without the order: its pinned chats only
+        var old = home
+        old.pinned = nil
+        XCTAssertTrue(AppModel.pinnedItems(old).allSatisfy { if case .chat = $0 { return true } else { return false } })
+        XCTAssertEqual(AppModel.pinnedItems(old).count, 3)
+    }
+
+    func testOverhaulBodiesAndReplies() throws {
+        let body = NewChatBody(clientId: "c", text: "Hi", files: [], model: "claude-sonnet-5-5", effort: "low",
+                               temporary: true)
+        let obj = try JSONSerialization.jsonObject(with: JSONEncoder().encode(body)) as? [String: Any]
+        XCTAssertEqual(obj?["model"] as? String, "claude-sonnet-5-5")
+        XCTAssertEqual(obj?["temporary"] as? Bool, true)
+        let enc = JSONEncoder()
+        enc.outputFormatting = .sortedKeys
+        let pinned = try enc.encode(PinnedBody(pinned: [PinRef(kind: "project", id: "p1")]))
+        XCTAssertEqual(String(decoding: pinned, as: UTF8.self), #"{"pinned":[{"id":"p1","kind":"project"}]}"#)
+        let found: SearchReply = try XCTUnwrap(Demo.load("search"))
+        XCTAssertFalse(found.chats.isEmpty)
+        let models: ModelsReply = try XCTUnwrap(Demo.load("models"))
+        XCTAssertEqual(models.default?.model, "claude-opus-5-5")
+    }
+
+    func testNewChatStartsOnTheDefaultThenThePick() async throws {
+        let s = ChatStore(id: "", pairing: nil, demo: true)
+        await s.loadModels()
+        XCTAssertEqual(s.currentModel?.id, "claude-opus-5-5")
+        XCTAssertEqual(s.currentEffort, "medium")
+        let sonnet = try XCTUnwrap(s.models.first { $0.id == "claude-sonnet-5-5" })
+        await s.pick(model: sonnet, effort: "high")
+        XCTAssertEqual(s.currentModel?.id, "claude-sonnet-5-5")
+        XCTAssertEqual(s.currentEffort, "high")
+        var made: String?
+        s.onMade = { made = $0 }
+        await s.send(text: "Plan a picnic", attachments: [])
+        XCTAssertNotNil(made)
+        XCTAssertEqual(s.header?.modelId, "claude-sonnet-5-5")
+        XCTAssertEqual(s.header?.effort, "high")
+    }
+
+    func testModelSheetWords() {
+        func m(_ id: String, note: String? = nil) -> ModelInfo {
+            ModelInfo(id: id, label: id, provider: "Claude", note: note, efforts: [])
+        }
+        XCTAssertEqual(ModelEffortSheet.blurb(m("claude-opus-5-5")), "everyday, strong")
+        XCTAssertEqual(ModelEffortSheet.blurb(m("claude-haiku-5-5")), "quickest, cheapest")
+        XCTAssertNil(ModelEffortSheet.blurb(m("gpt-6-sol", note: "subscription")))
+        XCTAssertEqual(ModelEffortSheet.blurb(m("local-qwen", note: "runs on the GPU")), "runs on the GPU")
+        XCTAssertEqual(ModelEffortSheet.providerName("local"), "On your PC")
+        XCTAssertEqual(Icons.needle("low"), -90)
+        XCTAssertEqual(Icons.needle("high"), 0)
+        XCTAssertEqual(Icons.needle("max"), 90)
+    }
+
+    func testUsageCardRows() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let now = Date(timeIntervalSince1970: 1_792_000_000)  // Wed Oct 14 2026, 17:46:40 UTC
+        let iso = ISO8601DateFormatter()
+        let usage = [Meter(label: "ctx", percent: 34, tokens: 68_000, switchAt: 200_000),
+                     Meter(label: "5h", percent: 18, resets: iso.string(from: now.addingTimeInterval(3 * 3600 + 12 * 60 + 30))),
+                     Meter(label: "wk", percent: 41, resets: iso.string(from: now.addingTimeInterval(3 * 86_400 - 6 * 60 - 40)))]
+        let rows = UsageCard.rows(usage, now: now, calendar: cal)
+        XCTAssertEqual(rows.map(\.label), ["ctx", "5h", "wk"])
+        XCTAssertEqual(rows.map(\.percent), [34, 18, 41])
+        XCTAssertEqual(rows[0].detail, "68K of 200K tokens")
+        XCTAssertEqual(rows[1].detail, "resets in 3h 12m")
+        XCTAssertEqual(rows[2].detail, "resets Sat 17:40")
+
+        let fresh = UsageCard.rows([], now: now, calendar: cal)
+        XCTAssertEqual(fresh[0].detail, "A new chat starts empty")
+        XCTAssertEqual(fresh[0].percent, 0)
+        XCTAssertEqual(fresh[1].detail, "Not known yet")
+        XCTAssertNil(fresh[2].percent)
+        let past = UsageCard.rows([Meter(label: "5h", percent: 99, resets: iso.string(from: now.addingTimeInterval(-60)))],
+                                  now: now, calendar: cal)
+        XCTAssertEqual(past[1].detail, "Reset")
+    }
+}

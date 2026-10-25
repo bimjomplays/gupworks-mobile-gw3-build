@@ -133,8 +133,9 @@ final class AppModel {
     // MARK: the menu (5c, 5d)
 
     /// Pinned in its order: chats and projects (an older PC without the order: its pinned chats).
-    var pinnedItems: [PinItem] {
-        guard let h = home else { return [] }
+    var pinnedItems: [PinItem] { home.map(Self.pinnedItems) ?? [] }
+
+    static func pinnedItems(_ h: Home) -> [PinItem] {
         let chats = h.setups + h.chats
         guard let order = h.pinned else { return chats.filter(\.pinned).map { .chat($0) } }
         return order.compactMap { r in
@@ -144,9 +145,10 @@ final class AppModel {
     }
 
     /// every other chat, newest first
-    var recents: [ChatRow] {
-        guard let h = home else { return [] }
-        let pinned = Set(pinnedItems.compactMap { if case .chat(let c) = $0 { return c.id } else { return nil } })
+    var recents: [ChatRow] { home.map(Self.recents) ?? [] }
+
+    static func recents(_ h: Home) -> [ChatRow] {
+        let pinned = Set(pinnedItems(h).compactMap { if case .chat(let c) = $0 { return c.id } else { return nil } })
         return (h.setups + h.chats).filter { !pinned.contains($0.id) && !$0.pinned }
             .sorted { $0.lastActive > $1.lastActive }
     }
