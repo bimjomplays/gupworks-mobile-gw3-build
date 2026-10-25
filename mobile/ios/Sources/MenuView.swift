@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// 5c: ChatGPT's menu with GupWorks inside. The title and search; Projects, Scheduled, Quick actions, Gup Bot; then
 /// Pinned (chats and projects, long-press to sort them, 5d) and Recents (every other chat, newest first). New chat
@@ -23,8 +24,8 @@ struct MenuView: View {
     @State private var dragged: String?
     @State private var dragY: CGFloat = 0
     @State private var dragFrom = 0
-    /// the long-press that started sorting still holds the row
-    @GestureState private var holding = false
+    /// where the finger was on the screen when the pin was lifted
+    @State private var dragStartY: CGFloat = 0
     @State private var slotTick = 0
     @State private var liftTick = 0
     @State private var renaming: ChatRow?
@@ -54,10 +55,6 @@ struct MenuView: View {
                 finishSorting()
                 endSearch()
             }
-        }
-        .onChange(of: holding) { _, h in
-            // the finger left (or the touch was cancelled): the pin settles in its slot
-            if !h { drop() }
         }
         .sensoryFeedback(.selection, trigger: slotTick)
         .sensoryFeedback(.impact(weight: .medium), trigger: liftTick)
@@ -208,7 +205,12 @@ struct MenuView: View {
                 .zIndex(lifted ? 1 : 0)
                 .contentShape(Rectangle())
                 .onTapGesture { if !sorting { open(item) } }
-                .gesture(liftGesture(item))
+                .gesture(PinLift(began: { y in
+                    if !sorting { startSorting(lifting: item) } else { lift(item) }
+                    dragStartY = y
+                }, moved: { y in
+                    follow(item, y - dragStartY)
+                }, ended: drop))
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("pin-\(item.title)")
@@ -262,22 +264,8 @@ struct MenuView: View {
 
     // MARK: 5d: sorting
 
-    /// long-press a pin: every pin gets its handle and the pressed one follows your finger; while sorting, each
-    /// pin is picked up the same way. One fixed gesture: changing a row's gestures mid-touch cancels the touch.
-    /// Measured on the screen: in the row's own space the lifted row moves with the finger and the drag reads half.
-    private func liftGesture(_ item: PinItem) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.4)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
-            .updating($holding) { v, holding, _ in
-                if case .second(true, _) = v { holding = true }
-            }
-            .onChanged { v in
-                guard case .second(true, let d) = v else { return }
-                if !sorting { startSorting(lifting: item) } else if dragged == nil { lift(item) }
-                if let d { follow(item, d.translation.height) }
-            }
-    }
-
+    /// long-press a pin (PinLift): every pin gets its handle and the pressed one follows your finger; while
+    /// sorting, each pin is picked up the same way.
     private func startSorting(lifting item: PinItem?) {
         order = model.pinnedItems
         withAnimation(.easeOut(duration: 0.2)) { sorting = true }
@@ -537,6 +525,31 @@ private struct PinRowView: View {
         switch item {
         case .chat(let c): StateMark(state: c.state)
         case .project(let p): StateMark(state: p.state == "working" ? "" : p.state, working: p.working > 0)
+        }
+    }
+}
+
+/// 5d's lift: UIKit's long press, which keeps reporting the finger until it leaves. SwiftUI's long-press-then-drag
+/// inside the menu's scroll view lost the drag (the row moved short or not at all).
+private struct PinLift: UIGestureRecognizerRepresentable {
+    /// the finger's height on the screen when the press is recognised, then as it moves
+    let began: (CGFloat) -> Void
+    let moved: (CGFloat) -> Void
+    let ended: () -> Void
+
+    func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
+        let g = UILongPressGestureRecognizer()
+        g.minimumPressDuration = 0.4
+        return g
+    }
+
+    func handleUIGestureRecognizerAction(_ g: UILongPressGestureRecognizer, context: Context) {
+        let y = g.location(in: nil).y
+        switch g.state {
+        case .began: began(y)
+        case .changed: moved(y)
+        case .ended, .cancelled, .failed: ended()
+        default: break
         }
     }
 }
