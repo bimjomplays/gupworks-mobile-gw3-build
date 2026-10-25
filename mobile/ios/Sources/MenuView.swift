@@ -182,7 +182,6 @@ struct MenuView: View {
         .scrollIndicators(.hidden)
         .scrollDisabled(dragged != nil)
         .refreshable { await model.refresh() }
-        .coordinateSpace(.named("menu"))
     }
 
     private func sectionHeader(_ title: String, @ViewBuilder trailing: () -> some View) -> some View {
@@ -265,9 +264,10 @@ struct MenuView: View {
 
     /// long-press a pin: every pin gets its handle and the pressed one follows your finger; while sorting, each
     /// pin is picked up the same way. One fixed gesture: changing a row's gestures mid-touch cancels the touch.
+    /// Measured on the screen: in the row's own space the lifted row moves with the finger and the drag reads half.
     private func liftGesture(_ item: PinItem) -> some Gesture {
         LongPressGesture(minimumDuration: 0.4)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .named("menu")))
+            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .global))
             .updating($holding) { v, holding, _ in
                 if case .second(true, _) = v { holding = true }
             }
