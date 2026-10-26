@@ -625,6 +625,23 @@ final class VoiceTests: XCTestCase {
         XCTAssertEqual(r2.order(for: other), [other])
     }
 
+    /// App Transport Security lets the app's plain HTTP reach a tailnet address (the ATS exception for Tailscale's
+    /// range in project.yml), and still blocks it for any other address. Nothing listens there on the CI runner, so
+    /// an allowed request fails to connect or times out, while a blocked one fails at once with -1022.
+    func testPlainHTTPIsAllowedOnlyToTailnetAddresses() async {
+        let s = URLSession(configuration: .ephemeral)
+        func code(_ host: String) async -> Int? {
+            var r = URLRequest(url: URL(string: "http://\(host):9/v1/health")!)
+            r.timeoutInterval = 3
+            do { _ = try await s.data(for: r); return nil } catch { return (error as? URLError)?.code.rawValue }
+        }
+        let blocked = URLError.Code.appTransportSecurityRequiresSecureConnection.rawValue
+        let tailnet = await code(ip(100, 64, 0, 1))
+        XCTAssertNotEqual(tailnet, blocked, "ATS blocks plain HTTP to a tailnet address")
+        let elsewhere = await code(ip(192, 0, 2, 1))  // TEST-NET-1: the control, so this test can tell ATS is on
+        XCTAssertEqual(elsewhere, blocked, "ATS let plain HTTP through to a non-tailnet address")
+    }
+
     func testMagicDNSQueryAndReply() {
         let q = MagicDNS.query("pc.example.ts.net", id: 0x1234)!
         XCTAssertEqual(Array(q.prefix(12)), [0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0])
