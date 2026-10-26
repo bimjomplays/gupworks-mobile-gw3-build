@@ -158,6 +158,28 @@ func idle(_ least: Double = 0.15) {
     poll(1.5) { !Tree.animating() }
 }
 
+/// before a touch, as XCUITest waits for the app to be idle: no transition or animation running and the target
+/// (when given) holding still for a frame or two; at most 3 s
+@MainActor
+func settle(_ frame: (() -> CGRect?)? = nil) {
+    var last = frame?()
+    poll(3) {
+        if (UIApplication.shared as UIApplicationDeprecated).isIgnoringInteractionEvents || Tree.animating() { return false }
+        if App.current?.fingers?.isWindowReady == false { return false }
+        spin(0.04)
+        let now = frame?()
+        defer { last = now }
+        return now == last
+    }
+}
+
+/// isIgnoringInteractionEvents without its deprecation warning (UIKit still sets it during transitions)
+@MainActor
+private protocol UIApplicationDeprecated {
+    var isIgnoringInteractionEvents: Bool { get }
+}
+extension UIApplication: UIApplicationDeprecated {}
+
 /// XCUIKeyboardKey.delete
 enum Key {
     static let delete = "\u{8}"
@@ -273,7 +295,10 @@ struct Element {
 
     private func node(_ what: String, file: StaticString, line: UInt) -> Node? {
         // as XCUITest: an action waits a little for its element
-        if let n = resolve() ?? (poll(3) { resolve() != nil } ? resolve() : nil) { return n }
+        if resolve() != nil || poll(3, until: { resolve() != nil }) {
+            settle { resolve()?.frame }
+            if let n = resolve() { return n }
+        }
         XCTFail("nothing to \(what)\n\(App.current?.debugDescription ?? "")", file: file, line: line)
         return nil
     }
@@ -328,6 +353,7 @@ struct Element {
     static func swipe(in r: CGRect, up: Bool) {
         let a = CGPoint(x: r.midX, y: r.minY + r.height * (up ? 0.75 : 0.25))
         let b = CGPoint(x: r.midX, y: r.minY + r.height * (up ? 0.25 : 0.75))
+        settle()
         Finger.press(a, seconds: 0, thenDragTo: b, speed: 1500, hold: 0)
         idle()
     }
@@ -346,12 +372,14 @@ struct Coordinate {
     init(_ r: CGRect, _ v: CGVector) { point = CGPoint(x: r.minX + r.width * v.dx, y: r.minY + r.height * v.dy) }
 
     func tap() {
+        settle()
         Finger.tap(point)
         idle()
     }
 
     func press(forDuration seconds: Double, thenDragTo other: Coordinate, withVelocity v: Velocity = .default,
                thenHoldForDuration hold: Double = 0) {
+        settle()
         Finger.press(point, seconds: seconds, thenDragTo: other.point, speed: v.pointsPerSecond, hold: hold)
         idle()
     }

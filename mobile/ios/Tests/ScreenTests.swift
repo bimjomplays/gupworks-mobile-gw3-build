@@ -13,7 +13,15 @@ final class ScreenTests: XCTestCase {
     }
 
     override nonisolated func tearDown() {
-        MainActor.assumeIsolated { App.current?.close() }
+        MainActor.assumeIsolated {
+            // a failed test leaves its last screen and what was on it, to see why
+            if let run = testRun, run.failureCount > 0, let app = App.current {
+                let name = name.components(separatedBy: " ").last?.trimmingCharacters(in: CharacterSet(charactersIn: "]")) ?? "test"
+                app.shot("fail-\(name)")
+                print("SCREEN at the failure of \(name):\n\(app.debugDescription)")
+            }
+            App.current?.close()
+        }
     }
 
     /// waits with the app running (Darwin's sleep would freeze it)
