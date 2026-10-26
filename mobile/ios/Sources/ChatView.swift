@@ -1503,7 +1503,7 @@ struct TopDim: View {
         GeometryReader { geo in
             let top = geo.safeAreaInsets.top
             LinearGradient(stops: [
-                .init(color: Theme.background.opacity(0.78), location: 0),
+                .init(color: Theme.background.opacity(0.82), location: 0),
                 .init(color: Theme.background.opacity(0.66), location: 0.45),
                 .init(color: Theme.background.opacity(0.3), location: 0.8),
                 .init(color: Theme.background.opacity(0), location: 1),

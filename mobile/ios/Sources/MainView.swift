@@ -96,6 +96,7 @@ struct MainView: View {
                          place: { p in if !swipeClock.recent { go(p) } },
                          settings: { if !swipeClock.recent { showSettings = true } },
                          lifting: { pinLifted = $0 })
+                    .padding(.top, geo.safeAreaInsets.top)
                     .frame(width: width)
                     .offset(x: (x - width) * 0.25)
                     .opacity(menuOpen || x > 0 ? 1 : 0)
