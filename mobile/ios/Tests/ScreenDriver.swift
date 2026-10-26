@@ -237,6 +237,11 @@ enum Finger {
         return unsafeBitCast(method_getImplementation(m), to: T.self)
     }
 
+    /// [cls alloc] (Swift hides alloc; the object is kept for good: a test's few events)
+    private static func alloc(_ cls: AnyClass) -> AnyObject {
+        (cls as AnyObject).perform(NSSelectorFromString("alloc"))!.takeUnretainedValue()
+    }
+
     /// a path of points (screen coordinates); one point is a tap
     static func path(_ points: [CGPoint], seconds: Double = 0.05) -> String {
         guard let pathCls = NSClassFromString("XCPointerEventPath"),
@@ -247,13 +252,13 @@ enum Finger {
               let initRec = imp(recCls, "initWithName:interfaceOrientation:", InitRecord.self),
               let add = imp(recCls, "addPointerEventPath:", AddPath.self)
         else { return "no XCTest synthesizer classes" }
-        let p = initPath((pathCls as! NSObject.Type).alloc(), NSSelectorFromString("initForTouchAtPoint:offset:"), points[0], 0)
+        let p = initPath(alloc(pathCls), NSSelectorFromString("initForTouchAtPoint:offset:"), points[0], 0)
         let step = points.count > 1 ? seconds / Double(points.count - 1) : 0
         for (i, pt) in points.enumerated().dropFirst() {
             move(p, NSSelectorFromString("moveToPoint:atOffset:"), pt, step * Double(i))
         }
         lift(p, NSSelectorFromString("liftUpAtOffset:"), points.count > 1 ? seconds : 0.05)
-        let rec = initRec((recCls as! NSObject.Type).alloc(), NSSelectorFromString("initWithName:interfaceOrientation:"),
+        let rec = initRec(alloc(recCls), NSSelectorFromString("initWithName:interfaceOrientation:"),
                           "a125 finger" as NSString, UIInterfaceOrientation.portrait.rawValue)
         add(rec, NSSelectorFromString("addPointerEventPath:"), p)
         if let synth = imp(recCls, "synthesizeWithError:", SynthWithError.self) {
