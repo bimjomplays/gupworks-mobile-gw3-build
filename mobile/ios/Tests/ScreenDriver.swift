@@ -242,6 +242,7 @@ struct Element {
     init(_ resolve: @escaping () -> Node?) { self.resolve = resolve }
 
     var exists: Bool { resolve() != nil }
+    var firstMatch: Element { self }
 
     func waitForExistence(timeout: Double) -> Bool { poll(timeout) { resolve() != nil } }
 
@@ -549,10 +550,15 @@ enum Tree {
 
     /// the view an accessibility element belongs to
     static func container(of o: NSObject) -> UIView? {
-        var c: Any? = o.accessibilityContainer
+        // accessibilityContainer is an informal protocol on NSObject that Swift doesn't see; ask by key
+        func up(_ x: NSObject) -> Any? {
+            x.responds(to: NSSelectorFromString("accessibilityContainer")) ? x.value(forKey: "accessibilityContainer") : nil
+        }
+        var c: Any? = up(o)
         for _ in 0..<20 {
             if let v = c as? UIView { return v }
-            c = (c as? NSObject)?.accessibilityContainer
+            guard let n = c as? NSObject else { return nil }
+            c = up(n)
         }
         return nil
     }
