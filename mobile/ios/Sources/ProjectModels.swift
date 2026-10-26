@@ -16,6 +16,11 @@ struct ProjectView: Codable, Equatable {
     var groups: [ThreadGroup]
     var usage: [UsageRow]
     var info: [InfoRow]
+    // a121: the project's look and goal, and what its main chat asks you (the NEEDS YOU card, 05)
+    var icon: String?
+    var color: String?
+    var goal: String?
+    var mainNeeds: MainNeeds?
 
     struct Counts: Codable, Equatable {
         var threads: Int        // not done or archived
@@ -23,6 +28,21 @@ struct ProjectView: Codable, Equatable {
         var working: Int
         var checking: Int
         var schedules: Int
+        var done: Int?
+        var archived: Int?
+        var library: Int?
+        var ideas: Int?
+    }
+
+    /// The main chat's own question (notify_user): the card under its newest turn, with its answers.
+    struct MainNeeds: Codable, Equatable {
+        var text: String
+        var question: String?
+        var options: [String]?
+        var work: String?
+        var ts: Double?
+        var ago: String?
+        var chatId: String?
     }
 
     /// "1 needs you", "2 working" over the list (glyph: needs | spin | review)
@@ -75,6 +95,11 @@ struct ThreadItem: Codable, Equatable, Identifiable {
     var muted: Bool
     var doneOk: Bool
     var moves: [String]         // pause | resume | stop | done | archive | unarchive
+    // a121: the Overview's and the chat cards' words: "needs you", "landed"; the line under the title; "Sonnet high"
+    var word: String?
+    var line: String?
+    var modelLabel: String?
+    var ago: String?
 }
 
 /// GET …/library (or ?folder=): Pinned, Notes, From threads; a folder's notes.
@@ -101,6 +126,9 @@ struct LibraryRow: Codable, Equatable, Identifiable, Hashable {
     var exists: Bool
     var workId: String?
     var editable: Bool
+    var thumb: String?          // a picture's small copy (a121)
+    var url: String?
+    var group: String?
 
     var id: String { path }
 }
@@ -140,6 +168,19 @@ struct ScheduleList: Codable, Equatable {
     var groups: [ScheduleGroup]
     var count: Int
     var footer: String
+    var past: [ScheduleRun]?    // a121: the newest runs of every schedule
+    var empty: String?
+}
+
+/// One run of a schedule: the thread it made (or why it didn't run).
+struct ScheduleRun: Codable, Equatable, Hashable {
+    var title: String
+    var line: String
+    var status: String          // ok | failed | skipped | running
+    var at: Double
+    var workId: String?
+    var chatId: String?
+    var glyph: String
 }
 
 struct ScheduleGroup: Codable, Equatable, Identifiable {
@@ -161,6 +202,14 @@ struct ScheduleRow: Codable, Equatable, Identifiable {
     var right: String
     var last: String
     var nextRun: Double?
+    // a121
+    var whenText: String?
+    var skipped: Bool?
+    var next: String?
+    var prompt: String?
+    var model: String?
+    var effort: String?
+    var runs: [ScheduleRun]?
 }
 
 /// POST …/threads: the new thread and the view with it.
@@ -178,6 +227,173 @@ struct ProjectFixture: Codable {
     var folders: [String: LibraryList]
     var files: [String: LibraryFile]
     var schedules: ScheduleList
+    var settings: ProjectSettings?
+    var ideas: IdeasList?
+    var usage: ProjectUsage?
+}
+
+// MARK: a121's project pages (docs/projects-mobile-mockups): new project, settings, ideas, usage
+
+/// POST /v1/projects: a new project; the PC makes its folder, git and notes, copies the files into its Library
+/// and starts its main chat.
+struct NewProjectBody: Codable, Equatable {
+    var name: String
+    var goal: String
+    var icon: String?
+    var color: String?
+    var folder: String          // "new" or a folder from FoldersReply
+    var files: [String]
+    var clientId: String
+}
+
+struct NewProjectReply: Codable, Equatable {
+    var projectId: String
+    var mainChatId: String?
+    var running: Bool
+    var name: String
+}
+
+/// GET /v1/projects/folders: the folders in the projects folder a project can start in, newest first.
+struct FoldersReply: Codable, Equatable {
+    var root: String            // the projects folder, short (home as a tilde)
+    var folders: [ProjectFolder]
+}
+
+struct ProjectFolder: Codable, Equatable, Identifiable, Hashable {
+    var name: String
+    var path: String
+    var short: String
+    var git: Bool
+    var project: String?        // the project already in it
+    var mtime: Double
+
+    var id: String { path }
+}
+
+/// GET …/settings (11), and what a PATCH answers.
+struct ProjectSettings: Codable, Equatable {
+    var id: String
+    var name: String
+    var icon: String?
+    var color: String?
+    var goal: String
+    var instructions: String
+    var folder: String
+    var notes: String
+    var parts: [String]
+    var mainModel: String
+    var mainEffort: String
+    var mainLabel: String
+    var threadModels: [String: String]
+    var threadLabel: String
+    var usage: String
+    var paused: Bool
+    var archived: Bool
+    var models: [ModelInfo]
+}
+
+/// PATCH /v1/projects/<id>: only what changed is sent.
+struct ProjectPatch: Codable, Equatable {
+    var name: String?
+    var goal: String?
+    var instructions: String?
+    var icon: String?
+    var color: String?          // "" is no colour
+    var mainModel: String?
+    var mainEffort: String?
+    var threadModel: String?
+    var threadEffort: String?
+}
+
+/// GET …/ideas (09): the Ideas note by its sections.
+struct IdeasList: Codable, Equatable {
+    var title: String
+    var path: String
+    var mtime: Double
+    var sections: [IdeasSection]
+    var count: Int
+}
+
+struct IdeasSection: Codable, Equatable, Identifiable {
+    var name: String
+    var items: [IdeaItem]
+    var empty: String
+
+    var id: String { name }
+}
+
+struct IdeaItem: Codable, Equatable, Hashable {
+    var raw: String             // the line as written, what an edit or delete names
+    var text: String
+    var date: String?
+    var ai: Bool
+}
+
+/// POST …/ideas/change: edit | delete | move one idea (`old` is its raw line).
+struct IdeaChange: Codable, Equatable {
+    var op: String
+    var section: String
+    var old: String
+    var text: String?
+    var to: String?
+}
+
+/// GET …/usage (12).
+struct ProjectUsage: Codable, Equatable {
+    var total: Double
+    var totalText: String
+    var since: String
+    var main: Double
+    var mainText: String
+    var threads: Double
+    var threadsText: String
+    var threadCount: Int
+    var models: [Model]
+    var biggest: [Big]
+    var cacheReads: Int
+    var plan: Plan?
+    var footer: String
+
+    struct Model: Codable, Equatable, Hashable {
+        var name: String
+        var tokens: Double
+        var value: String
+        var percent: Int
+    }
+
+    struct Big: Codable, Equatable, Hashable {
+        var id: String
+        var title: String
+        var chatId: String?
+        var line: String
+        var value: String
+        var state: String
+        var glyph: String
+    }
+
+    struct Plan: Codable, Equatable {
+        var fiveHour: Double?
+        var week: Double?
+    }
+}
+
+/// POST …/library/add: the files copied in, and the Library with them.
+struct LibraryAddReply: Codable, Equatable {
+    var added: [String]
+    var library: LibraryList
+}
+
+/// GET /v1/search?in=projects: projects whose chats say the words (the Projects page's search).
+struct ProjectSearchReply: Codable, Equatable {
+    var projects: [ProjectHit]
+}
+
+struct ProjectHit: Codable, Equatable, Identifiable {
+    var id: String
+    var name: String
+    var chatId: String
+    var title: String
+    var snippet: String
 }
 
 // MARK: the home list's folders (projects-ui.json's sidebarFolders, as the desktop sidebar has them)
@@ -302,6 +518,49 @@ enum DemoProject {
         if out.counts.working > 0 { out.quiet.append(.init(glyph: "spin", text: "\(out.counts.working) working")) }
         if out.counts.checking > 0 {
             out.quiet.append(.init(glyph: "review", text: "\(out.counts.checking) being checked"))
+        }
+        return out
+    }
+
+    /// Scheduled's groups after a demo move, as tools/gw3_phone.py's schedule_list sorts them.
+    static func regroupSchedules(_ l: ScheduleList) -> ScheduleList {
+        var out = l
+        var rows = l.groups.flatMap(\.items)
+        for i in rows.indices where rows[i].running && rows[i].when != rows[i].last {
+            rows[i].last = "Running as a thread · open it"
+            rows[i].when = rows[i].last
+            rows[i].right = ""
+        }
+        let running = rows.filter(\.running)
+        let paused = rows.filter { !$0.running && $0.paused }
+        let scheduled = rows.filter { !$0.running && !$0.paused }
+        out.groups = [("Scheduled", scheduled), ("Running now", running), ("Paused", paused)]
+            .filter { !$0.1.isEmpty }
+            .map { ScheduleGroup(label: $0.0, count: $0.1.count, items: $0.1) }
+        out.count = rows.count
+        return out
+    }
+
+    /// The Ideas note after a demo edit, delete or move.
+    static func change(_ c: IdeaChange, in l: IdeasList) -> IdeasList {
+        var out = l
+        guard let s = out.sections.firstIndex(where: { $0.name == c.section }),
+              let i = out.sections[s].items.firstIndex(where: { $0.raw == c.old }) else { return l }
+        switch c.op {
+        case "edit":
+            let text = (c.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.isEmpty { return change(IdeaChange(op: "delete", section: c.section, old: c.old), in: l) }
+            out.sections[s].items[i].text = text
+            out.sections[s].items[i].raw = text + (out.sections[s].items[i].date.map { " (\($0))" } ?? "")
+        case "delete":
+            out.sections[s].items.remove(at: i)
+            out.count -= 1
+        case "move":
+            guard let to = c.to, let t = out.sections.firstIndex(where: { $0.name == to }), t != s else { return l }
+            let item = out.sections[s].items.remove(at: i)
+            out.sections[t].items.append(item)
+        default:
+            return l
         }
         return out
     }

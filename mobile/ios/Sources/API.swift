@@ -36,6 +36,7 @@ struct Home: Codable, Equatable {
     var layout: [LayoutEntry]?      // slice 6: the desktop sidebar's order and folders
     var pinned: [PinRef]?           // the menu's Pinned: chats and projects in the order set on the phone (gw3-phone 0.8)
     var usage: [Meter]?             // the account's 5-hour and weekly limits, for a new chat's rings
+    var archivedProjects: [ProjectRow]?  // the Projects filter's Archived (gw3-phone 0.9)
 }
 
 /// One row of Pinned: a chat or a project.
@@ -69,6 +70,11 @@ struct ProjectRow: Codable, Equatable, Identifiable {
     var working: Int
     var paused: Bool
     var mainChatId: String?
+    // gw3-phone 0.9: the project's icon and colour (ProjectLook), its last activity and when it was made (ms)
+    var icon: String?
+    var color: String?
+    var lastActive: Double?
+    var created: Double?
 }
 
 struct ChatRow: Codable, Equatable, Identifiable {
@@ -534,6 +540,64 @@ final class APIClient {
                           encoding: ["archived": on])
     }
 
+    // MARK: a121's project pages
+
+    func createProject(_ p: Pairing, _ b: NewProjectBody) async throws -> NewProjectReply {
+        try await request(p.baseURL, "/v1/projects", token: p.token, method: "POST", encoding: b, slow: true)
+    }
+
+    func projectFolders(_ p: Pairing) async throws -> FoldersReply {
+        try await request(p.baseURL, "/v1/projects/folders", token: p.token)
+    }
+
+    func projectSettings(_ p: Pairing, _ id: String) async throws -> ProjectSettings {
+        try await request(p.baseURL, "/v1/projects/\(id)/settings", token: p.token)
+    }
+
+    func updateProject(_ p: Pairing, _ id: String, _ patch: ProjectPatch) async throws -> ProjectSettings {
+        try await request(p.baseURL, "/v1/projects/\(id)", token: p.token, method: "PATCH", encoding: patch)
+    }
+
+    /// The project's record goes; its folder and notes stay on the PC.
+    func deleteProject(_ p: Pairing, _ id: String) async throws {
+        let _: OKReply = try await request(p.baseURL, "/v1/projects/\(id)", token: p.token, method: "DELETE",
+                                           encoding: ["confirm": "delete"])
+    }
+
+    func ideas(_ p: Pairing, project: String) async throws -> IdeasList {
+        try await request(p.baseURL, "/v1/projects/\(project)/ideas", token: p.token)
+    }
+
+    func addIdea(_ p: Pairing, project: String, text: String, section: String) async throws -> IdeasList {
+        try await request(p.baseURL, "/v1/projects/\(project)/ideas", token: p.token, method: "POST",
+                          encoding: ["text": text, "section": section])
+    }
+
+    func changeIdea(_ p: Pairing, project: String, _ c: IdeaChange) async throws -> IdeasList {
+        try await request(p.baseURL, "/v1/projects/\(project)/ideas/change", token: p.token, method: "POST", encoding: c)
+    }
+
+    func projectUsage(_ p: Pairing, project: String) async throws -> ProjectUsage {
+        try await request(p.baseURL, "/v1/projects/\(project)/usage", token: p.token)
+    }
+
+    /// uploads (UploadReply.path) copied into the project's notes folder
+    func libraryAdd(_ p: Pairing, project: String, files: [String]) async throws -> LibraryAddReply {
+        try await request(p.baseURL, "/v1/projects/\(project)/library/add", token: p.token, method: "POST",
+                          encoding: ["files": files])
+    }
+
+    /// run | pause | resume one schedule
+    func scheduleMove(_ p: Pairing, project: String, schedule: String, _ move: String) async throws -> ScheduleList {
+        try await request(p.baseURL, "/v1/projects/\(project)/schedules/\(schedule)/\(move)", token: p.token,
+                          method: "POST", encoding: [String: String]())
+    }
+
+    func searchProjects(_ p: Pairing, _ q: String) async throws -> ProjectSearchReply {
+        try await request(p.baseURL, "/v1/search", token: p.token,
+                          query: [URLQueryItem(name: "q", value: q), URLQueryItem(name: "in", value: "projects")])
+    }
+
     /// A server-sent events stream (`/v1/home/events`, `/v1/chats/<id>/events`). Ends when the PC closes it; throws
     /// APIError like the other calls.
     func events(_ p: Pairing, _ path: String, query: [URLQueryItem] = []) -> AsyncThrowingStream<SSEEvent, Error> {
@@ -737,6 +801,14 @@ enum Demo {
         let shift = Date().timeIntervalSince1970 * 1000 - h.now
         h.now += shift
         h.chats = h.chats.map { var c = $0; c.lastActive += shift; c.pinnedAt = c.pinnedAt.map { $0 + shift }; return c }
+        let move = { (r: ProjectRow) -> ProjectRow in
+            var r = r
+            r.lastActive = r.lastActive.map { $0 + shift }
+            r.created = r.created.map { $0 + shift }
+            return r
+        }
+        h.projects = h.projects.map(move)
+        h.archivedProjects = h.archivedProjects?.map(move)
         h.usage = h.usage.map { shiftResets($0, by: shift) }
         return h
     }

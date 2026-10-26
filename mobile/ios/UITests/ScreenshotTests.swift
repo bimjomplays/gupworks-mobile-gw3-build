@@ -286,19 +286,97 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(el(app, "pin-Trip packing list").waitForExistence(timeout: 5))
     }
 
-    func testProjectsPage() {
-        let app = launch(["-menu"])
-        XCTAssertTrue(el(app, "place-projects").waitForExistence(timeout: 20))
-        el(app, "place-projects").tap()
-        let folder = el(app, "folder-At home")
-        XCTAssertTrue(folder.waitForExistence(timeout: 5))
-        XCTAssertTrue(find(app, "Garden planner").exists)
+    // MARK: a121: the Projects pages (docs/projects-mobile-mockups 01-12)
+
+    private func projects(_ extra: [String] = []) -> XCUIApplication {
+        let app = launch(["-place", "projects"] + extra)
+        XCTAssertTrue(el(app, "project-lumen-studio").waitForExistence(timeout: 20))
+        return app
+    }
+
+    /// 01: newest first with what each is doing; a tap opens the project's main chat; search finds chats too
+    func testP01Projects() {
+        let app = projects()
+        XCTAssertTrue(find(app, "Needs you").exists)
+        XCTAssertLessThan(el(app, "project-lumen-studio").frame.minY, el(app, "project-garden-planner-1a2b").frame.minY)
+        XCTAssertFalse(el(app, "project-old-blog-6e7f").exists, "archived stays out of the list")
         sleep(1)
-        shot("projects")
-        folder.tap()
-        XCTAssertTrue(find(app, "Garden planner").waitForNonExistence(timeout: 5))
-        find(app, "Lumen Studio website").tap()
-        XCTAssertTrue(el(app, "tab-threads").waitForExistence(timeout: 10))
+        shot("01-projects")
+        el(app, "project-lumen-studio").tap()
+        XCTAssertTrue(el(app, "projectPill").waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, "NEEDS YOU").waitForExistence(timeout: 10))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(el(app, "project-lumen-studio").waitForExistence(timeout: 5))
+        // the menu also reaches it
+        el(app, "searchProjects").tap()
+        let field = el(app, "projectSearch")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("lu")
+        XCTAssertTrue(el(app, "hit-lumen-studio").waitForExistence(timeout: 5))
+        XCTAssertFalse(el(app, "project-home-server-5e6f").exists)
+        el(app, "closeSearch").tap()
+        XCTAssertTrue(el(app, "project-home-server-5e6f").waitForExistence(timeout: 5))
+    }
+
+    /// 02: the filter: Pinned, All, Archived and the folders switch
+    func testP02Filter() {
+        let app = projects(["-filter"])
+        XCTAssertTrue(el(app, "filter-archived").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("02-filter")
+        el(app, "filter-archived").tap()
+        XCTAssertTrue(el(app, "project-old-blog-6e7f").waitForExistence(timeout: 5))
+        XCTAssertFalse(el(app, "project-lumen-studio").exists)
+        el(app, "projectFilter").tap()
+        XCTAssertTrue(el(app, "filter-all").waitForExistence(timeout: 5))
+        el(app, "filter-all").tap()
+        XCTAssertTrue(el(app, "project-lumen-studio").waitForExistence(timeout: 5))
+        el(app, "projectFilter").tap()
+        XCTAssertTrue(el(app, "filter-folders").waitForExistence(timeout: 5))
+        el(app, "filter-folders").tap()
+        if el(app, "closeFilter").exists { el(app, "closeFilter").tap() }
+        XCTAssertTrue(el(app, "folder-At home").waitForExistence(timeout: 5))
+        // put it back for the other tests (the switch is remembered)
+        el(app, "projectFilter").tap()
+        XCTAssertTrue(el(app, "filter-folders").waitForExistence(timeout: 5))
+        el(app, "filter-folders").tap()
+        if el(app, "closeFilter").exists { el(app, "closeFilter").tap() }
+        XCTAssertTrue(el(app, "folder-At home").waitForNonExistence(timeout: 5))
+    }
+
+    /// 03: New project: name, goal, files, folder; Create adds it to the list
+    func testP03NewProject() {
+        let app = projects(["-newProject"])
+        let name = el(app, "newName")
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertTrue(el(app, "newGoal").exists)
+        XCTAssertTrue(el(app, "newFolder").exists)
+        sleep(1)
+        shot("03-new-project")
+        name.typeText("Film shelf")
+        el(app, "newCreate").tap()
+        // a project without a main chat yet opens its settings
+        XCTAssertTrue(el(app, "settingsClose").waitForExistence(timeout: 10))
+        el(app, "settingsClose").tap()
+        XCTAssertTrue(find(app, "Film shelf").waitForExistence(timeout: 5))
+    }
+
+    /// 04: the icon picker: colours, the grid, search through every Lucide icon
+    func testP04ProjectIcon() {
+        let app = launch(["-place", "projects", "-newProject", "-iconPicker"])
+        XCTAssertTrue(el(app, "icon-clapperboard").waitForExistence(timeout: 20))
+        sleep(1)
+        shot("04-project-icon")
+        let search = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[c] %@", "icon")).firstMatch
+        XCTAssertTrue(search.exists)
+        search.tap()
+        search.typeText("film")
+        XCTAssertTrue(el(app, "icon-film").waitForExistence(timeout: 5))
+        XCTAssertFalse(el(app, "icon-rocket").exists)
+        el(app, "icon-film").tap()
+        el(app, "colour-blue").tap()
+        el(app, "iconDone").tap()
+        XCTAssertTrue(el(app, "newName").waitForExistence(timeout: 5))
     }
 
     func testComingSoonPlaces() {
@@ -378,15 +456,6 @@ final class ScreenshotTests: XCTestCase {
         shot("d2-card")
     }
 
-    func testD11MainChat() {
-        // straight in (`-open`), so the project sheet that comes up from the list row isn't over the chat
-        let app = openChat(lumen, waitFor: "THREAD NEEDS YOU")
-        XCTAssertTrue(find(app, "Main chat").exists)
-        XCTAssertTrue(find(app, "Land it as is").exists)
-        sleep(1)
-        shot("d11-main")
-    }
-
     func testLiveChatWithPictures() {
         let app = launch()
         open(app, "Wallpaper ideas", waitFor: "Working")
@@ -400,7 +469,7 @@ final class ScreenshotTests: XCTestCase {
         shot("chat-media")
         // its top: the composer may cover the rest
         video.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
-        XCTAssertTrue(app.buttons["videoClose"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5))
         sleep(2)
         shot("video")
     }
@@ -810,19 +879,6 @@ final class ScreenshotTests: XCTestCase {
         app.buttons["doneSelecting"].tap()
     }
 
-    func testThreadNeedsYouAnswers() {
-        // straight in (`-open`), so the project sheet that comes up from the list row isn't over the chat
-        let app = openChat(lumen, waitFor: "THREAD NEEDS YOU")
-        let first = app.buttons["askOption-0"]
-        XCTAssertTrue(first.waitForExistence(timeout: 5))
-        XCTAssertGreaterThanOrEqual(first.frame.height, 44)
-        first.tap()
-        XCTAssertTrue(find(app, "a6: Land it as is").waitForExistence(timeout: 5))
-        XCTAssertTrue(find(app, "You answered").exists)
-        sleep(1)
-        shot("thread-answered")
-    }
-
     // MARK: slice 5: voice (the demo's PC hears "Also let a swipe down close the lightbox on phones.")
 
     private let said = "Also let a swipe down close the lightbox on phones"
@@ -919,192 +975,221 @@ final class ScreenshotTests: XCTestCase {
         shot("d8-on-iphone-done")
     }
 
-    // MARK: slice 6: projects (D9)
+    // MARK: a121: a project (05-12)
 
     private let lumen = "00000066-1111-4222-8333-000000000066"
+    private let contact = "00000074-2222-4222-8333-000000000074"
 
-    /// the Lumen main chat with its sheet at full height (the Threads button)
-    private func openThreads(_ extra: [String] = []) -> XCUIApplication {
-        let app = launch(["-open", lumen] + extra)
-        XCTAssertTrue(app.descendants(matching: .any)["chatTitle"].waitForExistence(timeout: 20))
-        let button = app.buttons["threadsButton"]
-        XCTAssertTrue(button.waitForExistence(timeout: 10))
-        button.tap()
-        XCTAssertTrue(el(app, "tab-threads").waitForExistence(timeout: 5))
-        XCTAssertTrue(el(app, "thread-a6").waitForExistence(timeout: 5))
-        sleep(1)
+    /// the Lumen main chat pushed over Projects (05); `-sheet` brings its Overview up (06)
+    private func project(_ extra: [String] = []) -> XCUIApplication {
+        let app = launch(["-place", "projects", "-push", lumen] + extra)
+        XCTAssertTrue(el(app, "projectPill").waitForExistence(timeout: 20))
         return app
     }
 
-    func testD9Project() {
-        // from its pin in the menu: the main chat with its sheet at half height
-        let app = launch(["-menu"])
-        XCTAssertTrue(el(app, "pin-Lumen Studio website").waitForExistence(timeout: 20))
-        el(app, "pin-Lumen Studio website").tap()
-        XCTAssertTrue(el(app, "tab-threads").waitForExistence(timeout: 10))
-        XCTAssertTrue(find(app, "Contrast pass").waitForExistence(timeout: 5))
-        XCTAssertTrue(find(app, "Contact page form").exists)
-        XCTAssertTrue(find(app, "2 working").exists)
-        XCTAssertTrue(app.buttons["threadsButton"].exists)
-        sleep(2)
-        shot("d9-project")
+    private func overview(_ extra: [String] = []) -> XCUIApplication {
+        let app = project(["-sheet"] + extra)
+        XCTAssertTrue(el(app, "overview-library").waitForExistence(timeout: 10))
+        return app
     }
 
-    func testD9ThreadsFull() {
-        let app = openThreads()
-        XCTAssertTrue(find(app, "Gallery lightbox fix").exists)
-        XCTAssertTrue(find(app, "Usage").exists)
-        shot("d9-threads")
-        // a folded group opens on tap
-        el(app, "group-Done").tap()
-        XCTAssertTrue(el(app, "thread-a1").waitForExistence(timeout: 5))
+    /// 05: the main chat with live thread cards and its own question
+    func testP05Project() {
+        let app = project()
+        XCTAssertTrue(find(app, "NEEDS YOU").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "threadCard-a4").exists)
+        XCTAssertTrue(find(app, "a4 \u{00B7} working").exists)
+        XCTAssertTrue(find(app, "a3 \u{00B7} landed").exists)
+        XCTAssertTrue(el(app, "overviewButton").exists)
+        XCTAssertTrue(find(app, "Message the main chat").exists)
         sleep(1)
-        shot("d9-done-open")
+        shot("05-project")
+        let first = app.buttons["askOption-0"]
+        XCTAssertGreaterThanOrEqual(first.frame.height, 44)
+        first.tap()
+        XCTAssertTrue(find(app, "ANSWERED").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Looks good").exists)
     }
 
-    func testD9SwipePauseAndDone() {
-        let app = openThreads()
-        drag(app, el(app, "thread-a6"), from: 0.9, to: 0.4)
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Pause"].exists)
+    /// 05 → 07: a thread card opens the thread; Back returns to the main chat
+    func testP05ThreadCardOpensThread() {
+        let app = project()
+        let card = el(app, "threadCard-a4")
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        card.tap()
+        XCTAssertTrue(el(app, "taskCard").waitForExistence(timeout: 10))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(el(app, "projectPill").waitForExistence(timeout: 5))
+    }
+
+    /// 06: the Overview: glance, Needs you, Working, Done, Library / Ideas / Scheduled
+    func testP06Overview() {
+        let app = overview()
+        XCTAssertTrue(el(app, "needsMain").exists)
+        XCTAssertTrue(el(app, "thread-a6").exists)
+        XCTAssertTrue(el(app, "thread-a4").exists)
+        XCTAssertTrue(el(app, "overviewGlance").exists)
         sleep(1)
-        shot("d9-swipe")
-        app.buttons["Pause"].tap()
-        // a6 leaves Needs you for Idle, with the paused glyph
-        XCTAssertTrue(find(app, "Idle").waitForExistence(timeout: 5))
-        XCTAssertFalse(find(app, "1 needs you").exists)
-        XCTAssertTrue(find(app, "Paused").exists)
-        sleep(1)
-        shot("d9-paused")
+        shot("06-overview")
+        el(app, "thread-a4").tap()
+        // the Overview goes and the thread's chat is pushed over the main chat
+        XCTAssertTrue(el(app, "taskCard").waitForExistence(timeout: 10))
+        XCTAssertFalse(el(app, "overview-library").exists)
+    }
+
+    func testP06SwipeAndPress() {
+        let app = overview()
         drag(app, el(app, "thread-a6"), from: 0.9, to: 0.4)
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 5))
-        app.buttons["Done"].tap()
-        XCTAssertTrue(el(app, "thread-a6").waitForNonExistence(timeout: 5))
-        XCTAssertTrue(find(app, "Done").exists)
-        // the working thread swipes to Pause and Archive (the PC marks only idle or waiting threads done)
-        drag(app, el(app, "thread-a4"), from: 0.9, to: 0.4)
         XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Archive"].exists)
-    }
-
-    func testD9LongPressThread() {
-        let app = openThreads()
+        XCTAssertTrue(app.buttons["Mark done"].exists)
+        sleep(1)
+        shot("06-swipe")
+        app.buttons["Pause"].tap()
+        drag(app, el(app, "thread-a6"), from: 0.9, to: 0.4)
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
+        app.buttons["Resume"].tap()
         el(app, "thread-a4").press(forDuration: 1.2)
         XCTAssertTrue(app.buttons["Stop\u{2026}"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Open chat"].exists)
-        sleep(1)
-        shot("d9-press")
+        XCTAssertTrue(app.buttons["Open thread"].exists)
         app.buttons["Stop\u{2026}"].tap()
         XCTAssertTrue(find(app, "Stop \u{201C}Contact page form\u{201D}?").waitForExistence(timeout: 5))
     }
 
-    func testD9NewThread() {
-        let app = openThreads()
+    func testP06NewThread() {
+        let app = overview()
         app.buttons["newThread"].tap()
         let box = app.textViews["newThreadText"]
         XCTAssertTrue(box.waitForExistence(timeout: 5))
         box.typeText("Add the studio hours to the footer")
         sleep(1)
-        shot("d9-new-thread")
+        shot("06-new-thread")
         app.buttons["startThread"].tap()
         XCTAssertTrue(find(app, "Add the studio hours to the footer").waitForExistence(timeout: 5))
-        XCTAssertTrue(find(app, "3 working").exists)
-        sleep(1)
-        shot("d9-new-thread-started")
     }
 
-    func testD9OpenThread() {
-        let app = openThreads()
-        el(app, "thread-a5").tap()
-        // the sheet goes and the thread's chat is pushed over the main chat
-        XCTAssertTrue(find(app, "All five pages pass").waitForExistence(timeout: 10))
-        XCTAssertFalse(el(app, "tab-threads").exists)
+    /// 07: a thread: its task, its work, what you told it, live
+    func testP07Thread() {
+        let app = launch(["-place", "projects", "-push", contact])
+        XCTAssertTrue(el(app, "threadPill").waitForExistence(timeout: 20))
+        XCTAssertTrue(el(app, "taskCard").waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, "Keep the send button").exists)
+        XCTAssertTrue(el(app, "liveLine").exists)
+        XCTAssertTrue(find(app, "Message this thread").exists)
+        XCTAssertFalse(find(app, "Acceptance criteria").exists, "the brief hides behind the task card")
         sleep(1)
-        shot("d9-open-thread")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(find(app, "THREAD NEEDS YOU").waitForExistence(timeout: 10))
-        XCTAssertTrue(app.buttons["threadsButton"].exists)
+        shot("07-thread")
+        el(app, "taskCard").tap()
+        XCTAssertTrue(el(app, "taskClose").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Every field has a label").exists)
+        el(app, "taskClose").tap()
+        app.buttons["more"].tap()
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Stop\u{2026}"].exists)
     }
 
-    func testD9Library() {
-        let app = openThreads()
-        el(app, "tab-library").tap()
+    /// 08: Library: pinned, notes, from threads; filter, folders, notes open to read and edit
+    func testP08Library() {
+        let app = overview()
+        el(app, "overview-library").tap()
         XCTAssertTrue(el(app, "lib-Ideas").waitForExistence(timeout: 5))
-        XCTAssertTrue(find(app, "Pinned").exists)
         XCTAssertTrue(find(app, "From threads").exists)
-        sleep(1)
-        shot("d9-library")
-        el(app, "lib-Memory").tap()
-        XCTAssertTrue(el(app, "lib-MEMORY.md").waitForExistence(timeout: 5))
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        el(app, "lib-Palette.md").tap()
+        XCTAssertTrue(el(app, "lib-gallery-tour.mp4").exists)
+        sleep(2)
+        shot("08-library")
+        el(app, "libraryKind-images").tap()
+        XCTAssertTrue(el(app, "lib-contact-form.png").waitForExistence(timeout: 5))
+        XCTAssertFalse(el(app, "lib-Palette").exists)
+        el(app, "libraryKind-all").tap()
+        XCTAssertTrue(el(app, "lib-Palette").waitForExistence(timeout: 5))
+        el(app, "lib-Palette").tap()
         XCTAssertTrue(el(app, "noteText").waitForExistence(timeout: 5))
-        sleep(1)
-        shot("d9-note")
         app.buttons["noteEdit"].tap()
         let editor = app.textViews["noteEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         editor.typeText("\n- Sand for the footer")
-        sleep(1)
-        shot("d9-note-edit")
         app.buttons["noteSave"].tap()
         XCTAssertTrue(el(app, "noteSaved").waitForExistence(timeout: 5))
         XCTAssertTrue(find(app, "Sand for the footer").exists)
-        sleep(1)
-        shot("d9-note-saved")
     }
 
-    func testD9LibraryPicture() {
-        let app = openThreads()
-        el(app, "tab-library").tap()
-        let row = el(app, "lib-contact-form.png")
-        XCTAssertTrue(row.waitForExistence(timeout: 5))
-        row.tap()
-        XCTAssertTrue(el(app, "libraryPicture").waitForExistence(timeout: 5))
-        sleep(2)
-        shot("d9-library-picture")
+    func testP08FolderAndPicture() {
+        let app = overview()
+        el(app, "overview-library").tap()
+        XCTAssertTrue(el(app, "lib-Memory").waitForExistence(timeout: 5))
+        el(app, "lib-Memory").tap()
+        XCTAssertTrue(el(app, "lib-MEMORY").waitForExistence(timeout: 5))
+        let app2 = overview()
+        el(app2, "overview-library").tap()
+        XCTAssertTrue(el(app2, "lib-contact-form.png").waitForExistence(timeout: 5))
+        el(app2, "lib-contact-form.png").tap()
+        XCTAssertTrue(el(app2, "libraryPicture").waitForExistence(timeout: 5))
     }
 
-    func testD9NoteConflict() {
-        let app = openThreads(["-noteConflict"])
-        el(app, "tab-library").tap()
-        XCTAssertTrue(el(app, "lib-Ideas").waitForExistence(timeout: 5))
-        el(app, "lib-Ideas").tap()
+    func testP08NoteConflict() {
+        let app = overview(["-noteConflict"])
+        el(app, "overview-library").tap()
+        XCTAssertTrue(el(app, "lib-Palette").waitForExistence(timeout: 5))
+        el(app, "lib-Palette").tap()
         app.buttons["noteEdit"].tap()
         let editor = app.textViews["noteEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         editor.typeText("\n- A night mode")
         app.buttons["noteSave"].tap()
         XCTAssertTrue(app.alerts["This note changed on the PC"].waitForExistence(timeout: 5))
-        sleep(1)
-        shot("d9-note-conflict")
         app.alerts.buttons["Keep mine"].tap()
         XCTAssertTrue(el(app, "noteSaved").waitForExistence(timeout: 5))
     }
 
-    func testD9Scheduled() {
-        let app = openThreads()
-        el(app, "tab-scheduled").tap()
-        XCTAssertTrue(find(app, "Lighthouse report").waitForExistence(timeout: 5))
-        XCTAssertTrue(find(app, "Portfolio refresh").exists)
+    /// 09: Ideas: sections, AI badges, add at the bottom
+    func testP09Ideas() {
+        let app = overview()
+        el(app, "overview-ideas").tap()
+        XCTAssertTrue(el(app, "ideasTitle").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Booking straight from the gallery").exists)
+        XCTAssertTrue(find(app, "AI suggestions").exists)
         sleep(1)
-        shot("d9-scheduled")
+        shot("09-ideas")
+        let field = el(app, "ideaText")
+        field.tap()
+        field.typeText("Gift cards for portrait sessions")
+        el(app, "ideaAdd").tap()
+        XCTAssertTrue(el(app, "idea-Gift cards for portrait sessions").waitForExistence(timeout: 5))
     }
 
-    func testD9ProjectMenu() {
-        let app = openChat(lumen, waitFor: "THREAD NEEDS YOU")
-        app.buttons["more"].tap()
-        XCTAssertTrue(app.buttons["Pause project"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Archive project\u{2026}"].exists)
+    /// 10: Scheduled: next runs, a skipped one, one running now, paused, past runs
+    func testP10Scheduled() {
+        let app = overview()
+        el(app, "overview-scheduled").tap()
+        XCTAssertTrue(el(app, "schedule-s1").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Skipped, PC was off").exists)
+        XCTAssertTrue(find(app, "Running as b5").exists)
+        XCTAssertTrue(find(app, "Past runs").exists)
         sleep(1)
-        shot("d9-project-menu")
-        app.buttons["Pause project"].tap()
+        shot("10-scheduled")
+        el(app, "schedule-s1").tap()
+        XCTAssertTrue(el(app, "scheduleRun").waitForExistence(timeout: 5))
+        XCTAssertTrue(el(app, "schedulePause").exists)
+    }
+
+    /// 11: the project pill opens its settings
+    func testP11Settings() {
+        let app = project()
+        el(app, "projectPill").tap()
+        XCTAssertTrue(el(app, "settingsName").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "settingsUsage").exists)
         sleep(1)
-        app.buttons["more"].tap()
-        XCTAssertTrue(app.buttons["Resume project"].waitForExistence(timeout: 5))
-        app.buttons["Project info"].tap()
-        XCTAssertTrue(find(app, "A one-page site").waitForExistence(timeout: 5))
+        shot("11-settings")
+    }
+
+    /// 12: the project's usage, from its settings
+    func testP12Usage() {
+        let app = project()
+        el(app, "projectPill").tap()
+        XCTAssertTrue(el(app, "settingsUsage").waitForExistence(timeout: 10))
+        el(app, "settingsUsage").tap()
+        XCTAssertTrue(el(app, "usageTotal").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "biggest-a6").exists)
         sleep(1)
-        shot("d9-project-info")
+        shot("12-usage")
     }
 }

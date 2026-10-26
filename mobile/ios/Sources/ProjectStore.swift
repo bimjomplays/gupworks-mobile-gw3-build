@@ -11,6 +11,7 @@ final class ProjectStore {
     private(set) var view: ProjectView?
     private(set) var library: LibraryList?
     private(set) var schedules: ScheduleList?
+    private(set) var ideas: IdeasList?
     private(set) var error: APIError?
     /// a move or new thread the PC refused or never got, for an alert
     var actionError: String?
@@ -140,7 +141,7 @@ final class ProjectStore {
     // MARK: Library and Scheduled
 
     func loadLibrary() async {
-        if demo { library = fixture?.library; return }
+        if demo { library = library ?? fixture?.library; return }
         guard let p = pairing else { return }
         do {
             library = try await api.library(p, project: id)
@@ -188,12 +189,123 @@ final class ProjectStore {
     }
 
     func loadSchedules() async {
-        if demo { schedules = fixture?.schedules; return }
+        if demo { schedules = schedules ?? fixture?.schedules; return }
         guard let p = pairing else { return }
         do {
             schedules = try await api.schedules(p, project: id)
         } catch {
             actionError = APIError.from(error).message
+        }
+    }
+
+    /// run | pause | resume one schedule (Scheduled's swipes, 10)
+    func scheduleMove(_ schedule: String, _ move: String) async {
+        if demo {
+            guard var s = schedules else { return }
+            for g in s.groups.indices {
+                for i in s.groups[g].items.indices where s.groups[g].items[i].id == schedule {
+                    switch move {
+                    case "pause": s.groups[g].items[i].paused = true
+                    case "resume": s.groups[g].items[i].paused = false
+                    case "run": s.groups[g].items[i].running = true
+                    default: break
+                    }
+                }
+            }
+            schedules = DemoProject.regroupSchedules(s)
+            return
+        }
+        guard let p = pairing else { return }
+        do {
+            schedules = try await api.scheduleMove(p, project: id, schedule: schedule, move)
+        } catch {
+            actionError = APIError.from(error).message
+        }
+    }
+
+    // MARK: Ideas (09) and adding to the Library (08)
+
+    func loadIdeas() async {
+        if demo { loadDemo(); ideas = ideas ?? fixture?.ideas; return }
+        guard let p = pairing else { return }
+        do {
+            ideas = try await api.ideas(p, project: id)
+        } catch {
+            actionError = APIError.from(error).message
+        }
+    }
+
+    /// Adds an idea under "Ideas for later" (the bottom bar); true when it was saved.
+    func addIdea(_ text: String, section: String = "Ideas for later") async -> Bool {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return false }
+        if demo {
+            guard var l = ideas else { return false }
+            let item = IdeaItem(raw: text, text: text, date: nil, ai: false)
+            if let i = l.sections.firstIndex(where: { $0.name == section }) {
+                l.sections[i].items.append(item)
+            } else {
+                l.sections.append(IdeasSection(name: section, items: [item], empty: ""))
+            }
+            l.count += 1
+            ideas = l
+            return true
+        }
+        guard let p = pairing else { return false }
+        do {
+            ideas = try await api.addIdea(p, project: id, text: text, section: section)
+            return true
+        } catch {
+            actionError = APIError.from(error).message
+            return false
+        }
+    }
+
+    /// Edits, deletes or moves one idea.
+    func changeIdea(_ c: IdeaChange) async {
+        if demo {
+            if let l = ideas { ideas = DemoProject.change(c, in: l) }
+            return
+        }
+        guard let p = pairing else { return }
+        do {
+            ideas = try await api.changeIdea(p, project: id, c)
+        } catch {
+            actionError = APIError.from(error).message
+        }
+    }
+
+    /// Photos or files from the phone, copied into the project's notes folder; true when they all went in.
+    func addToLibrary(_ files: [Attachment]) async -> Bool {
+        guard !files.isEmpty else { return false }
+        if demo {
+            guard var l = library else { return false }
+            let rows = files.map { a in
+                LibraryRow(path: "/Notes/Demo/\(a.name)", kind: a.type.hasPrefix("image/") ? "image" : "file",
+                           title: a.name, sub: "just now", mtime: Date().timeIntervalSince1970 * 1000, exists: true,
+                           workId: nil, editable: false, thumb: nil, url: nil, group: "notes")
+            }
+            if let i = l.groups.firstIndex(where: { $0.id == "notes" }) {
+                l.groups[i].items.insert(contentsOf: rows, at: 0)
+            } else {
+                l.groups.append(LibraryGroup(id: "notes", label: "Notes", count: rows.count, items: rows))
+            }
+            l.count += rows.count
+            library = l
+            return true
+        }
+        guard let p = pairing else { return false }
+        do {
+            var paths: [String] = []
+            for a in files {
+                paths.append(try await api.upload(p, a.data, name: a.name, type: a.type,
+                                                  chat: view?.mainChatId ?? "new").path)
+            }
+            library = try await api.libraryAdd(p, project: id, files: paths).library
+            return true
+        } catch {
+            actionError = APIError.from(error).message
+            return false
         }
     }
 

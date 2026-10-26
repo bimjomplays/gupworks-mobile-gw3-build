@@ -3,7 +3,7 @@ import SwiftUI
 /// A chat pushed on the chat's stack (a project's thread).
 struct ChatRoute: Hashable {
     let id: String
-    /// a project's main chat from its row: its threads sheet comes up at once (D9)
+    /// a project's main chat with its Overview up at once (06)
     var sheet = false
 }
 

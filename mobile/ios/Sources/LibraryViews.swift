@@ -1,39 +1,20 @@
 import SwiftUI
 
-// D9's Library tab: the project's pinned notes, its notes folder and what threads made, each opened inside the
-// sheet; a note reads as Markdown and is edited as plain text, saved over the version the phone opened.
+// The Library's folders and notes (08), opened inside the Overview: a note reads as Markdown and is edited as
+// plain text, saved over the version the phone opened.
 
-struct LibraryTab: View {
-    let store: ProjectStore
-
-    var body: some View {
-        List {
-            if let lib = store.library {
-                LibraryGroups(groups: lib.groups)
-                if lib.groups.allSatisfy({ $0.items.isEmpty }) {
-                    LibraryNotice(text: "No notes yet.")
-                }
-            } else {
-                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 30).listRowBackground(Color.clear)
-            }
-        }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .refreshable { await store.loadLibrary() }
-        .task { await store.loadLibrary() }
-    }
-}
-
+/// A folder in the Library: its notes as the Library page's cards.
 struct LibraryFolderView: View {
     let store: ProjectStore
     let row: LibraryRow
+    @Binding var path: NavigationPath
     @State private var list: LibraryList?
     @State private var error: String?
 
     var body: some View {
         List {
             if let list {
-                LibraryGroups(groups: list.groups)
+                LibraryCards(groups: list.groups, store: store, path: $path)
                 if list.groups.allSatisfy({ $0.items.isEmpty }) { LibraryNotice(text: "This folder is empty.") }
             } else if let error {
                 LibraryNotice(text: error)
@@ -41,8 +22,10 @@ struct LibraryFolderView: View {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 30).listRowBackground(Color.clear)
             }
         }
-        .listStyle(.plain)
+        .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
+        .background(SheetStyle.background)
+        .environment(\.defaultMinListRowHeight, 50)
         .navigationTitle(row.title)
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await load() }
@@ -55,70 +38,6 @@ struct LibraryFolderView: View {
             error = nil
         } catch {
             self.error = APIError.from(error).message
-        }
-    }
-}
-
-private struct LibraryGroups: View {
-    let groups: [LibraryGroup]
-
-    var body: some View {
-        ForEach(groups) { g in
-            Section {
-                ForEach(g.items) { r in
-                    NavigationLink(value: r) { LibraryRowView(row: r) }
-                        .disabled(!r.exists)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 16))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .accessibilityIdentifier("lib-\(r.title)")
-                }
-            } header: {
-                if !g.label.isEmpty {
-                    HStack {
-                        Text(g.label)
-                        Spacer()
-                        if let n = g.count { Text("\(n)").monospacedDigit() }
-                    }
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.section)
-                    .textCase(nil)
-                }
-            }
-        }
-    }
-}
-
-private struct LibraryRowView: View {
-    let row: LibraryRow
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 17))
-                .foregroundStyle(row.kind == "folder" ? Theme.blue : ChatStyle.dim)
-                .frame(width: 22)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(row.title)
-                    .font(.system(size: 17))
-                    .foregroundStyle(row.exists ? Theme.rowTitle : ChatStyle.faint)
-                    .lineLimit(1)
-                Text(row.exists ? row.sub : "Gone from the PC")
-                    .font(.system(size: 14))
-                    .foregroundStyle(ChatStyle.dim)
-                    .lineLimit(1)
-            }
-        }
-        .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
-    }
-
-    private var icon: String {
-        switch row.kind {
-        case "folder": return "folder"
-        case "image": return "photo"
-        case "note": return "doc.text"
-        default: return "doc"
         }
     }
 }

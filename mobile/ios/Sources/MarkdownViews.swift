@@ -71,15 +71,15 @@ struct MarkdownView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ForEach(Array(blocks.enumerated()), id: \.offset) { i, b in
-                block(b, at: i)
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, b in
+                block(b)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
-    private func block(_ b: MD, at i: Int) -> some View {
+    private func block(_ b: MD) -> some View {
         switch b.t {
         case "p":
             Text(Inline.text(b.text ?? ""))
@@ -110,7 +110,7 @@ struct MarkdownView: View {
         case "hr":
             Rectangle().fill(ChatStyle.line).frame(height: 1).padding(.vertical, 4)
         case "media":
-            MediaGroup(items: b.items ?? [], base: base, slot: i)
+            MediaGroup(items: b.items ?? [], base: base)
         default:
             if let t = b.text { Text(t).font(.system(size: 17)).foregroundStyle(ChatStyle.body) }
         }
