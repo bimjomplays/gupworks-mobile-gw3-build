@@ -202,7 +202,7 @@ struct ChatView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if usageOpen {
+            if usageOpen && !store.isNew {
                 // 5g: the card over a dimmed chat; the box below stays as it is
                 ZStack(alignment: .bottom) {
                     Color.black.opacity(0.4)

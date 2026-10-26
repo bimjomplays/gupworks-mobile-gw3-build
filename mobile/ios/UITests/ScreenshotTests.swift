@@ -202,7 +202,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(el(app, "usage-wk").label.contains("41%"), el(app, "usage-wk").label)
         // small and whole: narrower than the screen, and every row inside the card
         let card = el(app, "usageCard").frame
-        XCTAssertLessThanOrEqual(card.width, 340, "\(card)")
+        XCTAssertEqual(card.width, 300, accuracy: 1, "the card keeps its fixed width: \(card)")
         XCTAssertLessThan(card.height, 260, "\(card)")
         for l in ["ctx", "5h", "wk"] {
             let r = el(app, "usage-\(l)").frame
@@ -212,6 +212,27 @@ final class ScreenshotTests: XCTestCase {
         shot("5g-usage")
         el(app, "closeUsage").tap()
         XCTAssertTrue(el(app, "usageCard").waitForNonExistence(timeout: 5))
+    }
+
+    /// a118: on home (no chat yet) the rings draw empty and the button does nothing; the first message wakes it
+    func test5gUsageIsOffOnHome() {
+        let app = launch()
+        let usage = app.buttons["usage"]
+        XCTAssertTrue(usage.waitForExistence(timeout: 20))
+        XCTAssertTrue(hasFocus(box(app)), "the keyboard is up, as in the screenshot that showed the sliver")
+        XCTAssertEqual(usage.value as? String, "No chat yet", "the rings are empty")
+        usage.tap()
+        sleep(1)
+        XCTAssertFalse(el(app, "usageCard").exists, "the button opens nothing on home")
+        XCTAssertFalse(el(app, "closeUsage").exists)
+        shot("a118-home-usage-off")
+        box(app).typeText("Plan a picnic for six")
+        app.buttons["send"].tap()
+        XCTAssertTrue(find(app, "This is the demo").waitForExistence(timeout: 5))
+        XCTAssertNotEqual(usage.value as? String, "No chat yet", "now there is a chat")
+        usage.tap()
+        XCTAssertTrue(el(app, "usageCard").waitForExistence(timeout: 5), "the card opens in a chat")
+        XCTAssertEqual(el(app, "usageCard").frame.width, 300, accuracy: 1)
     }
 
     func testMenuSearch() {
