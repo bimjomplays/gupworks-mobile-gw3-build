@@ -803,6 +803,8 @@ enum Demo {
     /// their own before they build a screen
     static var args = ProcessInfo.processInfo.arguments
     static var isOn: Bool { args.contains("-demo") }
+    /// the menu tells the main view a second late that a pin lifted (MenuView), for MenuSwipeUITests
+    static var slowLift: Bool { isOn && args.contains("-slowLift") }
 
     /// The folder holding `fixtures/`: the app's bundle, or mobile/ in the repo when GupKit runs as a Swift package
     /// (`swift test` on Linux).

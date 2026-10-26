@@ -185,6 +185,10 @@ func settle(_ frame: (() -> CGRect?)? = nil) {
     let t0 = Date()
     defer { Timing.settle += Date().timeIntervalSince(t0) }
     var last = frame?()
+    // a touch right after another lands while SwiftUI still animates the last one's change (a button fading back
+    // in takes no touch yet); XCUITest leaves about this much between actions too
+    let quiet = 0.3 - Date().timeIntervalSince(Finger.lastTouch)
+    if quiet > 0 { spin(quiet) }
     poll(3) {
         if (UIApplication.shared as UIApplicationDeprecated).isIgnoringInteractionEvents || Tree.animating() { return false }
         if App.current?.fingers?.isWindowReady == false { return false }
@@ -676,6 +680,9 @@ enum Accessibility {
 /// Real touches inside the app, in screen points, through Hammer. Each call returns once UIKit has handled them.
 @MainActor
 enum Finger {
+    /// when the last touch ended
+    static var lastTouch = Date.distantPast
+
     /// the window that shows `p` (a sheet or menu above the app's window takes the touch)
     static func target(_ p: CGPoint) -> UIWindow? {
         let mine = App.current?.window
@@ -690,7 +697,7 @@ enum Finger {
     private static func run(_ what: String, _ body: (EventGenerator) throws -> Void) {
         guard let g = App.current?.fingers else { return XCTFail("no screen to touch (\(what))") }
         Tree.cache = nil
-        defer { Tree.cache = nil }
+        defer { Tree.cache = nil; lastTouch = Date() }
         do { try body(g) } catch { XCTFail("\(what) failed: \(error)") }
     }
 

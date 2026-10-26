@@ -541,8 +541,8 @@ final class ScreenTests: XCTestCase {
             let down = e.exists && e.frame.minY > screen.height * 0.8  // went past it: back a little
             let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: down ? 0.6 : 0.35))
             let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: down ? 0.45 : 0.6))
-            // slow and held at the end: no fling, so each step moves the chat by about the drag
-            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.2)
+            // held at the end: no fling, so each step moves the chat by about the drag
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: Velocity(rawValue: 1500), thenHoldForDuration: 0.2)
         }
     }
 
