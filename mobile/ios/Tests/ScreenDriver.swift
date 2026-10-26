@@ -1,4 +1,4 @@
-import KIF
+import Hammer
 import SwiftUI
 import XCTest
 @testable import GupWorks3
@@ -8,8 +8,9 @@ import XCTest
 /// and no XCUITest round trips: a screen opens in about a second and a tap takes milliseconds.
 ///
 /// - The screen is RootView in demo mode with the test's flags (what the UI tests passed as launch arguments).
-/// - Things are found through the accessibility tree (turned on in-process, as XCUITest and KIF do), by id or label.
-/// - Taps, presses and drags are real touches (KIF builds the UITouch events UIKit and SwiftUI's gestures see).
+/// - Things are found through the accessibility tree (turned on in-process, as XCUITest does), by id or label.
+/// - Taps, presses and drags are real touches: Lyft's Hammer puts finger events into the app's own event queue, the
+///   way the system delivers them, so UIKit's and SwiftUI's gestures see them as from a finger.
 /// - Typing goes into the field that has the keyboard; the keyboard itself shows (remote, in the screenshots).
 /// - Screenshots are the whole simulator screen (status bar and keyboard included), as XCUIScreen took them.
 ///
@@ -19,6 +20,8 @@ import XCTest
 final class App {
     let window: UIWindow
     let model: AppModel
+    /// Hammer's event generator for this screen (touches go through the app's event queue, to any of its windows)
+    private(set) var fingers: EventGenerator?
     private weak var test: XCTestCase?
     static var current: App?
 
@@ -46,9 +49,17 @@ final class App {
         }
         poll(20) { loaded.on }
         idle()
+        do {
+            fingers = try EventGenerator(window: window)
+            fingers?.showTouches = false
+        } catch {
+            XCTFail("touches can't reach the screen: \(error)")
+        }
     }
 
     func close() {
+        try? fingers?.finish()
+        fingers = nil
         window.endEditing(true)
         window.rootViewController?.dismiss(animated: false)
         window.isHidden = true
@@ -575,7 +586,7 @@ enum Tree {
     }
 }
 
-/// Turns on the accessibility tree inside the app (as XCUITest and KIF do), so SwiftUI builds its elements.
+/// Turns on the accessibility tree inside the app (as XCUITest does), so SwiftUI builds its elements.
 enum Accessibility {
     private static var done = false
     static func enable() {
@@ -593,8 +604,7 @@ enum Accessibility {
 
 // MARK: touches
 
-/// Real touches inside the app, in screen points: KIF's UITouch and UIEvent helpers, sent through UIApplication as
-/// the system sends them. Each call returns once the finger is up.
+/// Real touches inside the app, in screen points, through Hammer. Each call returns once UIKit has handled them.
 @MainActor
 enum Finger {
     /// the window that shows `p` (a sheet or menu above the app's window takes the touch)
@@ -608,90 +618,32 @@ enum Finger {
         return mine
     }
 
+    private static func run(_ what: String, _ body: (EventGenerator) throws -> Void) {
+        guard let g = App.current?.fingers else { return XCTFail("no screen to touch (\(what))") }
+        do { try body(g) } catch { XCTFail("\(what) failed: \(error)") }
+    }
+
     static func tap(_ p: CGPoint) {
-        press(p, seconds: 0.05)
+        run("tap at \(p)") { try $0.fingerTap(at: p) }
     }
 
     /// down at `p`, held `seconds`, then (if given) moved to `to` at `speed` points a second, held `hold`, up
     static func press(_ p: CGPoint, seconds: Double, thenDragTo to: CGPoint? = nil, speed: CGFloat = 400, hold: Double = 0) {
-        guard let w = target(p) else { return }
-        let view: UIView = w
-        if logged < 40 {
-            logged += 1
-            let hit = w.hitTest(w.convert(p, from: nil), with: nil)
-            print("FINGER \(p) \(seconds)s in \(type(of: w)) level \(w.windowLevel.rawValue) mine \(w === App.current?.window) "
-                  + "hit \(hit.map { "\(type(of: $0))" } ?? "nil") windows \(Tree.windows.map { "\(type(of: $0))" })")
-        }
-        let touch = Touch(at: w.convert(p, from: nil), in: w)
-        touch.send(.began, view)
-        step(0.01)
-        var held = 0.01
-        while held < seconds {
-            touch.send(.stationary, view)
-            step(0.01)
-            held += 0.01
-        }
-        if let to {
-            let d = hypot(to.x - p.x, to.y - p.y)
-            let n = max(2, Int((Double(d / max(speed, 1)) / 0.01).rounded()))
-            for i in 1...n {
-                let f = CGFloat(i) / CGFloat(n)
-                touch.move(to: w.convert(CGPoint(x: p.x + (to.x - p.x) * f, y: p.y + (to.y - p.y) * f), from: nil))
-                touch.send(.moved, view)
-                step(0.01)
+        run("press at \(p)") { g in
+            try g.fingerDown(at: p)
+            if seconds > 0 { spin(seconds) }
+            if let to {
+                let d = hypot(to.x - p.x, to.y - p.y)
+                try g.fingerMove(to: to, duration: max(0.05, Double(d / max(speed, 1))))
+                if hold > 0 { spin(hold) }
             }
-            var h = 0.0
-            while h < hold {
-                touch.send(.stationary, view)
-                step(0.01)
-                h += 0.01
-            }
+            try g.fingerUp()
         }
-        touch.send(.ended, view)
-        step(0.02)
     }
 
-    private static var logged = 0
-
-    /// two fingers apart (a photo zooms in), KIF's own
+    /// two fingers apart (a photo zooms in)
     static func zoom(at p: CGPoint, distance: CGFloat) {
-        guard let w = target(p) else { return }
-        w.zoom(at: w.convert(p, from: nil), distance: distance, steps: 20)
+        run("zoom at \(p)") { try $0.fingerPinch(at: p, fromDistance: 40, toDistance: 40 + distance, duration: 0.5) }
         idle()
-    }
-
-    private static func step(_ s: Double) { _ = CFRunLoopRunInMode(CFRunLoopMode.defaultMode, s, false) }
-}
-
-/// One finger: a UITouch made and moved with KIF's additions, called through the Objective-C runtime (their Swift
-/// names aren't part of KIF's promise).
-@MainActor
-final class Touch {
-    let touch: UITouch
-
-    init(at p: CGPoint, in window: UIWindow) {
-        typealias Alloc = @convention(c) (AnyClass, Selector) -> Unmanaged<AnyObject>
-        typealias Init = @convention(c) (AnyObject, Selector, CGPoint, UIView) -> Unmanaged<UITouch>
-        let cls: AnyClass = UITouch.self
-        let alloc = NSSelectorFromString("alloc"), sel = NSSelectorFromString("initAtPoint:inView:")
-        let a = method_getImplementation(class_getClassMethod(cls, alloc)!)
-        let i = method_getImplementation(class_getInstanceMethod(cls, sel)!)
-        let raw = unsafeBitCast(a, to: Alloc.self)(cls, alloc).takeUnretainedValue()  // init takes this reference
-        touch = unsafeBitCast(i, to: Init.self)(raw, sel, p, window).takeRetainedValue()
-    }
-
-    func move(to p: CGPoint) {
-        typealias Set = @convention(c) (AnyObject, Selector, CGPoint) -> Void
-        let sel = NSSelectorFromString("setLocationInWindow:")
-        unsafeBitCast(touch.method(for: sel)!, to: Set.self)(touch, sel, p)
-    }
-
-    func send(_ phase: UITouch.Phase, _ view: UIView) {
-        typealias SetPhase = @convention(c) (AnyObject, Selector, Int) -> Void
-        let sel = NSSelectorFromString("setPhaseAndUpdateTimestamp:")
-        unsafeBitCast(touch.method(for: sel)!, to: SetPhase.self)(touch, sel, phase.rawValue)
-        guard let event = view.perform(NSSelectorFromString("eventWithTouch:"), with: touch)?.takeUnretainedValue()
-        else { return }
-        UIApplication.shared.perform(NSSelectorFromString("kif_sendEvent:"), with: event)
     }
 }
