@@ -19,7 +19,9 @@ final class Screen {
         self.test = test
         let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first!
         window = UIWindow(windowScene: scene)
-        let root = RootView().environment(model).preferredColorScheme(.dark).tint(Theme.blue)
+        // the window isn't the App's scene, so SwiftUI's scenePhase would never say "active" (RootView loads on active)
+        let root = RootView().environment(model).environment(\.scenePhase, .active)
+            .preferredColorScheme(.dark).tint(Theme.blue)
         window.rootViewController = UIHostingController(rootView: root)
         window.makeKeyAndVisible()
     }
@@ -135,8 +137,25 @@ final class Screen {
     /// XCUIScreen (status bar and keyboard included) when it works in this bundle, else the app's own windows
     static var fullScreen = false
     static func screenPNG(_ window: UIWindow) -> Data {
-        if fullScreen { return XCUIScreen.main.screenshot().pngRepresentation }
+        if let full = uikitScreen() { return full }
         return drawn(window)
+    }
+
+    /// the whole screen as the simulator shows it (status bar and keyboard included): UIKit's own screen capture
+    static func uikitScreen() -> Data? {
+        typealias Capture = @convention(c) () -> Unmanaged<UIImage>?
+        guard let lib = dlopen(nil, RTLD_NOW), let f = dlsym(lib, "_UICreateScreenUIImage") else { return nil }
+        return unsafeBitCast(f, to: Capture.self)()?.takeRetainedValue().pngData()
+    }
+
+    /// UIScreen's snapshot view drawn into a picture
+    static func screenSnapshot() -> Data? {
+        guard let screen = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.screen }).first,
+              let v = Optional(screen.snapshotView(afterScreenUpdates: true)) else { return nil }
+        v.frame = screen.bounds
+        return UIGraphicsImageRenderer(bounds: screen.bounds).pngData { _ in
+            v.drawHierarchy(in: screen.bounds, afterScreenUpdates: true)
+        }
     }
 
     /// the app's windows drawn into one picture (no status bar or keyboard)
@@ -157,7 +176,13 @@ struct Node {
     let obj: NSObject
     init(_ obj: NSObject) { self.obj = obj }
 
-    var id: String { (obj as? UIAccessibilityIdentification)?.accessibilityIdentifier ?? "" }
+    /// SwiftUI's elements answer accessibilityIdentifier without declaring UIAccessibilityIdentification
+    var id: String {
+        let sel = NSSelectorFromString("accessibilityIdentifier")
+        guard obj.responds(to: sel) else { return "" }
+        return (obj.perform(sel)?.takeUnretainedValue() as? String) ?? ""
+    }
+    var kind: String { String(describing: type(of: obj)) }
     var label: String { obj.accessibilityLabel ?? "" }
     var value: String { obj.accessibilityValue ?? "" }
     var frame: CGRect { obj.accessibilityFrame }

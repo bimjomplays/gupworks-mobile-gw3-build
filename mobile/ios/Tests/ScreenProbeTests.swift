@@ -29,7 +29,7 @@ final class ScreenProbeTests: XCTestCase {
         note("place-projects after \(Date().timeIntervalSince(t0))s: \(found != nil)")
         let nodes = s.nodes()
         note("nodes: \(nodes.count)")
-        for n in nodes.prefix(80) { note("  [\(n.id)] \(n.label.prefix(60)) = \(n.value.prefix(30)) \(n.frame)") }
+        for n in nodes.prefix(120) { note("  [\(n.id)] \(n.kind) \(n.label.prefix(60)) = \(n.value.prefix(30)) \(n.frame)") }
         await s.shot("probe-menu")
         let t1 = Date()
         await s.tap("pin-Gallery lightbox fix")
@@ -42,19 +42,37 @@ final class ScreenProbeTests: XCTestCase {
     }
 
     func testProbeFullScreenShot() async throws {
-        let s = Screen(["-open", "00000009-1111-4222-8333-000000000009"], test: self)
+        let s = Screen([], test: self)
         defer { s.close(); flush() }
-        _ = await s.waitForText("All five pages pass", 20)
-        let t = Date()
-        let png = XCUIScreen.main.screenshot().pngRepresentation
-        note("XCUIScreen: \(png.count) bytes in \(Date().timeIntervalSince(t))s")
-        let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-        a.name = "probe-xcuiscreen"
-        a.lifetime = .keepAlways
-        add(a)
-        if let dir = ProcessInfo.processInfo.environment["SHOTS_DIR"], !dir.isEmpty {
-            try? png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("probe-xcuiscreen.png"))
+        _ = await s.waitFor("composer", 20)
+        await s.settle(1.5)
+        for (name, f) in [("uikit", { Screen.uikitScreen() }), ("snapshotview", { Screen.screenSnapshot() }),
+                          ("drawn", { Screen.drawn(s.window) })] as [(String, () -> Data?)] {
+            let t = Date()
+            let png = f()
+            note("\(name): \(png?.count ?? -1) bytes in \(Date().timeIntervalSince(t))s, keyboard pixels: \(png.map(Self.lowerBrightness) ?? -1)")
+            if let png, let dir = ProcessInfo.processInfo.environment["SHOTS_DIR"], !dir.isEmpty {
+                try? png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("probe-full-\(name).png"))
+            }
         }
+    }
+
+    /// share of non-black pixels in the bottom third (the keyboard)
+    static func lowerBrightness(_ png: Data) -> Double {
+        guard let img = UIImage(data: png)?.cgImage else { return -1 }
+        let w = img.width, h = img.height
+        var px = [UInt8](repeating: 0, count: w * h * 4)
+        guard let ctx = CGContext(data: &px, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { return -1 }
+        ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var lit = 0, all = 0
+        for y in (h * 2 / 3)..<h { for x in stride(from: 0, to: w, by: 4) {
+            let i = (y * w + x) * 4
+            all += 1
+            if Int(px[i]) + Int(px[i + 1]) + Int(px[i + 2]) > 60 { lit += 1 }
+        } }
+        return Double(lit) / Double(max(all, 1))
     }
 
     func testProbeTypingAndSend() async throws {
