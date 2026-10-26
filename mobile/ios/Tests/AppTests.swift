@@ -756,10 +756,10 @@ final class ProjectTests: XCTestCase {
         XCTAssertEqual(f.view.name, "Lumen Studio website")
         XCTAssertEqual(f.view.groups.map(\.label), ["Needs you", "Working", "Done"])
         XCTAssertEqual(f.view.groups.map(\.folded), [false, false, true])
-        XCTAssertEqual(f.view.counts.threads, 3)
-        XCTAssertEqual(f.view.quiet.map(\.text), ["1 needs you", "2 working"])
+        XCTAssertEqual(f.view.counts.threads, 4)
+        XCTAssertEqual(f.view.quiet.map(\.text), ["1 needs you", "3 working"])
         XCTAssertEqual(f.library.groups.map(\.id), ["pinned", "notes", "threads"])
-        XCTAssertEqual(f.schedules.groups.map(\.label), ["Scheduled", "Paused"])
+        XCTAssertEqual(f.schedules.groups.map(\.label), ["Scheduled", "Running now", "Paused"])
         XCTAssertNotNil(f.files[f.library.groups[0].items[0].path]?.blocks)
     }
 
@@ -767,15 +767,15 @@ final class ProjectTests: XCTestCase {
         let v = try fixture().view
         let paused = DemoProject.apply("pause", to: "a4", in: v)
         XCTAssertEqual(paused.groups.map(\.state), ["needs-you", "working", "idle", "done"])
-        XCTAssertEqual(paused.counts.working, 1)
-        XCTAssertEqual(paused.counts.threads, 3)
+        XCTAssertEqual(paused.counts.working, 2)
+        XCTAssertEqual(paused.counts.threads, 4)
         XCTAssertEqual(paused.allThreads.first { $0.id == "a4" }?.glyph, "pause")
-        XCTAssertEqual(paused.quiet.map(\.text), ["1 needs you", "1 working"])
+        XCTAssertEqual(paused.quiet.map(\.text), ["1 needs you", "2 working"])
         let resumed = DemoProject.apply("resume", to: "a4", in: paused)
         XCTAssertEqual(resumed.groups.map(\.state), ["needs-you", "working", "done"])
         let done = DemoProject.apply("done", to: "a6", in: v)
         XCTAssertEqual(done.counts.needs, 0)
-        XCTAssertEqual(done.counts.threads, 2)
+        XCTAssertEqual(done.counts.threads, 3)
         XCTAssertEqual(done.groups.first { $0.state == "done" }?.count, 8)
         XCTAssertEqual(done.groups.first { $0.state == "done" }?.folded, true)
         let archived = DemoProject.apply("archive", to: "a5", in: v)
@@ -794,14 +794,14 @@ final class ProjectTests: XCTestCase {
 
     func testNewThreadShowsWorking() throws {
         let v = DemoProject.add("Add a footer\nwith the address", to: try fixture().view)
-        XCTAssertEqual(v.counts.working, 3)
+        XCTAssertEqual(v.counts.working, 4)
         XCTAssertEqual(v.groups.first { $0.state == "working" }?.threads.first?.title, "Add a footer")
     }
 
     func testDemoStoreMovesAndSaves() async throws {
         let s = ProjectStore(id: lumen, pairing: nil, demo: true)
         await s.follow()
-        XCTAssertEqual(s.view?.counts.threads, 3)
+        XCTAssertEqual(s.view?.counts.threads, 4)
         await s.move("pause", thread: "a5")
         XCTAssertEqual(s.view?.allThreads.first { $0.id == "a5" }?.state, "idle")
         let started = await s.newThread("Write the FAQ")
@@ -819,7 +819,7 @@ final class ProjectTests: XCTestCase {
         let memory = try await s.folder("/Notes/Lumen Studio website/Memory")
         XCTAssertFalse(memory.groups.flatMap(\.items).isEmpty)
         await s.loadSchedules()
-        XCTAssertEqual(s.schedules?.count, 3)
+        XCTAssertEqual(s.schedules?.count, 4)
     }
 
     func testConflictAndOtherFailures() {

@@ -24,11 +24,12 @@ enum ChatPhotos {
     /// a picture in a reply's media block `slot`
     static func id(scope: String, slot: Int, item: Int) -> String { "\(scope)/m\(slot)/\(item)" }
 
-    static func collect(turns: [Turn]) -> [ChatPhoto] {
+    /// `briefed`: a thread's first turn, whose prompt (the brief) the task card stands for, so it isn't on screen
+    static func collect(turns: [Turn], briefed: String? = nil) -> [ChatPhoto] {
         var out: [ChatPhoto] = []
         for t in turns {
             // these kinds draw no bubble, so their prompt has no pictures on screen
-            if !["command", "handoff", "notice", "task"].contains(t.kind) {
+            if !["command", "handoff", "notice", "task"].contains(t.kind) && t.id != briefed {
                 let scope = promptScope(t.id)
                 for (k, link) in (t.prompt.images ?? []).enumerated() where !link.isEmpty {
                     out.append(ChatPhoto(id: id(scope: scope, item: k), link: link, mine: true))

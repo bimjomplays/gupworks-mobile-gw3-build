@@ -18,7 +18,7 @@ env:
   SCHEME: GupWorks3
 jobs:
   ipa:
-    if: false
+    if: github.event.repository.private == false
     runs-on: macos-26
     timeout-minutes: 40
     defaults:
@@ -53,16 +53,6 @@ jobs:
 
   shots:
     if: github.event.repository.private == false
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - leg: old
-            old: "1"
-            only: busy
-          - leg: new
-            old: "0"
-            only: suites
     runs-on: macos-26
     timeout-minutes: 60
     defaults:
@@ -99,14 +89,10 @@ jobs:
       - name: Test
         env:
           TEST_RUNNER_SHOTS_DIR: ${{ github.workspace }}/shots
-          TEST_RUNNER_PROBE_OLD: ${{ matrix.old }}
         run: |
           set -o pipefail
-          t=GupWorks3UITests; m=MenuSwipeUITests; v=VideoPlayerUITests
-          if [ "${{ matrix.only }}" = busy ]; then only=(-only-testing:$t/$m/testPinLiftOnABusyPhone)
-          else only=(-only-testing:$t/$m -only-testing:$t/$v); fi
           xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination "id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath build -resultBundlePath shots.xcresult "${only[@]}" -test-iterations 3 \
+            -derivedDataPath build -resultBundlePath shots.xcresult \
             CODE_SIGNING_ALLOWED=NO test > test.log 2>&1 \
             || { grep -E "error:|failed|XCTAssert" test.log | head -80; tail -60 test.log; exit 1; }
           grep -E "Test Suite '[^']*\.xctest' (passed|failed)|Test Case .* (passed|failed)" test.log
@@ -123,17 +109,17 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: screenshots-${{ matrix.leg }}
+          name: screenshots
           path: shots/
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: test-log-${{ matrix.leg }}
+          name: test-log
           path: mobile/ios/test.log
 
   testflight:
     needs: [ipa, shots]
-    if: false
+    if: github.event.repository.private == false
     runs-on: macos-26
     timeout-minutes: 40
     defaults:

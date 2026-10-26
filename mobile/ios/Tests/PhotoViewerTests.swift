@@ -38,6 +38,14 @@ final class PhotoViewerTests: XCTestCase {
         XCTAssertEqual(photos.map(\.mine), [true, false, false, false, true, true])
     }
 
+    func testAThreadsBriefIsLeftOut() throws {
+        // the task card stands for a thread's first prompt, so its pictures aren't on screen to swipe to
+        let t = try turns([turn("t1", images: ["/v1/media/brief.jpg"], blocks: reply),
+                           turn("t2", images: ["/v1/media/u2.jpg"])])
+        XCTAssertEqual(ChatPhotos.collect(turns: t, briefed: "t1").map(\.link),
+                       ["/v1/media/a.png", "/v1/media/b.png", "/v1/media/d.svg.png", "/v1/media/u2.jpg"])
+    }
+
     func testVideosAndTheirPostersAreLeftOut() throws {
         let photos = ChatPhotos.collect(turns: try turns([turn("t1", blocks: reply)]))
         XCTAssertFalse(photos.contains { $0.link.hasSuffix(".mp4") || $0.link.hasSuffix("v.jpg") })

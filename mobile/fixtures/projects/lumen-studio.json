@@ -7,12 +7,31 @@
   "archived": false,
   "mainChatId": "00000066-1111-4222-8333-000000000066",
   "now": 1792000000000,
+  "icon": "camera",
+  "color": "orange",
+  "goal": "A one-page site for a small photo studio",
   "counts": {
-   "threads": 3,
+   "threads": 4,
    "needs": 1,
-   "working": 2,
+   "working": 3,
    "checking": 0,
-   "schedules": 3
+   "schedules": 4,
+   "done": 7,
+   "archived": 0,
+   "library": 9,
+   "ideas": 5
+  },
+  "mainNeeds": {
+   "text": "The darker palette is in: ready for your OK?",
+   "question": "The darker palette is in and every page passes contrast. Is the site ready for your OK?",
+   "options": [
+    "Looks good",
+    "Show me first"
+   ],
+   "work": null,
+   "ts": 1791999760000,
+   "ago": "4m",
+   "chatId": "00000066-1111-4222-8333-000000000066"
   },
   "quiet": [
    {
@@ -21,7 +40,7 @@
    },
    {
     "glyph": "spin",
-    "text": "2 working"
+    "text": "3 working"
    }
   ],
   "groups": [
@@ -42,7 +61,7 @@
       "detail": "Asks: Land the darker palette?",
       "holds": [],
       "right": "Sonnet",
-      "usage": "167K",
+      "usage": "72K",
       "expensive": true,
       "muted": false,
       "doneOk": false,
@@ -51,14 +70,18 @@
        "stop",
        "done",
        "archive"
-      ]
+      ],
+      "word": "needs you",
+      "line": "Land the darker palette?",
+      "modelLabel": "Sonnet high",
+      "ago": ""
      }
     ]
    },
    {
     "state": "working",
     "label": "Working",
-    "count": 2,
+    "count": 3,
     "folded": false,
     "threads": [
      {
@@ -72,7 +95,7 @@
       "detail": "writing script.js 2m ago",
       "holds": [],
       "right": "Sonnet",
-      "usage": "82K",
+      "usage": "32K",
       "expensive": false,
       "muted": false,
       "doneOk": false,
@@ -80,7 +103,11 @@
        "pause",
        "stop",
        "archive"
-      ]
+      ],
+      "word": "working",
+      "line": "writing script.js 2m ago · Sonnet high",
+      "modelLabel": "Sonnet high",
+      "ago": "2m"
      },
      {
       "id": "a5",
@@ -93,7 +120,7 @@
       "detail": "checking the lightbox 6m ago",
       "holds": [],
       "right": "Sonnet",
-      "usage": "19K",
+      "usage": "8K",
       "expensive": false,
       "muted": false,
       "doneOk": false,
@@ -101,7 +128,36 @@
        "pause",
        "stop",
        "archive"
-      ]
+      ],
+      "word": "working",
+      "line": "checking the lightbox 6m ago · Sonnet medium",
+      "modelLabel": "Sonnet medium",
+      "ago": "6m"
+     },
+     {
+      "id": "b5",
+      "title": "Weekly analytics digest",
+      "chatId": null,
+      "state": "working",
+      "status": "running",
+      "glyph": "idle",
+      "part": "Site",
+      "detail": "reading the visit counts 1m ago",
+      "holds": [],
+      "right": "Haiku",
+      "usage": "4K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": false,
+      "moves": [
+       "pause",
+       "stop",
+       "archive"
+      ],
+      "word": "working",
+      "line": "reading the visit counts 1m ago · Haiku low",
+      "modelLabel": "Haiku low",
+      "ago": "1m"
      }
     ]
    },
@@ -122,13 +178,17 @@
       "detail": "Home page hero: built and checked",
       "holds": [],
       "right": "b81c2e4",
-      "usage": "80K",
+      "usage": "28K",
       "expensive": false,
       "muted": false,
       "doneOk": true,
       "moves": [
        "archive"
-      ]
+      ],
+      "word": "landed",
+      "line": "Landed · Sonnet medium",
+      "modelLabel": "Sonnet medium",
+      "ago": "1d"
      },
      {
       "id": "a2",
@@ -141,13 +201,17 @@
       "detail": "Nav and footer: built and checked",
       "holds": [],
       "right": "3f0d9a1",
-      "usage": "51K",
+      "usage": "18K",
       "expensive": false,
       "muted": false,
       "doneOk": true,
       "moves": [
        "archive"
-      ]
+      ],
+      "word": "landed",
+      "line": "Landed · Sonnet medium",
+      "modelLabel": "Sonnet medium",
+      "ago": "1d"
      },
      {
       "id": "a3",
@@ -160,13 +224,17 @@
       "detail": "Gallery grid: built and checked",
       "holds": [],
       "right": "9e2a7c0",
-      "usage": "73K",
+      "usage": "26K",
       "expensive": false,
       "muted": false,
       "doneOk": true,
       "moves": [
        "archive"
-      ]
+      ],
+      "word": "landed",
+      "line": "Landed · Sonnet medium",
+      "modelLabel": "Sonnet medium",
+      "ago": "1d"
      },
      {
       "id": "b1",
@@ -179,13 +247,17 @@
       "detail": "Fonts and spacing: built and checked",
       "holds": [],
       "right": "6c41d83",
-      "usage": "28K",
+      "usage": "10K",
       "expensive": false,
       "muted": false,
       "doneOk": true,
       "moves": [
        "archive"
-      ]
+      ],
+      "word": "landed",
+      "line": "Landed · Sonnet medium",
+      "modelLabel": "Sonnet medium",
+      "ago": "1d"
      },
      {
       "id": "b2",
@@ -198,13 +270,17 @@
       "detail": "About page: built and checked",
       "holds": [],
       "right": "e07b5f2",
-      "usage": "46K",
+      "usage": "16K",
       "expensive": false,
       "muted": false,
       "doneOk": true,
       "moves": [
        "archive"
-      ]
+      ],
+      "word": "landed",
+      "line": "Landed · Sonnet medium",
+      "modelLabel": "Sonnet medium",
+      "ago": "1d"
      },
      {
       "id": "b3",
@@ -217,13 +293,17 @@
       "detail": "Contact details: built and checked",
       "holds": [],
       "right": "15ad6e9",
-      "usage": "15K",
+      "usage": "5K",
       "expensive": false,
       "muted": false,
       "doneOk": true,
       "moves": [
        "archive"
-      ]
+      ],
+      "word": "landed",
+      "line": "Landed · Sonnet medium",
+      "modelLabel": "Sonnet medium",
+      "ago": "1d"
      },
      {
       "id": "b4",
@@ -236,13 +316,17 @@
       "detail": "Favicon and icons: built and checked",
       "holds": [],
       "right": "c9f3302",
-      "usage": "23K",
+      "usage": "8K",
       "expensive": false,
       "muted": false,
       "doneOk": true,
       "moves": [
        "archive"
-      ]
+      ],
+      "word": "landed",
+      "line": "Landed · Sonnet medium",
+      "modelLabel": "Sonnet medium",
+      "ago": "2d"
      }
     ]
    }
@@ -250,21 +334,21 @@
   "usage": [
    {
     "title": "Main chat",
-    "value": "130K",
-    "detail": "Haiku 130K",
+    "value": "49K",
+    "detail": "Haiku 49K",
     "chatId": "00000066-1111-4222-8333-000000000066",
     "expensive": false
    },
    {
-    "title": "10 threads",
-    "value": "583K",
-    "detail": "Sonnet 583K",
+    "title": "11 threads",
+    "value": "227K",
+    "detail": "Sonnet 223K · Haiku 4K",
     "chatId": null,
     "expensive": false
    },
    {
     "title": "Contrast pass",
-    "value": "167K",
+    "value": "72K",
     "detail": "Used much more than the usual thread",
     "chatId": "00000076-2222-4222-8333-000000000076",
     "expensive": true
@@ -310,21 +394,27 @@
       "path": "/Notes/Lumen Studio website/Ideas.md",
       "kind": "note",
       "title": "Ideas",
-      "sub": "Ideas.md · 3 ideas",
+      "sub": "5 ideas · edited 3h ago",
       "mtime": 1791989200000,
       "exists": true,
       "workId": null,
-      "editable": true
+      "editable": true,
+      "thumb": null,
+      "url": null,
+      "group": "pinned"
      },
      {
       "path": "/Notes/Lumen Studio website/Lumen Studio website.md",
       "kind": "note",
-      "title": "Project notes",
-      "sub": "Lumen Studio website.md · Yesterday",
+      "title": "Lumen Studio website",
+      "sub": "edited yesterday",
       "mtime": 1791906400000,
       "exists": true,
       "workId": null,
-      "editable": true
+      "editable": true,
+      "thumb": null,
+      "url": null,
+      "group": "pinned"
      }
     ]
    },
@@ -336,12 +426,15 @@
      {
       "path": "/Notes/Lumen Studio website/Palette.md",
       "kind": "note",
-      "title": "Palette.md",
-      "sub": "The darker palette the contrast pass picked. · 13:06",
+      "title": "Palette",
+      "sub": "edited 40m ago",
       "mtime": 1791997600000,
       "exists": true,
       "workId": null,
-      "editable": true
+      "editable": true,
+      "thumb": null,
+      "url": null,
+      "group": "notes"
      },
      {
       "path": "/Notes/Lumen Studio website/Memory",
@@ -351,59 +444,87 @@
       "mtime": 1791982000000,
       "exists": true,
       "workId": null,
-      "editable": false
+      "editable": false,
+      "thumb": null,
+      "url": null,
+      "group": "notes"
      },
      {
       "path": "/Notes/Lumen Studio website/Contact copy.md",
       "kind": "note",
-      "title": "Contact copy.md",
-      "sub": "Book a session, ask about prints, or just say hi. · Oct 12",
+      "title": "Contact copy",
+      "sub": "edited Oct 12",
       "mtime": 1791827200000,
       "exists": true,
       "workId": null,
-      "editable": true
+      "editable": true,
+      "thumb": null,
+      "url": null,
+      "group": "notes"
      }
     ]
    },
    {
     "id": "threads",
     "label": "From threads",
-    "count": 3,
+    "count": 4,
     "items": [
+     {
+      "path": "/work/lumen-studio/gallery-tour.mp4",
+      "kind": "video",
+      "title": "gallery-tour.mp4",
+      "sub": "a5 · 0:24 · 22m ago",
+      "mtime": 1791998680000,
+      "exists": true,
+      "workId": "a5",
+      "editable": false,
+      "thumb": "demo:media/dusk-loop.mp4.poster.png",
+      "url": "demo:media/dusk-loop.mp4",
+      "group": "threads"
+     },
      {
       "path": "/work/lumen-studio/contact-form.png",
       "kind": "image",
       "title": "contact-form.png",
-      "sub": "Contact page form · 20m",
-      "mtime": 1791998800000,
+      "sub": "a4 · 25m ago",
+      "mtime": 1791998500000,
       "exists": true,
       "workId": "a4",
-      "editable": false
+      "editable": false,
+      "thumb": "demo:media/fog.png",
+      "url": "demo:media/fog.png",
+      "group": "threads"
      },
      {
       "path": "/work/lumen-studio/contrast-report.md",
       "kind": "note",
-      "title": "contrast-report.md",
-      "sub": "Contrast pass · 1h",
+      "title": "contrast-report",
+      "sub": "a6 · 1h ago",
       "mtime": 1791996400000,
       "exists": true,
       "workId": "a6",
-      "editable": true
+      "editable": true,
+      "thumb": null,
+      "url": null,
+      "group": "threads"
      },
      {
       "path": "/work/lumen-studio/lightbox.png",
       "kind": "image",
       "title": "lightbox.png",
-      "sub": "Gallery lightbox fix · 50m",
+      "sub": "a5 · 50m ago",
       "mtime": 1791997000000,
       "exists": true,
       "workId": "a5",
-      "editable": false
+      "editable": false,
+      "thumb": "demo:media/tide.png",
+      "url": "demo:media/tide.png",
+      "group": "threads"
      }
     ]
    }
   ],
-  "count": 8
+  "count": 9
  },
  "folders": {
   "/Notes/Lumen Studio website/Memory": {
@@ -418,22 +539,28 @@
       {
        "path": "/Notes/Lumen Studio website/Memory/MEMORY.md",
        "kind": "note",
-       "title": "MEMORY.md",
-       "sub": "[Palette](palette.md): the accent and muted colours · 08:46",
+       "title": "MEMORY",
+       "sub": "edited 5h ago",
        "mtime": 1791982000000,
        "exists": true,
        "workId": null,
-       "editable": true
+       "editable": true,
+       "thumb": null,
+       "url": null,
+       "group": "folder"
       },
       {
        "path": "/Notes/Lumen Studio website/Memory/palette.md",
        "kind": "note",
-       "title": "palette.md",
-       "sub": "the accent and muted colours we settled on · 08:46",
+       "title": "palette",
+       "sub": "edited 5h ago",
        "mtime": 1791982000000,
        "exists": true,
        "workId": null,
-       "editable": true
+       "editable": true,
+       "thumb": null,
+       "url": null,
+       "group": "folder"
       }
      ]
     }
@@ -448,19 +575,19 @@
    "title": "Ideas",
    "name": "Ideas.md",
    "editable": true,
-   "text": "# Lumen Studio website ideas\n\n## Owner\n\n- A dark mode toggle in the footer\n- Booking straight from the gallery\n\n## AI suggestions\n\n- Lazy-load the gallery pictures\n",
-   "version": "79e614ee55b208ccfde3",
+   "text": "# Lumen Studio website - Ideas\n\n## To do\n\n- Booking straight from the gallery (2026-10-24)\n\n## Ideas for later\n\n- A dark mode toggle in the footer (2026-10-22)\n- Prints shop page (2026-10-19)\n\n## AI suggestions\n\n- Lazy-load the gallery pictures (2026-10-23)\n\n## Done\n\n- Darker accent colour (2026-10-25)\n",
+   "version": "6e82f35059742994f189",
    "url": null,
    "mtime": 1791989200000,
    "blocks": [
     {
      "t": "h",
-     "text": "Lumen Studio website ideas",
+     "text": "Lumen Studio website - Ideas",
      "level": 1
     },
     {
      "t": "h",
-     "text": "Owner",
+     "text": "To do",
      "level": 2
     },
     {
@@ -468,11 +595,25 @@
      "items": [
       {
        "level": 0,
-       "text": "A dark mode toggle in the footer"
+       "text": "Booking straight from the gallery (2026-10-24)"
+      }
+     ]
+    },
+    {
+     "t": "h",
+     "text": "Ideas for later",
+     "level": 2
+    },
+    {
+     "t": "list",
+     "items": [
+      {
+       "level": 0,
+       "text": "A dark mode toggle in the footer (2026-10-22)"
       },
       {
        "level": 0,
-       "text": "Booking straight from the gallery"
+       "text": "Prints shop page (2026-10-19)"
       }
      ]
     },
@@ -486,7 +627,21 @@
      "items": [
       {
        "level": 0,
-       "text": "Lazy-load the gallery pictures"
+       "text": "Lazy-load the gallery pictures (2026-10-23)"
+      }
+     ]
+    },
+    {
+     "t": "h",
+     "text": "Done",
+     "level": 2
+    },
+    {
+     "t": "list",
+     "items": [
+      {
+       "level": 0,
+       "text": "Darker accent colour (2026-10-25)"
       }
      ]
     }
@@ -671,7 +826,7 @@
    "text": null,
    "version": null,
    "url": "demo:media/fog.png",
-   "mtime": 1791998800000,
+   "mtime": 1791998500000,
    "blocks": null
   },
   "/work/lumen-studio/lightbox.png": {
@@ -718,26 +873,122 @@
      {
       "id": "s2",
       "title": "Lighthouse report",
-      "when": "Every day at 7:30 · Sonnet",
+      "when": "Skipped, PC was off · Every day at 7:30",
+      "whenText": "Every day at 7:30",
       "paused": false,
       "running": false,
-      "lastStatus": "ok",
+      "skipped": true,
+      "lastStatus": "skipped",
       "chatId": null,
-      "right": "Tmrw 3:46",
-      "last": "Last run Oct 14",
-      "nextRun": 1792050400000
+      "right": "Tomorrow",
+      "next": "Tmrw 7:30",
+      "last": "Skipped Oct 14, 3:46 · PC was off",
+      "nextRun": 1792063800000,
+      "prompt": "Run the lighthouse report and tell me what needs fixing.",
+      "model": "Sonnet",
+      "effort": "",
+      "runs": [
+       {
+        "title": "Lighthouse report",
+        "line": "Skipped Wed 14 Oct, PC was off",
+        "status": "skipped",
+        "at": 1791964000000,
+        "workId": null,
+        "chatId": null,
+        "glyph": "pause"
+       },
+       {
+        "title": "Lighthouse report",
+        "line": "b2 · landed Tue 13 Oct",
+        "status": "ok",
+        "at": 1791877600000,
+        "workId": "b2",
+        "chatId": null,
+        "glyph": "check"
+       }
+      ]
      },
      {
       "id": "s1",
       "title": "Broken links check",
       "when": "Every Monday at 9:00 · Haiku",
+      "whenText": "Every Monday at 9:00",
       "paused": false,
       "running": false,
+      "skipped": false,
       "lastStatus": "ok",
       "chatId": null,
-      "right": "Sat 13:46",
+      "right": "Mon",
+      "next": "Mon 9:00",
       "last": "Last run Oct 10 · no broken links",
-      "nextRun": 1792259200000
+      "nextRun": 1792414800000,
+      "prompt": "Run the broken links check and tell me what needs fixing.",
+      "model": "Haiku",
+      "effort": "",
+      "runs": [
+       {
+        "title": "Broken links check",
+        "line": "b4 · landed Sat 10 Oct",
+        "status": "ok",
+        "at": 1791654400000,
+        "workId": "b4",
+        "chatId": null,
+        "glyph": "check"
+       },
+       {
+        "title": "Broken links check",
+        "line": "b3 · landed Sat 3 Oct",
+        "status": "ok",
+        "at": 1791049600000,
+        "workId": "b3",
+        "chatId": null,
+        "glyph": "check"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "label": "Running now",
+    "count": 1,
+    "items": [
+     {
+      "id": "s4",
+      "title": "Weekly analytics digest",
+      "when": "Running as b5 · open it",
+      "whenText": "Every Sunday at 8:00",
+      "paused": false,
+      "running": true,
+      "skipped": false,
+      "lastStatus": "running",
+      "chatId": null,
+      "right": "",
+      "next": "Sun 8:00",
+      "last": "Running as b5 · open it",
+      "nextRun": 1792324800000,
+      "prompt": "Run the weekly analytics digest and tell me what needs fixing.",
+      "model": "Haiku",
+      "effort": "",
+      "runs": [
+       {
+        "title": "Weekly analytics digest",
+        "line": "b5 · running since 13:43",
+        "status": "running",
+        "at": 1791999820000,
+        "workId": "b5",
+        "chatId": null,
+        "glyph": "spin"
+       },
+       {
+        "title": "Weekly analytics digest",
+        "line": "b1 · landed Wed 7 Oct",
+        "status": "ok",
+        "at": 1791395020000,
+        "workId": "b1",
+        "chatId": null,
+        "glyph": "check"
+       }
+      ]
      }
     ]
    },
@@ -749,19 +1000,402 @@
       "id": "s3",
       "title": "Portfolio refresh",
       "when": "Every Friday at 17:00 · Sonnet",
+      "whenText": "Every Friday at 17:00",
       "paused": true,
       "running": false,
+      "skipped": false,
       "lastStatus": "skipped",
       "chatId": null,
       "right": "",
+      "next": "",
       "last": "Skipped Oct 8, 13:46 · PC was off",
-      "nextRun": 0
+      "nextRun": 0,
+      "prompt": "Run the portfolio refresh and tell me what needs fixing.",
+      "model": "Sonnet",
+      "effort": "",
+      "runs": [
+       {
+        "title": "Portfolio refresh",
+        "line": "Skipped Thu 8 Oct, PC was off",
+        "status": "skipped",
+        "at": 1791481600000,
+        "workId": null,
+        "chatId": null,
+        "glyph": "pause"
+       }
+      ]
      }
     ]
    }
   ],
-  "count": 3,
-  "footer": "Each run is a thread in this project, on the model shown. Schedules run while the projects service is on, even with the window closed.",
+  "past": [
+   {
+    "title": "Lighthouse report",
+    "line": "Skipped Wed 14 Oct, PC was off",
+    "status": "skipped",
+    "at": 1791964000000,
+    "workId": null,
+    "chatId": null,
+    "glyph": "pause"
+   },
+   {
+    "title": "Lighthouse report",
+    "line": "b2 · landed Tue 13 Oct",
+    "status": "ok",
+    "at": 1791877600000,
+    "workId": "b2",
+    "chatId": null,
+    "glyph": "check"
+   },
+   {
+    "title": "Broken links check",
+    "line": "b4 · landed Sat 10 Oct",
+    "status": "ok",
+    "at": 1791654400000,
+    "workId": "b4",
+    "chatId": null,
+    "glyph": "check"
+   },
+   {
+    "title": "Portfolio refresh",
+    "line": "Skipped Thu 8 Oct, PC was off",
+    "status": "skipped",
+    "at": 1791481600000,
+    "workId": null,
+    "chatId": null,
+    "glyph": "pause"
+   },
+   {
+    "title": "Weekly analytics digest",
+    "line": "b1 · landed Wed 7 Oct",
+    "status": "ok",
+    "at": 1791395020000,
+    "workId": "b1",
+    "chatId": null,
+    "glyph": "check"
+   },
+   {
+    "title": "Broken links check",
+    "line": "b3 · landed Sat 3 Oct",
+    "status": "ok",
+    "at": 1791049600000,
+    "workId": "b3",
+    "chatId": null,
+    "glyph": "check"
+   }
+  ],
+  "count": 4,
+  "footer": "Ask the main chat for a new schedule; + starts the message for you.",
   "empty": ""
+ },
+ "settings": {
+  "id": "lumen-studio",
+  "name": "Lumen Studio website",
+  "icon": "camera",
+  "color": "orange",
+  "goal": "A one-page site for a small photo studio",
+  "instructions": "Keep the site one page and fast on phones.",
+  "folder": "/work/lumen-studio",
+  "notes": "/Notes/Lumen Studio website",
+  "parts": [
+   "Site"
+  ],
+  "mainModel": "claude-haiku-5-5",
+  "mainEffort": "low",
+  "mainLabel": "Haiku 5.5 · low",
+  "threadModels": {},
+  "threadLabel": "Automatic",
+  "usage": "587K tokens",
+  "paused": false,
+  "archived": false,
+  "models": [
+   {
+    "id": "claude-opus-5-5",
+    "label": "Opus 5.5",
+    "provider": "Claude",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "claude-sonnet-5-5",
+    "label": "Sonnet 5.5",
+    "provider": "Claude",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "claude-haiku-5-5",
+    "label": "Haiku 5.5",
+    "provider": "Claude",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "claude-fable-5-1",
+    "label": "Fable 5.1",
+    "provider": "Claude",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "gpt-6.1-sol",
+    "label": "GPT 6.1 Sol",
+    "provider": "OpenAI",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "gpt-6-astra",
+    "label": "GPT 6 Astra",
+    "provider": "OpenAI",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "gpt-6-sol",
+    "label": "GPT 6 Sol",
+    "provider": "OpenAI",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "gpt-6-luna",
+    "label": "GPT 6 Luna",
+    "provider": "OpenAI",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "gpt-5.6-sol",
+    "label": "GPT 5.6 Sol",
+    "provider": "OpenAI",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "gpt-5.6-terra",
+    "label": "GPT 5.6 Terra",
+    "provider": "OpenAI",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "gpt-5.6-luna",
+    "label": "GPT 5.6 Luna",
+    "provider": "OpenAI",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "local-qwen3.8-27b",
+    "label": "Qwen3.8 27B",
+    "provider": "local",
+    "note": "80K context · images",
+    "efforts": [
+     "none",
+     "low",
+     "medium",
+     "xhigh"
+    ]
+   },
+   {
+    "id": "local-qwen3.8-flash-next",
+    "label": "Qwen3.8 Flash-Next",
+    "provider": "local",
+    "note": "64K context · text only",
+    "efforts": [
+     "none",
+     "low",
+     "medium"
+    ]
+   }
+  ]
+ },
+ "ideas": {
+  "title": "Lumen Studio website - Ideas",
+  "path": "/Notes/Lumen Studio website/Ideas.md",
+  "mtime": 1791989200000,
+  "sections": [
+   {
+    "name": "To do",
+    "items": [
+     {
+      "raw": "Booking straight from the gallery (2026-10-24)",
+      "text": "Booking straight from the gallery",
+      "date": "2026-10-24",
+      "ai": false
+     }
+    ],
+    "empty": "Nothing planned yet."
+   },
+   {
+    "name": "Ideas for later",
+    "items": [
+     {
+      "raw": "A dark mode toggle in the footer (2026-10-22)",
+      "text": "A dark mode toggle in the footer",
+      "date": "2026-10-22",
+      "ai": false
+     },
+     {
+      "raw": "Prints shop page (2026-10-19)",
+      "text": "Prints shop page",
+      "date": "2026-10-19",
+      "ai": false
+     }
+    ],
+    "empty": "Nothing yet."
+   },
+   {
+    "name": "AI suggestions",
+    "items": [
+     {
+      "raw": "Lazy-load the gallery pictures (2026-10-23)",
+      "text": "Lazy-load the gallery pictures",
+      "date": "2026-10-23",
+      "ai": true
+     }
+    ],
+    "empty": "Nothing yet."
+   },
+   {
+    "name": "Done",
+    "items": [
+     {
+      "raw": "Darker accent colour (2026-10-25)",
+      "text": "Darker accent colour",
+      "date": "2026-10-25",
+      "ai": false
+     }
+    ],
+    "empty": "Nothing yet."
+   }
+  ],
+  "count": 5
+ },
+ "usage": {
+  "total": 587100,
+  "totalText": "587K tokens",
+  "since": "since 5 Oct · main chat and 11 threads",
+  "main": 106000,
+  "mainText": "106K",
+  "threads": 481100,
+  "threadsText": "481K",
+  "threadCount": 11,
+  "models": [
+   {
+    "name": "Sonnet 5.5",
+    "tokens": 472600,
+    "value": "473K",
+    "percent": 80
+   },
+   {
+    "name": "Haiku 5.5",
+    "tokens": 114500,
+    "value": "115K",
+    "percent": 20
+   }
+  ],
+  "biggest": [
+   {
+    "id": "a6",
+    "title": "Contrast pass",
+    "chatId": "00000076-2222-4222-8333-000000000076",
+    "line": "a6 · Sonnet · high",
+    "value": "127K",
+    "state": "needs-you",
+    "glyph": "needs"
+   },
+   {
+    "id": "a1",
+    "title": "Home page hero",
+    "chatId": null,
+    "line": "a1 · Sonnet · medium",
+    "value": "67K",
+    "state": "done",
+    "glyph": "check"
+   },
+   {
+    "id": "a4",
+    "title": "Contact page form",
+    "chatId": "00000074-2222-4222-8333-000000000074",
+    "line": "a4 · Sonnet · high",
+    "value": "66K",
+    "state": "working",
+    "glyph": "spin"
+   }
+  ],
+  "cacheReads": 85,
+  "plan": {
+   "fiveHour": 18,
+   "week": 41
+  },
+  "footer": "85% of it is cache reads: the chat re-read from the cache, the cheapest kind. Your plan: 5-hour 18%, weekly 41%."
  }
 }

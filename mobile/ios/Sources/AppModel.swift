@@ -20,9 +20,10 @@ final class AppModel {
     let demo: Bool
     private let api = APIClient()
 
-    init() {
+    /// `demo`: the unit tests' demo model (the app reads -demo from its arguments)
+    init(demo forced: Bool? = nil) {
         let args = ProcessInfo.processInfo.arguments
-        demo = Demo.isOn
+        demo = forced ?? Demo.isOn
         if demo {
             pairing = args.contains("-unpaired") ? nil : Demo.pairing
         } else {
@@ -202,6 +203,179 @@ final class AppModel {
         }
         guard let p = pairing else { return [] }
         return (try? await api.search(p, q))?.chats ?? []
+    }
+
+    // MARK: the Projects page (a121)
+
+    /// Projects whose chats say the words (the Projects page's search past their names).
+    func searchProjects(_ q: String) async -> [ProjectHit] {
+        let q = q.trimmingCharacters(in: .whitespaces)
+        guard q.count >= 2 else { return [] }
+        if demo {
+            let r: ProjectSearchReply? = Demo.load("search")
+            return r?.projects ?? []
+        }
+        guard let p = pairing else { return [] }
+        return (try? await api.searchProjects(p, q))?.projects ?? []
+    }
+
+    /// Archives or brings back a project: it moves between the list and Archived at once, then the PC's list follows.
+    func setArchived(project id: String, _ on: Bool) async {
+        if var h = home {
+            var all = h.projects + (h.archivedProjects ?? [])
+            all = all.filter { $0.id == id } + all.filter { $0.id != id }
+            if let row = all.first {
+                h.projects.removeAll { $0.id == id }
+                h.archivedProjects?.removeAll { $0.id == id }
+                if on { h.archivedProjects = [row] + (h.archivedProjects ?? []) } else { h.projects.insert(row, at: 0) }
+                if on { h.pinned?.removeAll { $0 == PinRef(kind: "project", id: id) } }
+                home = h
+            }
+        }
+        if demo { return }
+        guard let p = pairing else { return }
+        do {
+            _ = try await api.archiveProject(p, id, on)
+            await refresh()
+        } catch {
+            actionError = APIError.from(error).message
+            await refresh()
+        }
+    }
+
+    /// The folders in the projects folder a new project can start in.
+    func projectFolders() async -> FoldersReply? {
+        if demo { return Demo.load("folders") }
+        guard let p = pairing else { return nil }
+        return try? await api.projectFolders(p)
+    }
+
+    /// A new project (03): its files go up first, then the PC makes it and starts its main chat.
+    func createProject(name: String, goal: String, icon: String?, color: String?, folder: String,
+                       files: [Attachment], clientId: String) async throws -> NewProjectReply {
+        if demo {
+            let id = name.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).joined(separator: "-")
+            let row = ProjectRow(id: id, name: name, state: "working", detail: "", needs: 0, permission: 0, working: 1,
+                                 paused: false, mainChatId: nil, icon: icon, color: color,
+                                 lastActive: Date().timeIntervalSince1970 * 1000,
+                                 created: Date().timeIntervalSince1970 * 1000)
+            home?.projects.insert(row, at: 0)
+            return NewProjectReply(projectId: id, mainChatId: nil, running: true, name: name)
+        }
+        guard let p = pairing else { throw APIError.notPaired }
+        var paths: [String] = []
+        for a in files {
+            paths.append(try await api.upload(p, a.data, name: a.name, type: a.type, chat: "new").path)
+        }
+        let r = try await api.createProject(p, NewProjectBody(name: name, goal: goal, icon: icon, color: color,
+                                                              folder: folder, files: paths, clientId: clientId))
+        await refresh()
+        return r
+    }
+
+    /// a project row by id, archived ones too
+    func projectRow(_ id: String) -> ProjectRow? {
+        guard let h = home else { return nil }
+        return (h.projects + (h.archivedProjects ?? [])).first { $0.id == id }
+    }
+
+    /// Settings' changes shown in the list at once (name, icon, colour).
+    func showProject(_ s: ProjectSettings) {
+        guard var h = home else { return }
+        func change(_ rows: [ProjectRow]) -> [ProjectRow] {
+            rows.map { r in
+                guard r.id == s.id else { return r }
+                var r = r
+                r.name = s.name
+                r.icon = s.icon
+                r.color = s.color
+                return r
+            }
+        }
+        h.projects = change(h.projects)
+        h.archivedProjects = h.archivedProjects.map(change)
+        home = h
+    }
+
+    /// Settings (11): the project's own settings with what its pickers offer.
+    func projectSettings(_ id: String) async throws -> ProjectSettings {
+        if demo {
+            if let f: ProjectFixture = Demo.load(id, in: "fixtures/projects"), let s = f.settings { return s }
+            let r = projectRow(id)
+            let models: ModelsReply? = Demo.load("models")
+            return ProjectSettings(id: id, name: r?.name ?? id, icon: r?.icon, color: r?.color, goal: "",
+                                   instructions: "", folder: "/work/Projects/\(id)", notes: "", parts: [], mainModel: "",
+                                   mainEffort: "", mainLabel: "Default", threadModels: [:], threadLabel: "Automatic",
+                                   usage: "None yet", paused: r?.paused ?? false,
+                                   archived: home?.archivedProjects?.contains { $0.id == id } ?? false,
+                                   models: models?.models ?? [])
+        }
+        guard let p = pairing else { throw APIError.notPaired }
+        return try await api.projectSettings(p, id)
+    }
+
+    /// Settings' ✓: only what changed goes; the list shows the new name and look at once.
+    func updateProject(_ id: String, _ patch: ProjectPatch) async throws -> ProjectSettings {
+        if demo {
+            var s = try await projectSettings(id)
+            if let v = patch.name { s.name = v }
+            if let v = patch.goal { s.goal = v }
+            if let v = patch.instructions { s.instructions = v }
+            if let v = patch.icon { s.icon = v }
+            if let v = patch.color { s.color = v.isEmpty ? nil : v }
+            showProject(s)
+            return s
+        }
+        guard let p = pairing else { throw APIError.notPaired }
+        let s = try await api.updateProject(p, id, patch)
+        showProject(s)
+        return s
+    }
+
+    /// Settings' Pause project: every thread stops after its step.
+    func pauseProject(_ id: String, _ on: Bool) async throws {
+        if demo {
+            if var h = home, let i = h.projects.firstIndex(where: { $0.id == id }) {
+                h.projects[i].paused = on
+                home = h
+            }
+            return
+        }
+        guard let p = pairing else { throw APIError.notPaired }
+        _ = try await api.pauseProject(p, id, on)
+        await refresh()
+    }
+
+    /// Settings' Delete (after typing delete): the project's record goes; its folder and notes stay on the PC.
+    func deleteProject(_ id: String) async throws {
+        if !demo {
+            guard let p = pairing else { throw APIError.notPaired }
+            try await api.deleteProject(p, id)
+        }
+        forgetProject(id)
+        if !demo { await refresh() }
+    }
+
+    /// Usage (12): the project's tokens from its chats' transcripts.
+    func projectUsage(_ id: String) async throws -> ProjectUsage {
+        if demo {
+            let f: ProjectFixture? = Demo.load(id, in: "fixtures/projects")
+            if let u = f?.usage { return u }
+            return ProjectUsage(total: 0, totalText: "0 tokens", since: "nothing used yet", main: 0, mainText: "0",
+                                threads: 0, threadsText: "0", threadCount: 0, models: [], biggest: [], cacheReads: 0,
+                                plan: nil, footer: "")
+        }
+        guard let p = pairing else { throw APIError.notPaired }
+        return try await api.projectUsage(p, project: id)
+    }
+
+    /// A deleted project leaves the lists at once.
+    func forgetProject(_ id: String) {
+        guard var h = home else { return }
+        h.projects.removeAll { $0.id == id }
+        h.archivedProjects?.removeAll { $0.id == id }
+        h.pinned?.removeAll { $0 == PinRef(kind: "project", id: id) }
+        home = h
     }
 
     private func showLocally(_ id: String, _ e: ChatEdit, deleted: Bool) {

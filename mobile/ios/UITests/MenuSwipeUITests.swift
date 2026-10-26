@@ -191,8 +191,7 @@ final class MenuSwipeUITests: XCTestCase {
     /// a busy phone: the menu's news that a pin lifted reaches the main view a second late (-slowLift). The pin's
     /// drag starts before then, and the menu must still not slide with it.
     func testPinLiftOnABusyPhone() {
-        let old = ProcessInfo.processInfo.environment["PROBE_OLD"] == "1"
-        launchWithMenu(["-slowLift"] + (old ? ["-oldPin"] : []))
+        launchWithMenu(["-slowLift"])
         let (wallpaper, lumen) = liftWallpaperOverLumen()
         waitStill(wallpaper)
         XCTAssertLessThan(wallpaper.frame.minY, lumen.frame.minY, "Wallpaper ideas moved to the top")

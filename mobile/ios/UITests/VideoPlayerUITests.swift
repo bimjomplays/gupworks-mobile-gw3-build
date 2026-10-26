@@ -51,6 +51,17 @@ final class VideoPlayerUITests: XCTestCase {
         return XCTWaiter.wait(for: [x], timeout: timeout) == .completed
     }
 
+    /// the screen changes within 10 s (the clip's bands fade, the time ticks). Read from pixels, not from the time's
+    /// label: on CI the accessibility snapshot kept saying 0:00 for 10 s while the recording showed 0:01 and 0:02.
+    private func screenMoves() -> Bool {
+        let first = XCUIScreen.main.screenshot().pngRepresentation
+        for _ in 0..<20 {
+            usleep(500_000)
+            if XCUIScreen.main.screenshot().pngRepresentation != first { return true }
+        }
+        return false
+    }
+
     /// the chat's video, opened full screen
     private func openVideo(_ extra: [String] = []) -> XCUIApplication {
         let app = launch(extra)
@@ -83,7 +94,8 @@ final class VideoPlayerUITests: XCTestCase {
         XCTAssertTrue(el(app, "scrubber").exists)
         XCTAssertTrue(exists(el(app, "noSound"), true), "the clip has no sound, and says so")
         XCTAssertEqual(el(app, "loop").value as? String, "On", "a 2 s clip loops")
-        XCTAssertTrue(wait(el(app, "videoTime"), "label != %@", "0:00", timeout: 10), "the time moves while it plays")
+        XCTAssertTrue(el(app, "videoTime").exists)
+        XCTAssertTrue(screenMoves(), "the picture and the time move while it plays")
         shot("a122-player")
 
         play.tap()
