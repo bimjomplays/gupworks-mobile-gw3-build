@@ -20,8 +20,7 @@ targets:
       - Sources
       # the plain logic (models, API, routes, pairing, stores): a Swift package that also builds and tests on Linux;
       # the app compiles its files directly (mobile/GupKit/Package.swift says why)
-      - path: ../GupKit/Sources/GupKit
-        group: GupKit
+      - ../GupKit/Sources/GupKit
       - Resources
       # recorded gw3-phone answers (invented text) for the demo mode and the screenshot tests
       - path: ../fixtures
@@ -81,8 +80,7 @@ targets:
     sources:
       - Tests
       # GupKit's tests run here too, against the app's copy of the same files
-      - path: ../GupKit/Tests/GupKitTests
-        group: GupKitTests
+      - ../GupKit/Tests/GupKitTests
     dependencies:
       - target: GupWorks3
     settings:
