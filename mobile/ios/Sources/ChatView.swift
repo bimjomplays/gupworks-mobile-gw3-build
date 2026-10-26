@@ -213,6 +213,7 @@ struct ChatView: View {
                         .accessibilityAddTraits(.isButton)
                         .accessibilityIdentifier("closeUsage")
                     UsageCard(usage: usage, now: Date())
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 12)
                         .padding(.bottom, 14)
                         .onTapGesture { usageOpen = false }
