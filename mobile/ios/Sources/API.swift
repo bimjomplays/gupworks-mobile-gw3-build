@@ -538,12 +538,13 @@ final class APIClient {
     /// APIError like the other calls.
     func events(_ p: Pairing, _ path: String, query: [URLQueryItem] = []) -> AsyncThrowingStream<SSEEvent, Error> {
         // one way per stream: a failed one goes last, so the caller's next try takes the other
-        let base = p.baseURL, routes = self.routes
-        let way = routes.current(for: base)
-        let req = Self.makeRequest(way, path, token: p.token, query: query, accept: "text/event-stream")
+        let base = p.baseURL, routes = self.routes, token = p.token
         let session = streamSession
         return AsyncThrowingStream { continuation in
             let task = Task {
+                await routes.discover(for: base)
+                let way = routes.current(for: base)
+                let req = Self.makeRequest(way, path, token: token, query: query, accept: "text/event-stream")
                 do {
                     let bytes: URLSession.AsyncBytes, response: URLResponse
                     do {
@@ -609,6 +610,7 @@ final class APIClient {
                                        query: [URLQueryItem] = [], json: Data? = nil, raw: Data? = nil,
                                        contentType: String? = nil, slow: Bool = false,
                                        via: URLSession? = nil) async throws -> T {
+        await routes.discover(for: base)
         let ways = routes.order(for: base)
         var answer: (Data, URLResponse)?
         for (i, way) in ways.enumerated() {

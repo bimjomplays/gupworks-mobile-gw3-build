@@ -598,11 +598,51 @@ final class VoiceTests: XCTestCase {
     private func ip(_ parts: Int...) -> String { parts.map(String.init).joined(separator: ".") }
 
     /// a Routes with its own defaults and a tunnel that is up or down as the test says
-    private func routes(up: Bool = true) -> Routes {
+    private func routes(up: Bool = true, dns: String? = nil) -> Routes {
         let name = "routes-test-\(UUID().uuidString)"
         let d = UserDefaults(suiteName: name)!
         d.removePersistentDomain(forName: name)
-        return Routes(defaults: d, tunnelUp: { up })
+        return Routes(defaults: d, tunnelUp: { up }, lookup: { _ in dns })
+    }
+
+    func testRoutesAskTailscalesDNSWhenNoAddressIsKnown() async {
+        let base = URL(string: "https://desktop.example.ts.net:10005")!
+        let r = routes(dns: ip(100, 101, 102, 103))
+        await r.discover(for: base)
+        XCTAssertEqual(r.order(for: base), [URL(string: "http://\(ip(100, 101, 102, 103)):10007")!, base])
+        r.learn("http://\(ip(100, 101, 102, 104)):10007", for: base)   // hello's answer wins
+        await r.discover(for: base)
+        XCTAssertEqual(r.current(for: base), URL(string: "http://\(ip(100, 101, 102, 104)):10007"))
+        let down = routes(up: false, dns: ip(100, 101, 102, 103))
+        await down.discover(for: base)
+        XCTAssertEqual(down.order(for: base), [base])
+        let notTailnet = routes(dns: ip(192, 168, 1, 2))
+        await notTailnet.discover(for: base)
+        XCTAssertEqual(notTailnet.order(for: base), [base])
+        let other = URL(string: "https://desktop.example.com:10005")!  // only Tailscale names
+        let r2 = routes(dns: ip(100, 101, 102, 103))
+        await r2.discover(for: other)
+        XCTAssertEqual(r2.order(for: other), [other])
+    }
+
+    func testMagicDNSQueryAndReply() {
+        let q = MagicDNS.query("pc.example.ts.net", id: 0x1234)!
+        XCTAssertEqual(Array(q.prefix(12)), [0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0])
+        XCTAssertEqual(Array(q[12...]), [2] + Array("pc".utf8) + [7] + Array("example".utf8) + [2] + Array("ts".utf8)
+                       + [3] + Array("net".utf8) + [0, 0, 1, 0, 1])
+        XCTAssertNil(MagicDNS.query(String(repeating: "a", count: 64) + ".ts.net", id: 1))  // a label over 63 bytes
+        // the reply: the question again, then an A record whose name points back at it (compression)
+        var reply: [UInt8] = [0x12, 0x34, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0] + Array(q[12...])
+        reply += [0xC0, 12, 0, 1, 0, 1, 0, 0, 0, 5, 0, 4, 100, 101, 102, 103]
+        XCTAssertEqual(MagicDNS.firstTailnetA(reply, id: 0x1234), ip(100, 101, 102, 103))
+        XCTAssertNil(MagicDNS.firstTailnetA(reply, id: 0x1235))                     // another query's answer
+        var failed = reply
+        failed[3] = 0x83                                                             // NXDOMAIN
+        XCTAssertNil(MagicDNS.firstTailnetA(failed, id: 0x1234))
+        var outside = reply
+        outside[outside.count - 4] = 8                                               // not a tailnet address
+        XCTAssertNil(MagicDNS.firstTailnetA(outside, id: 0x1234))
+        XCTAssertNil(MagicDNS.firstTailnetA(Array(reply.dropLast(2)), id: 0x1234))  // cut short
     }
 
     func testRoutesTryTheDirectWayFirstOnlyWhileTailscaleIsUp() {
