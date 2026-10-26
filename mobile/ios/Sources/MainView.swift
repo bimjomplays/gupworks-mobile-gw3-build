@@ -65,7 +65,7 @@ struct MainView: View {
     @State private var onProjects = false
 
     init() {
-        let args = ProcessInfo.processInfo.arguments
+        let args = Demo.args
         // the demo's flags for the screenshot tests
         var start = Current.fresh
         if Demo.isOn, let i = args.firstIndex(of: "-open"), i + 1 < args.count {
@@ -140,6 +140,10 @@ struct MainView: View {
                                    }
                                }))
         }
+        // the screen's top (a130): the GeometryReader sat below the status bar, so the chat and everything in it stopped
+        // there and the strip around the Dynamic Island was only the black background; now the stack reaches the top
+        // of the screen and the turns scroll under the status bar
+        .ignoresSafeArea(edges: .top)
         .sensoryFeedback(.impact(weight: .light), trigger: opened)
         .sheet(isPresented: $showSettings) { SettingsView() }
         .alert("That didn't work", isPresented: Binding(get: { model.actionError != nil },

@@ -608,3 +608,13 @@ enum DemoProject {
         return out
     }
 }
+
+extension ProjectRow {
+    /// newest first (last activity, else when it was made)
+    static func newestFirst(_ rows: [ProjectRow]) -> [ProjectRow] {
+        rows.enumerated().sorted { a, b in
+            let x = a.element.lastActive ?? a.element.created ?? 0, y = b.element.lastActive ?? b.element.created ?? 0
+            return x != y ? x > y : a.offset < b.offset
+        }.map(\.element)
+    }
+}

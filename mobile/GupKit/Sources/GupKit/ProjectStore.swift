@@ -311,7 +311,7 @@ final class ProjectStore {
 
     // MARK: demo
 
-    private static var demoConflict: Bool { ProcessInfo.processInfo.arguments.contains("-noteConflict") }
+    private static var demoConflict: Bool { Demo.args.contains("-noteConflict") }
     private var demoConflicted: Set<String> = []
 
     private func loadDemo() {

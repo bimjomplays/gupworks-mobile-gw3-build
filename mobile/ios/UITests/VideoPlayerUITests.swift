@@ -1,5 +1,6 @@
 import XCTest
 
+// ci-covers: VideoPlayer.swift MediaViews.swift
 /// a122: the video player in demo mode ("Wallpaper ideas" has a short clip without sound). The glass controls,
 /// play and pause, skipping, speed, loop, full screen and their fading away while it plays.
 final class VideoPlayerUITests: XCTestCase {
