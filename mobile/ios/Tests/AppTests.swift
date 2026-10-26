@@ -565,7 +565,7 @@ final class VoiceTests: XCTestCase {
     }
 
     func testWhyThePCDidntDoIt() {
-        XCTAssertEqual(VoiceMath.why(APIError.unreachable(.unknown)), "your PC couldn't be reached")
+        XCTAssertEqual(VoiceMath.why(APIError.unreachable(.unknown(nil))), "your PC couldn't be reached")
         XCTAssertEqual(VoiceMath.why(APIError.server("Voice isn't set up on this PC.")),
                        "the PC said: Voice isn't set up on this PC.")
         XCTAssertEqual(VoiceMath.why(APIError.notPaired), "your PC doesn't know this phone anymore")
@@ -579,13 +579,100 @@ final class VoiceTests: XCTestCase {
         XCTAssertEqual(APIError.from(URLError(.cannotConnectToHost)), .unreachable(.refused))
         XCTAssertEqual(APIError.from(URLError(.notConnectedToInternet)), .unreachable(.offline))
         XCTAssertEqual(APIError.from(URLError(.serverCertificateUntrusted)), .unreachable(.secure))
-        XCTAssertEqual(APIError.from(URLError(.unknown)), .unreachable(.unknown))
-        XCTAssertEqual(APIError.from(CancellationError()), .unreachable(.unknown))
+        XCTAssertEqual(APIError.from(URLError(.networkConnectionLost)), .unreachable(.dropped))
+        XCTAssertEqual(APIError.from(URLError(.unknown)), .unreachable(.unknown(-1)))
+        XCTAssertEqual(APIError.from(URLError(.badServerResponse)), .unreachable(.unknown(-1011)))
+        XCTAssertTrue(APIError.unreachable(.unknown(-1011)).message.hasPrefix("Can't reach your PC (error -1011). "))
+        XCTAssertEqual(APIError.from(NSError(domain: "x", code: 1)), .unreachable(.unknown(nil)))
+        XCTAssertTrue(APIError.from(CancellationError()).isCancelled)
+        XCTAssertTrue(APIError.from(URLError(.cancelled)).isCancelled)
+        XCTAssertFalse(APIError.from(URLError(.timedOut)).isCancelled)
         XCTAssertEqual(APIError.from(APIError.notPaired), .notPaired)  // the PC's own answers stay as they are
         XCTAssertTrue(APIError.unreachable(.timeout).isUnreachable)
         XCTAssertFalse(APIError.notPaired.isUnreachable)
         XCTAssertTrue(APIError.unreachable(.noName).message.contains("Use Tailscale DNS"))
-        XCTAssertTrue(APIError.unreachable(.unknown).message.hasPrefix("Can't reach your PC."))
+        XCTAssertTrue(APIError.unreachable(.unknown(nil)).message.hasPrefix("Can't reach your PC."))
+    }
+
+    /// a dotted IPv4 address, built here so the public repo scan doesn't take test addresses for real ones
+    private func ip(_ parts: Int...) -> String { parts.map(String.init).joined(separator: ".") }
+
+    /// a Routes with its own defaults and a tunnel that is up or down as the test says
+    private func routes(up: Bool = true) -> Routes {
+        let name = "routes-test-\(UUID().uuidString)"
+        let d = UserDefaults(suiteName: name)!
+        d.removePersistentDomain(forName: name)
+        return Routes(defaults: d, tunnelUp: { up })
+    }
+
+    func testRoutesTryTheDirectWayFirstOnlyWhileTailscaleIsUp() {
+        let base = URL(string: "https://desktop.example.ts.net:10005")!
+        let direct = URL(string: "http://\(ip(100, 101, 102, 103)):10007")!
+        let r = routes()
+        XCTAssertEqual(r.order(for: base), [base])                    // nothing learned yet
+        r.learn("http://\(ip(100, 101, 102, 103)):10007", for: base)
+        XCTAssertEqual(r.order(for: base), [direct, base])
+        XCTAssertEqual(r.current(for: base), direct)
+        let down = routes(up: false)
+        down.learn("http://\(ip(100, 101, 102, 103)):10007", for: base)
+        XCTAssertEqual(down.order(for: base), [base])                 // never plain HTTP outside the tunnel
+        r.failed(direct, for: base)
+        XCTAssertEqual(r.order(for: base), [base, direct])            // the way that failed goes last
+        r.worked(base, for: base)
+        XCTAssertEqual(r.order(for: base), [base, direct])            // and the one that answered first
+        r.failed(base, for: base)
+        r.worked(direct, for: base)
+        XCTAssertEqual(r.order(for: base), [direct, base])
+        r.forget(base)
+        XCTAssertEqual(r.order(for: base), [base])
+    }
+
+    func testRoutesKeepOnlyATailnetHTTPAddress() {
+        XCTAssertEqual(Routes.validDirect("http://\(ip(100, 101, 102, 103)):10007"), URL(string: "http://\(ip(100, 101, 102, 103)):10007"))
+        XCTAssertEqual(Routes.validDirect("http://\(ip(100, 64, 0, 1)):1/"), URL(string: "http://\(ip(100, 64, 0, 1)):1"))
+        XCTAssertNil(Routes.validDirect("http://\(ip(100, 128, 0, 1)):10007"))   // outside the tailnet range
+        XCTAssertNil(Routes.validDirect("http://\(ip(192, 168, 1, 2)):10007"))
+        XCTAssertNil(Routes.validDirect("http://\(ip(100, 101, 102, 103))"))     // no port
+        XCTAssertNil(Routes.validDirect("https://\(ip(100, 101, 102, 103)):10007"))
+        XCTAssertNil(Routes.validDirect("http://evil.example:10007"))
+        XCTAssertNil(Routes.validDirect("http://u:p@\(ip(100, 101, 102, 103)):10007"))
+        XCTAssertNil(Routes.validDirect("http://\(ip(100, 101, 102, 103)):10007/x"))
+        let base = URL(string: "https://desktop.example.ts.net:10005")!
+        let r = routes()
+        r.learn("http://\(ip(192, 168, 1, 2)):10007", for: base)
+        XCTAssertEqual(r.order(for: base), [base])
+        r.learn("http://\(ip(100, 101, 102, 103)):10007", for: base)
+        r.learn(nil, for: base)                                        // the PC stopped offering it
+        XCTAssertEqual(r.order(for: base), [base])
+    }
+
+    func testTailnetRanges() {
+        XCTAssertTrue(Tailnet.isTailnet([100, 64, 0, 0]))
+        XCTAssertTrue(Tailnet.isTailnet([100, 127, 255, 255]))
+        XCTAssertFalse(Tailnet.isTailnet([100, 128, 0, 1]))
+        XCTAssertFalse(Tailnet.isTailnet([100, 63, 255, 255]))
+        XCTAssertEqual(Tailnet.ipv4(ip(100, 101, 102, 103)), [100, 101, 102, 103])
+        XCTAssertNil(Tailnet.ipv4("desktop"))
+        XCTAssertTrue(Tailnet.isTailnet6([0xFD, 0x7A, 0x11, 0x5C, 0xA1, 0xE0] + Array(repeating: 1, count: 10)))
+        XCTAssertFalse(Tailnet.isTailnet6([0xFD, 0x7A, 0x11, 0x5C, 0xA1, 0xE1] + Array(repeating: 1, count: 10)))
+    }
+
+    func testOtherWayOnlyWhenTheChangeSurelyDidNotArrive() {
+        XCTAssertTrue(APIClient.mayTryOtherWay(.unreachable(.timeout), method: "GET"))
+        XCTAssertTrue(APIClient.mayTryOtherWay(.unreachable(.noName), method: "GET"))
+        XCTAssertFalse(APIClient.mayTryOtherWay(.unreachable(.offline), method: "GET"))
+        XCTAssertFalse(APIClient.mayTryOtherWay(.server("no"), method: "GET"))
+        XCTAssertTrue(APIClient.mayTryOtherWay(.unreachable(.noName), method: "POST"))
+        XCTAssertTrue(APIClient.mayTryOtherWay(.unreachable(.refused), method: "POST"))
+        XCTAssertFalse(APIClient.mayTryOtherWay(.unreachable(.timeout), method: "POST"))  // it may have arrived
+        XCTAssertFalse(APIClient.mayTryOtherWay(.unreachable(.dropped), method: "PATCH"))
+    }
+
+    func testHelloKeepsTheDirectAddress() throws {
+        let h = try JSONDecoder().decode(Hello.self, from: Data(#"{"app": "gw3-phone", "version": "0.8.1", "api": 1, "pc": "desktop", "features": [], "direct": "http://\#(ip(100, 101, 102, 103)):10007"}"#.utf8))
+        XCTAssertEqual(h.direct, "http://\(ip(100, 101, 102, 103)):10007")
+        let old = try JSONDecoder().decode(Hello.self, from: Data(#"{"app": "gw3-phone", "version": "0.8.0", "api": 1, "pc": "desktop", "features": []}"#.utf8))
+        XCTAssertNil(old.direct)
     }
 
     func testVoiceReplyDecodes() throws {

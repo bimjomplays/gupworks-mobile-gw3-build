@@ -8,6 +8,7 @@ struct Hello: Codable, Equatable {
     var api: Int
     var pc: String
     var features: [String]
+    var direct: String?  // the PC's tailnet address (gw3-phone 0.8.1), tried when the name fails (Routes)
 }
 
 /// POST /v1/voice: the words, and how the PC got them ("gpu", "cpu"; none when the clip was silent)
@@ -22,6 +23,7 @@ struct PairReply: Codable {
     var token: String
     var pc: String
     var version: String
+    var direct: String?
 }
 
 struct Home: Codable, Equatable {
@@ -250,6 +252,9 @@ enum APIError: Error, Equatable {
         return false
     }
 
+    /// the app stopped the request itself: nothing to tell the user
+    var isCancelled: Bool { self == .unreachable(.cancelled) }
+
     /// any error as one of these: the PC's own answers stay, a failed connection says which step failed
     static func from(_ error: Error) -> APIError {
         if let e = error as? APIError { return e }
@@ -261,31 +266,37 @@ enum APIError: Error, Equatable {
 /// that only Tailscale's DNS knows; ordinary DNS either doesn't know it or (with Funnel on) points it at
 /// Tailscale's public relays, where the phone's port just times out.
 enum NoAnswer: Equatable {
-    case unknown
+    case unknown(Int?)  // any other failure; a URLError's code, shown so a report says which
     case noName      // the name lookup failed
     case timeout     // nothing answered in time
     case refused     // something answered and turned the connection down
+    case dropped     // the connection broke off partway
     case offline     // this iPhone has no network
     case secure      // the secure connection (its certificate) failed
+    case cancelled   // the app stopped the request itself (it went to the back, a refresh started over)
 
     init(_ error: Error) {
-        guard let e = error as? URLError else { self = .unknown; return }
+        if error is CancellationError { self = .cancelled; return }
+        guard let e = error as? URLError else { self = .unknown(nil); return }
         switch e.code {
         case .cannotFindHost, .dnsLookupFailed: self = .noName
         case .timedOut: self = .timeout
         case .cannotConnectToHost: self = .refused
+        case .networkConnectionLost: self = .dropped
         case .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff: self = .offline
         case .secureConnectionFailed, .serverCertificateUntrusted, .serverCertificateHasBadDate,
              .serverCertificateNotYetValid, .serverCertificateHasUnknownRoot:
             self = .secure
-        default: self = .unknown
+        case .cancelled: self = .cancelled
+        default: self = .unknown(e.code.rawValue)
         }
     }
 
     var message: String {
         switch self {
-        case .unknown:
-            return "Can't reach your PC. Is Tailscale on? In the Tailscale app, also check that Use Tailscale DNS is on."
+        case .unknown(let code):
+            return "Can't reach your PC" + (code.map { " (error \($0))" } ?? "")
+                + ". Is Tailscale on? In the Tailscale app, also check that Use Tailscale DNS is on."
         case .noName:
             return "Can't find your PC's name. In the Tailscale app, turn on Use Tailscale DNS, and turn off any other "
                 + "VPN or DNS app (NextDNS, Cloudflare WARP, AdGuard)."
@@ -294,10 +305,14 @@ enum NoAnswer: Equatable {
                 + "both are, turn Tailscale off and on. The PC must be awake."
         case .refused:
             return "Your PC turned the connection down. Is GupWorks' phone service set up on the PC?"
+        case .dropped:
+            return "The connection to your PC broke off. Try again; if it keeps happening, turn Tailscale off and on."
         case .offline:
             return "This iPhone is offline."
         case .secure:
             return "The secure connection to your PC failed. Check the iPhone's date and time, then try again."
+        case .cancelled:
+            return "Stopped before your PC answered. Try again."
         }
     }
 }
@@ -313,6 +328,12 @@ private struct ErrorBody: Decodable {
 
 /// Talks to gw3-phone: an ephemeral session (no cookies, cache or stored credentials), no redirects.
 final class APIClient {
+    private let routes: Routes
+
+    init(routes: Routes = .shared) {
+        self.routes = routes
+    }
+
     private let session = APIClient.makeSession(timeout: 12)
     /// answers and rewinds: the PC presses keys and waits for Claude to redraw between them
     private let slowSession = APIClient.makeSession(timeout: 60)
@@ -334,16 +355,21 @@ final class APIClient {
     func pair(_ link: PairLink, device: String) async throws -> Pairing {
         let body = ["code": link.code, "device": device]
         let reply: PairReply = try await request(link.baseURL, "/v1/pair", token: nil, method: "POST", body: body)
+        routes.learn(reply.direct, for: link.baseURL)
         return Pairing(baseURL: link.baseURL, token: reply.token, pairedAt: Date(), pcName: reply.pc)
     }
 
     func hello(_ p: Pairing) async throws -> Hello {
-        try await request(p.baseURL, "/v1/hello", token: p.token)
+        let h: Hello = try await request(p.baseURL, "/v1/hello", token: p.token)
+        routes.learn(h.direct, for: p.baseURL)
+        return h
     }
 
     /// hello with a short wait (voice asks it while recording)
     func quickHello(_ p: Pairing) async throws -> Hello {
-        try await perform(p.baseURL, "/v1/hello", token: p.token, via: quickSession)
+        let h: Hello = try await perform(p.baseURL, "/v1/hello", token: p.token, via: quickSession)
+        routes.learn(h.direct, for: p.baseURL)
+        return h
     }
 
     func home(_ p: Pairing) async throws -> Home {
@@ -511,12 +537,22 @@ final class APIClient {
     /// A server-sent events stream (`/v1/home/events`, `/v1/chats/<id>/events`). Ends when the PC closes it; throws
     /// APIError like the other calls.
     func events(_ p: Pairing, _ path: String, query: [URLQueryItem] = []) -> AsyncThrowingStream<SSEEvent, Error> {
-        let req = Self.makeRequest(p.baseURL, path, token: p.token, query: query, accept: "text/event-stream")
+        // one way per stream: a failed one goes last, so the caller's next try takes the other
+        let base = p.baseURL, routes = self.routes
+        let way = routes.current(for: base)
+        let req = Self.makeRequest(way, path, token: p.token, query: query, accept: "text/event-stream")
         let session = streamSession
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    let (bytes, response) = try await session.bytes(for: req)
+                    let bytes: URLSession.AsyncBytes, response: URLResponse
+                    do {
+                        (bytes, response) = try await session.bytes(for: req)
+                    } catch {
+                        if !Task.isCancelled { routes.failed(way, for: base) }
+                        throw error
+                    }
+                    routes.worked(way, for: base)
                     let status = (response as? HTTPURLResponse)?.statusCode ?? 0
                     if status == 401 { throw APIError.notPaired }
                     guard status == 200 else { throw APIError.server("The PC answered \(status).") }
@@ -573,21 +609,32 @@ final class APIClient {
                                        query: [URLQueryItem] = [], json: Data? = nil, raw: Data? = nil,
                                        contentType: String? = nil, slow: Bool = false,
                                        via: URLSession? = nil) async throws -> T {
-        var req = Self.makeRequest(base, path, token: token, query: query)
-        req.httpMethod = method
-        if let json {
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.httpBody = json
-        } else if let raw {
-            req.setValue(contentType ?? "application/octet-stream", forHTTPHeaderField: "Content-Type")
-            req.httpBody = raw
+        let ways = routes.order(for: base)
+        var answer: (Data, URLResponse)?
+        for (i, way) in ways.enumerated() {
+            var req = Self.makeRequest(way, path, token: token, query: query)
+            req.httpMethod = method
+            if let json {
+                req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                req.httpBody = json
+            } else if let raw {
+                req.setValue(contentType ?? "application/octet-stream", forHTTPHeaderField: "Content-Type")
+                req.httpBody = raw
+            }
+            do {
+                answer = try await (via ?? (slow ? slowSession : session)).data(for: req)
+                routes.worked(way, for: base)
+                break
+            } catch {
+                let e = APIError.from(error)
+                if Task.isCancelled || e.isCancelled { throw e }
+                routes.failed(way, for: base)
+                if i + 1 < ways.count, Self.mayTryOtherWay(e, method: method) { continue }
+                throw e
+            }
         }
-        let data: Data, response: URLResponse
-        do {
-            (data, response) = try await (via ?? (slow ? slowSession : session)).data(for: req)
-        } catch {
-            throw APIError.from(error)
-        }
+        guard let answer else { throw APIError.unreachable(.unknown(nil)) }
+        let (data, response) = answer
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401 {
             if token == nil, let e = try? JSONDecoder().decode([String: String].self, from: data), let text = e["error"] {
@@ -605,6 +652,14 @@ final class APIClient {
 }
 
 extension APIClient {
+    /// After a failed way, whether the other may be tried. A read always. A change only when the request surely never
+    /// reached the PC (no name, turned down, no secure connection), so a message isn't sent twice after a timeout.
+    static func mayTryOtherWay(_ e: APIError, method: String) -> Bool {
+        guard case .unreachable(let why) = e else { return false }
+        if method == "GET" || method == "HEAD" { return why != .offline }
+        return why == .noName || why == .refused || why == .secure
+    }
+
     /// What an error answer (not 200, not 401) means.
     static func failure(_ status: Int, _ data: Data) -> APIError {
         let e = try? JSONDecoder().decode(ErrorBody.self, from: data)

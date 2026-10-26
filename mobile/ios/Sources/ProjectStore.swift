@@ -28,7 +28,7 @@ final class ProjectStore {
         self.demo = demo
     }
 
-    var baseURL: URL? { pairing?.baseURL }
+    var baseURL: URL? { pairing.map { Routes.shared.current(for: $0.baseURL) } }  // where pictures load now
 
     /// Loads the view, then follows the project's event stream until the task is cancelled.
     func follow() async {
@@ -72,7 +72,9 @@ final class ProjectStore {
             view = try await api.project(p, id)
             error = nil
         } catch {
-            self.error = APIError.from(error)
+            let e = APIError.from(error)
+            if Task.isCancelled || e.isCancelled { return }
+            self.error = e
         }
     }
 

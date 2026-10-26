@@ -10,7 +10,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.7.0"
+    MARKETING_VERSION: "0.7.1"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   GupWorks3:
@@ -48,6 +48,14 @@ targets:
         NSMicrophoneUsageDescription: >-
           GupWorks records your voice only while you hold or tap the mic in a chat, so your PC can turn it into text
           for Claude. The recording is deleted once it's text.
+        # the PC's tailnet address, when its Tailscale name can't be looked up (Routes.swift): plain HTTP inside
+        # Tailscale's encrypted tunnel, and only to Tailscale's own ranges
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            100.64.0.0/10:
+              NSExceptionAllowsInsecureHTTPLoads: true
+        NSLocalNetworkUsageDescription: >-
+          GupWorks reaches your PC through Tailscale, by its Tailscale address when its name can't be looked up.
         NSSpeechRecognitionUsageDescription: >-
           When your PC can't be reached, GupWorks turns your recording into text on this iPhone instead. Nothing is
           sent anywhere else.

@@ -93,7 +93,7 @@ final class ChatStore {
         self.voice = VoiceController(pairing: pairing, demo: demo)
     }
 
-    var baseURL: URL? { pairing?.baseURL }
+    var baseURL: URL? { pairing.map { Routes.shared.current(for: $0.baseURL) } }  // where pictures load now
 
     var isNew: Bool { id.isEmpty }
 

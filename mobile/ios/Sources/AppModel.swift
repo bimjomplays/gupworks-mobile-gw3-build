@@ -41,6 +41,7 @@ final class AppModel {
     }
 
     func unpair() {
+        if !demo, let p = pairing { Routes.shared.forget(p.baseURL) }
         if !demo { PairingStore.clear() }
         pairing = nil
         home = nil
@@ -88,10 +89,11 @@ final class AppModel {
             error = nil
             lastRefresh = Date()
             if hello == nil { hello = try? await api.hello(p) }
-        } catch let e as APIError {
-            error = e
         } catch {
-            self.error = APIError.from(error)
+            // a refresh the app stopped (it went to the back, a pull started over) isn't the PC's fault
+            let e = APIError.from(error)
+            if Task.isCancelled || e.isCancelled { return }
+            self.error = e
         }
     }
 
