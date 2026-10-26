@@ -1,24 +1,223 @@
 # Builds the iPhone app on a GitHub-hosted Mac. Lives in the public build copy as .github/workflows/ios.yml.
-#  - ipa:        unsigned device build, artifact "GupWorks3-ipa" (for iloader, which signs it itself)
-#  - shots:      unit tests + UI tests on a simulator in demo mode; screenshots as artifact "screenshots"
-#  - testflight: signs and uploads to TestFlight, only when the App Store Connect secrets are set; otherwise it says
-#                so and skips cleanly
+# Every branch is its own lane (bin/gw3-publish-mobile pushes lane/<thread>), so threads never wait for or cancel
+# each other. What a run does comes from its commit's first line (or the inputs of a manual run):
+#  - quick (default for a lane): build for the simulator, every unit test (snapshot pictures included), and only
+#    the UI tests named on an "only:" line of the commit message. Screenshots + report as artifacts.
+#  - full: the same with every UI test, plus the unsigned device build (artifact "GupWorks3-ipa").
+#  - release: full, then TestFlight (only when the App Store Connect secrets are set; otherwise it says so and
+#    skips cleanly). "update" (the old one-branch publish) counts as release.
+# Failing tests are retried up to twice, so a timing flake doesn't fail the run (the report names them).
+# Inside a lane a newer quick run replaces a stale quick run; full and release runs are never cancelled.
 name: ios
 on:
   push:
-    branches: [main]
+    branches: ['**']
   workflow_dispatch:
+    inputs:
+      mode:
+        description: quick, full or release
+        type: choice
+        options: [quick, full, release]
+        default: quick
+      only:
+        description: UI tests to run in a quick run (space-separated Bundle/Class or Bundle/Class/test names)
+        type: string
+        default: ''
 permissions:
   contents: read
 concurrency:
-  group: ios-${{ github.ref }}
-  cancel-in-progress: true
+  group: >-
+    ios-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.mode
+    || startsWith(github.event.head_commit.message, 'quick') && 'quick'
+    || startsWith(github.event.head_commit.message, 'full') && 'full' || 'release' }}
+  cancel-in-progress: >-
+    ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'quick'
+    || github.event_name == 'push' && startsWith(github.event.head_commit.message, 'quick') }}
 env:
   PROJECT: GupWorks3.xcodeproj
   SCHEME: GupWorks3
 jobs:
-  ipa:
+  test:
     if: github.event.repository.private == false
+    runs-on: macos-26
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile/ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: Plan
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          MSG: ${{ github.event.head_commit.message }}
+          IN_MODE: ${{ inputs.mode }}
+          IN_ONLY: ${{ inputs.only }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then mode=$IN_MODE; only=$IN_ONLY
+          else
+            mode=$(printf '%s\n' "$MSG" | head -1 | awk '{print $1}')
+            only=$(printf '%s\n' "$MSG" | sed -n 's/^only: *//p' | head -1)
+          fi
+          case "$mode" in quick|full|release) ;; *) mode=release ;; esac
+          # test identifiers only: Bundle/Class[/testName]
+          for t in $only; do
+            [[ "$t" =~ ^GupWorks3(UI)?Tests(/[A-Za-z0-9_]+){1,2}$ ]] || { echo "bad test id: $t"; exit 1; }
+          done
+          ui=""
+          if [ "$mode" = quick ]; then
+            for t in $only; do case "$t" in GupWorks3UITests/*) ui="$ui -only-testing:$t" ;; esac; done
+          else
+            ui="-only-testing:GupWorks3UITests"
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "ui=$ui" >> "$GITHUB_OUTPUT"
+          echo "### ${mode} run" >> "$GITHUB_STEP_SUMMARY"
+          echo "mode: $mode; UI tests: ${ui:-none}"
+      - name: Tools
+        run: |
+          brew install xcodegen
+          xcodebuild -version
+          xcodegen generate
+      - name: Simulator (boots while the app builds)
+        id: sim
+        run: |
+          # the newest iPhone 17 (the mockups are a 6.3" screen), else an iPhone 17 Pro, else any iPhone
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, re, sys
+          devs = [d | {"rt": rt} for rt, ds in json.load(sys.stdin)["devices"].items() if "iOS" in rt for d in ds]
+          def rank(d):
+              n = d["name"]
+              return (n == "iPhone 17", n == "iPhone 17 Pro", n.startswith("iPhone"), d["rt"])
+          devs.sort(key=rank)
+          print(devs[-1]["udid"] if devs else "")')
+          test -n "$udid" || { xcrun simctl list devices available; exit 1; }
+          xcrun simctl list devices | grep "$udid"
+          nohup xcrun simctl boot "$udid" > "$RUNNER_TEMP/boot.log" 2>&1 &
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+      - name: Build for testing
+        run: |
+          set -o pipefail
+          start=$SECONDS
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build-for-testing > build.log 2>&1 \
+            || { grep -E "error:" build.log | head -80; tail -40 build.log; exit 1; }
+          echo "built in $((SECONDS - start)) s"
+      - name: Simulator ready
+        run: |
+          udid=${{ steps.sim.outputs.udid }}
+          xcrun simctl bootstatus "$udid" -b > /dev/null
+          xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 --batteryState discharging --batteryLevel 100
+          # the simulator has no camera, but a pending permission prompt would cover the screenshots
+          xcrun simctl privacy "$udid" grant camera app.gupworks3.phone || true
+      - name: Unit tests
+        id: unit
+        env:
+          TEST_RUNNER_SHOTS_DIR: ${{ github.workspace }}/shots
+        run: |
+          set -o pipefail
+          start=$SECONDS
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build -resultBundlePath unit.xcresult -only-testing:GupWorks3Tests \
+            -retry-tests-on-failure -test-iterations 3 \
+            CODE_SIGNING_ALLOWED=NO test-without-building > unit.log 2>&1 \
+            || { grep -E "error:|failed|XCTAssert" unit.log | head -80; tail -40 unit.log; exit 1; }
+          echo "unit tests in $((SECONDS - start)) s"
+      - name: UI tests
+        id: ui
+        if: always() && steps.plan.outputs.ui != '' && steps.unit.outcome != 'skipped'
+        env:
+          TEST_RUNNER_SHOTS_DIR: ${{ github.workspace }}/shots
+        run: |
+          set -o pipefail
+          start=$SECONDS
+          # -retry-tests-on-failure re-runs only the failing tests (no -test-repetition-relaunch-enabled: that
+          # re-runs the whole set)
+          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build -resultBundlePath ui.xcresult ${{ steps.plan.outputs.ui }} \
+            -retry-tests-on-failure -test-iterations 3 \
+            CODE_SIGNING_ALLOWED=NO test-without-building > ui.log 2>&1 \
+            || { grep -E "error:|failed|XCTAssert" ui.log | head -80; tail -60 ui.log; exit 1; }
+          echo "UI tests in $((SECONDS - start)) s"
+      - name: Report
+        if: always()
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/report"
+          for r in unit ui; do
+            [ -d "$r.xcresult" ] || continue
+            xcrun xcresulttool get test-results tests --path "$r.xcresult" --compact > "$GITHUB_WORKSPACE/report/$r.json" || true
+          done
+          python3 - "$GITHUB_WORKSPACE/report" <<'EOF' | tee "$GITHUB_WORKSPACE/report/report.txt" >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib, sys
+          d = pathlib.Path(sys.argv[1])
+          def walk(n, path=()):
+              kids = n.get("children", [])
+              if n.get("nodeType") == "Test Case":
+                  yield path, n
+                  return
+              for k in kids:
+                  yield from walk(k, path + ((n.get("name"),) if n.get("nodeType") in ("Unit test bundle", "UI test bundle", "Test Suite") else ()))
+          def seconds(n):
+              if "durationInSeconds" in n:
+                  return float(n["durationInSeconds"])
+              total = 0.0
+              for v, unit in __import__("re").findall(r"([\d.]+)\s*(m|s)", str(n.get("duration", ""))):
+                  total += float(v) * (60 if unit == "m" else 1)
+              return total
+          for part in ("unit", "ui"):
+              f = d / f"{part}.json"
+              if not f.exists():
+                  continue
+              data = json.loads(f.read_text())
+              cases = [(p, n) for top in data.get("testNodes", []) for p, n in walk(top)]
+              name = lambda p, n: "/".join(p + (n.get("name", "?").removesuffix("()"),))
+              res = {}
+              for p, n in cases:
+                  res.setdefault(n.get("result", "?"), []).append((p, n))
+              total = sum(seconds(n) for _, n in cases)
+              counts = ", ".join(f"{len(v)} {k.lower()}" for k, v in sorted(res.items()))
+              print(f"{part}: {len(cases)} tests ({counts}), {total:.0f} s of test time")
+              for k, v in sorted(res.items()):
+                  if k == "Passed":
+                      continue
+                  for p, n in v:
+                      print(f"  {k.lower()}: {name(p, n)}")
+                      for m in [c.get("name", "") for c in n.get("children", []) if c.get("nodeType") == "Failure Message"][:3]:
+                          print(f"      {m[:300]}")
+              for p, n in cases:
+                  reps = [c for c in n.get("children", []) if c.get("nodeType") == "Repetition"]
+                  if len(reps) > 1:
+                      print(f"  retried: {name(p, n)} ({', '.join(c.get('result', '?') for c in reps)})")
+          EOF
+      - name: Collect screenshots
+        if: always()
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/shots"
+          for r in unit ui; do
+            [ -d "$r.xcresult" ] || continue
+            xcrun xcresulttool export attachments --path "$r.xcresult" --output-path "$GITHUB_WORKSPACE/shots/attachments-$r" || true
+          done
+          ls "$GITHUB_WORKSPACE/shots"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: shots/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: report
+          path: |
+            report/
+            mobile/ios/build.log
+            mobile/ios/unit.log
+            mobile/ios/ui.log
+
+  ipa:
+    if: >-
+      github.event.repository.private == false && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'quick'
+      || github.event_name == 'push' && startsWith(github.event.head_commit.message, 'quick'))
     runs-on: macos-26
     timeout-minutes: 40
     defaults:
@@ -51,75 +250,14 @@ jobs:
           name: GupWorks3-ipa
           path: mobile/ios/GupWorks3.ipa
 
-  shots:
-    if: github.event.repository.private == false
-    runs-on: macos-26
-    timeout-minutes: 60
-    defaults:
-      run:
-        working-directory: mobile/ios
-    steps:
-      - uses: actions/checkout@v4
-      - name: Tools
-        run: |
-          brew install xcodegen
-          xcodebuild -version
-      - run: xcodegen generate
-      - name: Simulator
-        id: sim
-        run: |
-          # the newest iPhone 17 (the mockups are a 6.3" screen), else an iPhone 17 Pro, else any iPhone
-          udid=$(xcrun simctl list devices available -j | python3 -c '
-          import json, re, sys
-          devs = [d | {"rt": rt} for rt, ds in json.load(sys.stdin)["devices"].items() if "iOS" in rt for d in ds]
-          def rank(d):
-              n = d["name"]
-              return (n == "iPhone 17", n == "iPhone 17 Pro", n.startswith("iPhone"), d["rt"])
-          devs.sort(key=rank)
-          print(devs[-1]["udid"] if devs else "")')
-          test -n "$udid" || { xcrun simctl list devices available; exit 1; }
-          xcrun simctl list devices | grep "$udid"
-          xcrun simctl boot "$udid"
-          xcrun simctl bootstatus "$udid" -b
-          xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 \
-            --cellularMode active --cellularBars 4 --batteryState discharging --batteryLevel 100
-          # the simulator has no camera, but a pending permission prompt would cover the screenshots
-          xcrun simctl privacy "$udid" grant camera app.gupworks3.phone || true
-          echo "udid=$udid" >> "$GITHUB_OUTPUT"
-      - name: Test
-        env:
-          TEST_RUNNER_SHOTS_DIR: ${{ github.workspace }}/shots
-        run: |
-          set -o pipefail
-          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination "id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath build -resultBundlePath shots.xcresult \
-            CODE_SIGNING_ALLOWED=NO test > test.log 2>&1 \
-            || { grep -E "error:|failed|XCTAssert" test.log | head -80; tail -60 test.log; exit 1; }
-          grep -E "Test Suite '[^']*\.xctest' (passed|failed)|Test Case .* (passed|failed)" test.log
-          xcrun xcresulttool get test-results summary --path shots.xcresult --compact \
-            | python3 -c 'import json,sys; s=json.load(sys.stdin); print("tests:", s.get("result"), s.get("totalTestCount"), "total,", s.get("passedTestCount"), "passed,", s.get("failedTestCount"), "failed")' || true
-      - name: Collect screenshots
-        if: always()
-        run: |
-          mkdir -p "$GITHUB_WORKSPACE/shots"
-          if [ -d shots.xcresult ]; then
-            xcrun xcresulttool export attachments --path shots.xcresult --output-path "$GITHUB_WORKSPACE/shots/attachments" || true
-          fi
-          ls -la "$GITHUB_WORKSPACE/shots"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: screenshots
-          path: shots/
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: test-log
-          path: mobile/ios/test.log
-
   testflight:
-    needs: [ipa, shots]
-    if: github.event.repository.private == false
+    needs: [test, ipa]
+    # uploads only from main: a lane never sends a build to TestFlight, whatever its commit message says
+    if: >-
+      github.event.repository.private == false && github.ref == 'refs/heads/main'
+      && (github.event_name == 'workflow_dispatch' && inputs.mode == 'release'
+      || github.event_name == 'push' && !startsWith(github.event.head_commit.message, 'quick')
+      && !startsWith(github.event.head_commit.message, 'full'))
     runs-on: macos-26
     timeout-minutes: 40
     defaults:

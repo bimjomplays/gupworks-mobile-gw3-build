@@ -114,7 +114,7 @@ final class ScreenshotTests: XCTestCase {
     func test5cMenu() {
         let app = launch()
         openMenu(app)
-        for id in ["place-projects", "place-scheduled", "place-quick", "place-bot", "pin-Lumen Studio website",
+        for id in ["place-projects", "place-scheduled", "place-quick", "place-transfer", "place-bot", "pin-Lumen Studio website",
                    "pin-Home server", "pin-Wallpaper ideas", "pin-Gallery lightbox fix", "chat-Recipe scaler",
                    "newChat", "settings", "search"] {
             XCTAssertTrue(el(app, id).exists, id)
@@ -381,7 +381,7 @@ final class ScreenshotTests: XCTestCase {
 
     func testComingSoonPlaces() {
         let app = launch(["-menu"])
-        for p in ["scheduled", "quick", "bot"] {
+        for p in ["scheduled", "quick", "transfer", "bot"] {
             if !el(app, "place-\(p)").exists { openMenu(app) }
             XCTAssertTrue(el(app, "place-\(p)").waitForExistence(timeout: 20))
             el(app, "place-\(p)").tap()
@@ -469,7 +469,7 @@ final class ScreenshotTests: XCTestCase {
         shot("chat-media")
         // its top: the composer may cover the rest
         video.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
-        XCTAssertTrue(app.buttons["videoClose"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5))
         sleep(2)
         shot("video")
     }

@@ -1,3 +1,4 @@
+import AVKit
 import SwiftUI
 import UIKit
 
@@ -130,54 +131,39 @@ struct RemoteImage: View {
     }
 }
 
-/// A reply's pictures and videos: one fills the column; several sit in a two-column grid. Tap for full screen;
-/// a picture opens among the chat's other pictures when it sits in a chat (`slot`: its block in the reply).
+/// A reply's pictures and videos: one fills the column; several sit in a two-column grid. Tap for full screen.
 struct MediaGroup: View {
     let items: [MDItem]
     let base: URL?
-    let slot: Int?
-    @Environment(\.chatPhotos) private var photos
-    @Environment(\.photoScope) private var scope
-    @State private var open: MediaOpen?
+    @State private var open: MDItem?
 
-    init(items: [MDItem], base: URL?, slot: Int? = nil) {
+    init(items: [MDItem], base: URL?) {
         self.items = items
         self.base = base
-        self.slot = slot
     }
 
     var body: some View {
         Group {
             if items.count == 1, let it = items.first {
-                tile(it, at: 0, single: true)
+                tile(it, single: true)
             } else {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(Array(items.enumerated()), id: \.offset) { k, it in
-                        tile(it, at: k, single: false)
+                    ForEach(Array(items.enumerated()), id: \.offset) { _, it in
+                        tile(it, single: false)
                     }
                 }
             }
         }
-        .fullScreenCover(item: $open) { o in
-            MediaViewer(open: o, base: base, source: photos)
+        .fullScreenCover(item: $open) { it in
+            MediaViewer(item: it, base: base)
         }
-    }
-
-    private func tap(_ it: MDItem, at k: Int) {
-        if it.kind == "video" {
-            open = MediaOpen(item: it)
-            return
-        }
-        var id: String?
-        if let scope, let slot { id = ChatPhotos.id(scope: scope, slot: slot, item: k) }
-        open = MediaOpen.picture(it, id: id, source: photos)
     }
 
     @ViewBuilder
-    private func tile(_ it: MDItem, at k: Int, single: Bool) -> some View {
+    private func tile(_ it: MDItem, single: Bool) -> some View {
         let isVideo = it.kind == "video"
         let picture = MediaLink.url(isVideo ? it.poster : it.url, base: base)
-        Button { tap(it, at: k) } label: {
+        Button { open = it } label: {
             ZStack {
                 if single {
                     RemoteImage(url: picture)
@@ -207,30 +193,50 @@ extension MDItem: Identifiable {
     var id: String { (url ?? "") + (name ?? "") }
 }
 
-/// Full screen: a video in the video player, or pictures in the photo viewer.
+/// Full screen: a picture you can pinch, or a video playing in the system player.
 struct MediaViewer: View {
-    let open: MediaOpen
+    let item: MDItem
     let base: URL?
-    var source: PhotoSource? = nil
+    @Environment(\.dismiss) private var dismiss
+    @State private var player: AVPlayer?
+    @State private var scale: CGFloat = 1
 
-    init(open: MediaOpen, base: URL?, source: PhotoSource? = nil) {
-        self.open = open
-        self.base = base
-        self.source = source
-    }
-
-    /// one item on its own, outside a chat (the project Library's videos)
     init(item: MDItem, base: URL?) {
-        let one = ChatPhoto(id: "only", link: item.url ?? "", mine: false)
-        self.init(open: item.kind == "video" ? MediaOpen(item: item) : MediaOpen(item: item, photos: [one], start: one.id),
-                  base: base)
+        self.item = item
+        self.base = base
     }
 
     var body: some View {
-        if open.item.kind == "video" {
-            VideoPlayerScreen(item: open.item, base: base)
-        } else {
-            PhotoViewer(photos: open.photos, start: open.start, base: base, source: source)
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
+            if item.kind == "video" {
+                VideoPlayer(player: player)
+                    .ignoresSafeArea()
+                    .onAppear {
+                        if player == nil, let url = MediaLink.url(item.url, base: base) {
+                            let p = AVPlayer(url: url)
+                            player = p
+                            p.play()
+                        }
+                    }
+                    .onDisappear { player?.pause() }
+            } else {
+                RemoteImage(url: MediaLink.url(item.url, base: base))
+                    .scaleEffect(scale)
+                    .gesture(MagnifyGesture()
+                        .onChanged { scale = max(1, min(5, $0.magnification)) }
+                        .onEnded { _ in withAnimation { scale = 1 } })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.glass)
+            .padding(16)
+            .accessibilityLabel("Close")
         }
     }
 }

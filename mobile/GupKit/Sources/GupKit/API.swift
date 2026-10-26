@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 // What gw3-phone sends (tools/gw3_phone.py; the demo copies are in mobile/fixtures/).
 
@@ -351,7 +354,9 @@ final class APIClient {
     private static func makeSession(timeout: TimeInterval) -> URLSession {
         let c = URLSessionConfiguration.ephemeral
         c.timeoutIntervalForRequest = timeout
+        #if canImport(Darwin)
         c.waitsForConnectivity = false
+        #endif
         c.httpCookieStorage = nil
         c.urlCache = nil
         return URLSession(configuration: c, delegate: NoRedirects(), delegateQueue: nil)
@@ -610,6 +615,7 @@ final class APIClient {
                 let way = routes.current(for: base)
                 let req = Self.makeRequest(way, path, token: token, query: query, accept: "text/event-stream")
                 do {
+                    #if canImport(Darwin)
                     let bytes: URLSession.AsyncBytes, response: URLResponse
                     do {
                         (bytes, response) = try await session.bytes(for: req)
@@ -626,6 +632,9 @@ final class APIClient {
                         if let e = parser.feed(byte) { continuation.yield(e) }
                     }
                     continuation.finish()
+                    #else
+                    throw APIError.server("Event streams need Apple's URLSession.")  // Linux tests don't stream
+                    #endif
                 } catch let e as APIError {
                     continuation.finish(throwing: e)
                 } catch {
@@ -641,7 +650,9 @@ final class APIClient {
         let c = URLSessionConfiguration.ephemeral
         c.timeoutIntervalForRequest = 45
         c.timeoutIntervalForResource = 60 * 60 * 24
+        #if canImport(Darwin)
         c.waitsForConnectivity = false
+        #endif
         c.httpCookieStorage = nil
         c.urlCache = nil
         c.requestCachePolicy = .reloadIgnoringLocalCacheData
@@ -788,12 +799,29 @@ private final class NoRedirects: NSObject, URLSessionTaskDelegate {
 /// The demo mode (`-demo` launch argument, used by the screenshot tests): answers from the bundled fixtures, with
 /// the times moved so the recorded "now" is now.
 enum Demo {
-    static var isOn: Bool { ProcessInfo.processInfo.arguments.contains("-demo") }
-    /// the menu tells the main view a second late that a pin lifted (MenuView), for MenuSwipeUITests
-    static var slowLift: Bool { isOn && ProcessInfo.processInfo.arguments.contains("-slowLift") }
+    /// the launch arguments the demo's flags come from (-demo, -open ID, -menu, ...); the in-app screen tests set
+    /// their own before they build a screen
+    static var args = ProcessInfo.processInfo.arguments
+    static var isOn: Bool { args.contains("-demo") }
+
+    /// The folder holding `fixtures/`: the app's bundle, or mobile/ in the repo when GupKit runs as a Swift package
+    /// (`swift test` on Linux).
+    #if SWIFT_PACKAGE
+    static var root: URL? = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+    #else
+    static var root: URL? = nil
+    #endif
+
+    /// a bundled file (`name` with its extension, or `name` + `.ext`) under `folder`, e.g. fixtures/chats
+    static func file(_ name: String, ext: String? = nil, in folder: String) -> URL? {
+        guard let root else { return Bundle.main.url(forResource: name, withExtension: ext, subdirectory: folder) }
+        let u = root.appendingPathComponent(folder).appendingPathComponent(ext.map { name + "." + $0 } ?? name)
+        return FileManager.default.fileExists(atPath: u.path) ? u : nil
+    }
 
     static func load<T: Decodable>(_ name: String, in folder: String = "fixtures") -> T? {
-        guard let url = Bundle.main.url(forResource: name, withExtension: "json", subdirectory: folder),
+        guard let url = file(name, ext: "json", in: folder),
               let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
     }

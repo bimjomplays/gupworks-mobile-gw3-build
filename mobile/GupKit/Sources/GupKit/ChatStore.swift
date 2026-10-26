@@ -1,6 +1,8 @@
 import Foundation
 import Observation
+#if canImport(UIKit)
 import UIKit
+#endif
 
 /// A photo or file picked in the composer, sent to the PC before the message that names it.
 struct Attachment: Identifiable, Equatable {
@@ -8,7 +10,11 @@ struct Attachment: Identifiable, Equatable {
     var name: String
     var type: String            // MIME type
     var data: Data
+    #if canImport(UIKit)
     var image: UIImage?         // photos: shown as a thumbnail
+    #else
+    var image: Never?           // no pictures in the Linux tests
+    #endif
     var uploaded: String?       // its path on the PC once uploaded
 
     static func == (a: Attachment, b: Attachment) -> Bool { a.id == b.id && a.uploaded == b.uploaded }
@@ -82,7 +88,9 @@ final class ChatStore {
     private let demo: Bool
     private let api = APIClient()
     /// D8: the composer's recorder
+    #if canImport(AVFoundation)
     let voice: VoiceController
+    #endif
     private var demoCards: [String: CardDetail] = [:]
     private var loaded = false
 
@@ -90,7 +98,9 @@ final class ChatStore {
         self.id = id
         self.pairing = pairing
         self.demo = demo
+        #if canImport(AVFoundation)
         self.voice = VoiceController(pairing: pairing, demo: demo)
+        #endif
     }
 
     var baseURL: URL? { pairing.map { Routes.shared.current(for: $0.baseURL) } }  // where pictures load now

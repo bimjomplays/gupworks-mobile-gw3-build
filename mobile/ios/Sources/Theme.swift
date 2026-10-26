@@ -24,28 +24,3 @@ extension Color {
                   blue: Double(hex & 0xFF) / 255, opacity: 1)
     }
 }
-
-enum Format {
-    /// "now", "2:15 PM" (today), "Yesterday", "Oct 18", "Oct 18, 2025"; `ms` is milliseconds since 1970.
-    static func time(_ ms: Double, now: Date = Date(), calendar: Calendar = .current, locale: Locale = .current) -> String {
-        guard ms > 0 else { return "" }
-        let date = Date(timeIntervalSince1970: ms / 1000)
-        if now.timeIntervalSince(date) < 60 { return "now" }
-        func styled(_ style: Date.FormatStyle) -> String {
-            var style = style.locale(locale)
-            style.calendar = calendar
-            style.timeZone = calendar.timeZone
-            return date.formatted(style)
-        }
-        if calendar.isDate(date, inSameDayAs: now) {
-            return styled(Date.FormatStyle(date: .omitted, time: .shortened))
-        }
-        if let y = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(date, inSameDayAs: y) {
-            return "Yesterday"
-        }
-        let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: now)
-        return styled(sameYear ? Date.FormatStyle().month(.abbreviated).day() : Date.FormatStyle().month(.abbreviated).day().year())
-    }
-
-    static func plural(_ n: Int, _ word: String) -> String { "\(n) \(word)\(n == 1 ? "" : "s")" }
-}

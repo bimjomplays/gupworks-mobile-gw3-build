@@ -3,8 +3,6 @@ import SwiftUI
 @main
 struct GupWorksApp: App {
     @State private var model = AppModel()
-    // the video player may turn sideways; everything else stays upright (Orientation in VideoPlayer.swift)
-    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
         WindowGroup {
