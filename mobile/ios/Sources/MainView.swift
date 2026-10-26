@@ -362,7 +362,37 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
             guard let pan = g as? UIPanGestureRecognizer, !MenuSwipe.pinHeld else { return false }
             let v = pan.velocity(in: nil)
             let sideways = abs(v.x) > 1.5 * abs(v.y)
+
+            // a wide table or code panel scrolled sideways under the finger scrolls back first
+            if !closing, sideways, v.x > 0, scrollsBack(pan) { return false }
             return sideways && (closing ? v.x < 0 : v.x > 0)
+        }
+
+        /// the view UIKit found under the finger when the touch began
+        private weak var touched: UIView?
+
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            touched = touch.view
+            return true
+        }
+
+        /// whether a sideways scroll view under the touch is scrolled away from its start (a swipe right moves it)
+        private func scrollsBack(_ pan: UIPanGestureRecognizer) -> Bool {
+            if Self.scrollsBack(from: touched) { return true }
+            guard let root = pan.view else { return false }
+            return Self.scrollsBack(from: root.hitTest(pan.location(in: root), with: nil))
+        }
+
+        static func scrollsBack(from start: UIView?) -> Bool {
+            var v = start
+            while let view = v {
+                if let s = view as? UIScrollView, s.contentSize.width > s.bounds.width + 1,
+                   s.contentOffset.x > -s.adjustedContentInset.left + 0.5 {
+                    return true
+                }
+                v = view.superview
+            }
+            return false
         }
 
         func gestureRecognizer(_ g: UIGestureRecognizer,
