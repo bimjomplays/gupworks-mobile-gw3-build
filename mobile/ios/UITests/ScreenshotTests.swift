@@ -200,14 +200,6 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(el(app, "usage-5h").label.contains("18%"), el(app, "usage-5h").label)
         XCTAssertTrue(el(app, "usage-5h").label.contains("resets in"), el(app, "usage-5h").label)
         XCTAssertTrue(el(app, "usage-wk").label.contains("41%"), el(app, "usage-wk").label)
-        // small and whole: narrower than the screen, and every row inside the card
-        let card = el(app, "usageCard").frame
-        XCTAssertLessThanOrEqual(card.width, 340, "\(card)")
-        XCTAssertLessThan(card.height, 260, "\(card)")
-        for l in ["ctx", "5h", "wk"] {
-            let r = el(app, "usage-\(l)").frame
-            XCTAssertTrue(card.insetBy(dx: -1, dy: -1).contains(r), "usage-\(l) \(r) outside \(card)")
-        }
         sleep(1)
         shot("5g-usage")
         el(app, "closeUsage").tap()

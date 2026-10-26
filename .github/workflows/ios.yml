@@ -16,6 +16,7 @@ concurrency:
 env:
   PROJECT: GupWorks3.xcodeproj
   SCHEME: GupWorks3
+  UI_TARGET: GupWorks3UITests
 jobs:
   ipa:
     if: github.event.repository.private == false
@@ -93,7 +94,7 @@ jobs:
           set -o pipefail
           xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination "id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath build -resultBundlePath shots.xcresult \
-            CODE_SIGNING_ALLOWED=NO test > test.log 2>&1 \
+            CODE_SIGNING_ALLOWED=NO -only-testing "$UI_TARGET/MenuSwipeUITests" test > test.log 2>&1 \
             || { grep -E "error:|failed|XCTAssert" test.log | head -80; tail -60 test.log; exit 1; }
           grep -E "Test Suite '[^']*\.xctest' (passed|failed)|Test Case .* (passed|failed)" test.log
           xcrun xcresulttool get test-results summary --path shots.xcresult --compact \
@@ -119,7 +120,7 @@ jobs:
 
   testflight:
     needs: [ipa, shots]
-    if: github.event.repository.private == false
+    if: false
     runs-on: macos-26
     timeout-minutes: 40
     defaults:

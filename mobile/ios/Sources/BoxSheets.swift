@@ -203,8 +203,7 @@ private struct EffortPicker: View {
     }
 }
 
-/// 5g: a small card above the box with one thin bar per meter (context, 5-hour, week), its name, percent and reset text.
-/// Tap anywhere to close. The tail points at the rings icon in the box.
+/// 5g: what the three rings mean, with their numbers, above the box. Tap anywhere to close.
 struct UsageCard: View {
     let usage: [Meter]
     let now: Date
@@ -213,39 +212,39 @@ struct UsageCard: View {
 
     static let bg = Color(hex: 0x1C1C1E)
     static let edge = Color(hex: 0x2F2F31)
-    static let maxWidth: CGFloat = 300
 
     var body: some View {
         let rows = UsageCard.rows(usage, now: now)
-        VStack(alignment: .leading, spacing: 14) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { i, r in
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
-                        Text(r.name).font(.system(size: 14.5, weight: .medium)).foregroundStyle(Composer.ink)
-                        Spacer(minLength: 6)
-                        Text(r.percent.map { "\(Int($0.rounded()))%" } ?? "\u{2013}")
-                            .font(.system(size: 14.5, weight: .semibold))
-                            .foregroundStyle(Composer.ink)
-                            .monospacedDigit()
-                    }
-                    UsageBar(percent: r.percent, color: UsageRings.colors[i])
-                    if !r.detail.isEmpty {
+        HStack(spacing: 16) {
+            UsageRings(percents: rows.map(\.percent), size: 92, width: 2.4)
+            VStack(alignment: .leading, spacing: 11) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { i, r in
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 7) {
+                            Circle().fill(UsageRings.colors[i]).frame(width: 9, height: 9)
+                            Text(r.name).font(.system(size: 15.5, weight: .medium)).foregroundStyle(Composer.ink)
+                            Spacer(minLength: 6)
+                            Text(r.percent.map { "\(Int($0.rounded()))%" } ?? "\u{2013}")
+                                .font(.system(size: 15.5, weight: .semibold))
+                                .foregroundStyle(Composer.ink)
+                                .monospacedDigit()
+                        }
                         Text(r.detail)
-                            .font(.system(size: 12.5))
+                            .font(.system(size: 13))
                             .foregroundStyle(ModelEffortSheet.grey)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .lineLimit(1)
+                            .padding(.leading, 16)
                     }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("usage-\(r.label)")
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("usage-\(r.label)")
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 15)
-        .frame(maxWidth: Self.maxWidth, alignment: .leading)
-        .fixedSize(horizontal: false, vertical: true)
-        .background(Self.bg, in: RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Self.edge, lineWidth: 1))
+        .padding(.leading, 16)
+        .padding(.trailing, 18)
+        .padding(.vertical, 16)
+        .background(Self.bg, in: RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).stroke(Self.edge, lineWidth: 1))
         .overlay(alignment: .bottomLeading) {
             // the tail toward the rings in the box
             Rectangle()
@@ -260,7 +259,7 @@ struct UsageCard: View {
                 .rotationEffect(.degrees(45))
                 .offset(x: tailX - 7, y: 7)
         }
-        .shadow(color: .black.opacity(0.5), radius: 12, y: 8)
+        .shadow(color: .black.opacity(0.6), radius: 17, y: 14)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("usageCard")
     }
@@ -299,23 +298,5 @@ struct UsageCard: View {
         return [Row(label: "ctx", name: "Context", percent: ctx?.percent ?? (ctx == nil ? 0 : nil), detail: ctxLine),
                 Row(label: "5h", name: "5-hour limit", percent: five?.percent, detail: resets(five, weekday: false)),
                 Row(label: "wk", name: "Weekly limit", percent: week?.percent, detail: resets(week, weekday: true))]
-    }
-}
-
-/// one flat meter: a thin grey track with the fill on it
-private struct UsageBar: View {
-    let percent: Double?
-    let color: Color
-
-    var body: some View {
-        GeometryReader { g in
-            let pct = max(0, min(100, percent ?? 0))
-            ZStack(alignment: .leading) {
-                Capsule().fill(UsageRings.track)
-                if pct > 0 { Capsule().fill(color).frame(width: max(4, g.size.width * pct / 100)) }
-            }
-        }
-        .frame(height: 5)
-        .accessibilityHidden(true)
     }
 }
