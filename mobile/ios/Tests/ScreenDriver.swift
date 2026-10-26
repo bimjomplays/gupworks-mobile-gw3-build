@@ -3,29 +3,49 @@ import SwiftUI
 import XCTest
 @testable import GupWorks3
 
-/// Drives the app's real screens inside the unit-test process: no app launch per test, no XCUITest round trips.
-/// A Screen builds RootView in demo mode with the given flags (as the UI tests' launch arguments), finds things by
-/// their accessibility id or label, taps them through accessibility, types into the focused field and takes
-/// screenshots with the same names the UI tests used (SHOTS_DIR, docs/mobile-shots).
+/// Drives the app's real screens inside the unit-test process, with the same calls the UI tests used (app.buttons[id],
+/// waitForExistence, tap, typeText, press...), so a UI test's body moves over almost as it is. No app launch per test
+/// and no XCUITest round trips: a screen opens in about a second and a tap takes milliseconds.
+///
+/// - The screen is RootView in demo mode with the test's flags (what the UI tests passed as launch arguments).
+/// - Things are found through the accessibility tree (turned on in-process, as XCUITest and KIF do), by id or label.
+/// - Taps, presses and drags are real touches (KIF builds the UITouch events UIKit and SwiftUI's gestures see).
+/// - Typing goes into the field that has the keyboard; the keyboard itself shows (remote, in the screenshots).
+/// - Screenshots are the whole simulator screen (status bar and keyboard included), as XCUIScreen took them.
+///
+/// Waiting lets the app run (its main queue, timers and animations), so tests must be synchronous (not async), and a
+/// `sleep` must be `spin` (Darwin's sleep would freeze the app).
 @MainActor
-final class Screen {
+final class App {
     let window: UIWindow
     let model: AppModel
     private weak var test: XCTestCase?
+    static var current: App?
 
-    init(_ flags: [String] = [], test: XCTestCase) async {
+    /// a screen in demo mode with `flags` (e.g. ["-menu"]); waits until its home data is in
+    init(_ flags: [String] = [], test: XCTestCase) {
+        App.current?.close()
         Accessibility.enable()
         Demo.args = ["-demo"] + flags
         model = AppModel(demo: true)
         self.test = test
         let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first!
+        // the test host's own window (the app as it launched) goes out of sight, touches and the tree
+        for w in scene.windows where w.windowLevel == .normal { w.isHidden = true }
         window = UIWindow(windowScene: scene)
         // the window isn't the App's scene, so SwiftUI's scenePhase would never say "active" (RootView loads on active)
         let root = RootView().environment(model).environment(\.scenePhase, .active)
             .preferredColorScheme(.dark).tint(Theme.blue)
         window.rootViewController = UIHostingController(rootView: root)
         window.makeKeyAndVisible()
-        await model.refresh()  // what RootView's task does once the app is in front
+        App.current = self
+        let loaded = Flag()
+        Task { @MainActor [model] in
+            await model.refresh()  // what RootView's task does once the app is in front
+            loaded.on = true
+        }
+        poll(20) { loaded.on }
+        idle()
     }
 
     func close() {
@@ -34,12 +54,417 @@ final class Screen {
         window.isHidden = true
         window.rootViewController = nil
         Demo.args = ProcessInfo.processInfo.arguments
+        if App.current === self { App.current = nil }
+        spin(0.05)
     }
 
-    // MARK: finding
+    // MARK: queries, as XCUIApplication has them
 
-    /// every accessibility element and identified container on screen, in tree order
-    func nodes() -> [Node] {
+    func descendants(matching kind: Kind) -> Query { Query(kind: kind, scope: nil) }
+    var buttons: Query { descendants(matching: .button) }
+    var textFields: Query { descendants(matching: .textField) }
+    var textViews: Query { descendants(matching: .textView) }
+    var searchFields: Query { descendants(matching: .searchField) }
+    var switches: Query { descendants(matching: .toggle) }
+    var segmentedControls: Query { descendants(matching: .segmentedControl) }
+    var alerts: Query { descendants(matching: .alert) }
+    var navigationBars: Query { descendants(matching: .navigationBar) }
+    /// topmost first (a sheet's list before the page under it)
+    var collectionViews: Query { descendants(matching: .collectionView) }
+    var keyboards: Query { descendants(matching: .keyboard) }
+    var windows: Query { descendants(matching: .window) }
+
+    var frame: CGRect { window.bounds }
+    func coordinate(withNormalizedOffset v: CGVector) -> Coordinate { Coordinate(frame, v) }
+    func swipeUp() { Element.swipe(in: frame, up: true) }
+    func swipeDown() { Element.swipe(in: frame, up: false) }
+
+    /// the accessibility tree, for failure messages
+    var debugDescription: String {
+        Tree.nodes().map { "[\($0.id)] \($0.kind) '\($0.label.prefix(60))' = '\($0.value.prefix(30))' \($0.frame)" }
+            .joined(separator: "\n")
+    }
+
+    // MARK: pictures
+
+    /// the whole screen as the UI tests took it, attached and written to SHOTS_DIR
+    func shot(_ name: String) {
+        idle()
+        let png = Self.screenPNG(window)
+        let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+        a.name = name
+        a.lifetime = .keepAlways
+        test?.add(a)
+        if let dir = ProcessInfo.processInfo.environment["SHOTS_DIR"], !dir.isEmpty {
+            try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+            try? png.write(to: URL(fileURLWithPath: dir).appendingPathComponent(name + ".png"))
+        }
+    }
+
+    /// UIKit's own capture of the whole screen (status bar and keyboard included), else the app's windows drawn
+    static func screenPNG(_ window: UIWindow) -> Data {
+        typealias Capture = @convention(c) () -> Unmanaged<UIImage>?
+        if let lib = dlopen(nil, RTLD_NOW), let f = dlsym(lib, "_UICreateScreenUIImage"),
+           let png = unsafeBitCast(f, to: Capture.self)()?.takeRetainedValue().pngData() {
+            return png
+        }
+        return UIGraphicsImageRenderer(bounds: window.bounds).pngData { _ in
+            for w in window.windowScene?.windows ?? [window] where !w.isHidden {
+                w.drawHierarchy(in: w.frame, afterScreenUpdates: true)
+            }
+        }
+    }
+}
+
+final class Flag { var on = false }
+
+// MARK: waiting
+
+/// lets the app run for `seconds`
+@MainActor
+func spin(_ seconds: Double) {
+    let end = Date().addingTimeInterval(seconds)
+    repeat {
+        _ = CFRunLoopRunInMode(CFRunLoopMode.defaultMode, max(0.001, min(0.02, end.timeIntervalSinceNow)), false)
+    } while Date() < end
+}
+
+/// lets the app run until `ok` holds; false if it still doesn't after `timeout` seconds
+@MainActor @discardableResult
+func poll(_ timeout: Double, until ok: () -> Bool) -> Bool {
+    let end = Date().addingTimeInterval(timeout)
+    while Date() < end {
+        if ok() { return true }
+        _ = CFRunLoopRunInMode(CFRunLoopMode.defaultMode, 0.02, false)
+    }
+    return ok()
+}
+
+/// lets the app finish what a tap started: at least a moment, then until no (finite) animation runs, at most 1.5 s
+@MainActor
+func idle(_ least: Double = 0.15) {
+    spin(least)
+    poll(1.5) { !Tree.animating() }
+}
+
+/// XCUIKeyboardKey.delete
+enum Key {
+    static let delete = "\u{8}"
+}
+
+/// XCUIGestureVelocity's pixels per second (3 pixels a point here)
+struct Velocity {
+    let rawValue: CGFloat
+    init(rawValue: CGFloat) { self.rawValue = rawValue }
+    static let slow = Velocity(rawValue: 300)
+    static let `default` = Velocity(rawValue: 600)
+    static let fast = Velocity(rawValue: 750)
+    var pointsPerSecond: CGFloat { rawValue / 3 }
+}
+
+// MARK: queries and elements
+
+enum Kind {
+    case any, button, textField, textView, searchField, toggle, segmentedControl, alert, navigationBar,
+         collectionView, keyboard, window, staticText
+}
+
+/// A lazy list of things on screen (resolved each time it's read, as XCUIElementQuery is).
+@MainActor
+struct Query {
+    let resolve: () -> [Node]
+
+    init(_ resolve: @escaping () -> [Node]) { self.resolve = resolve }
+
+    init(kind: Kind, scope: (() -> CGRect?)?) {
+        self.init {
+            var all = Tree.nodes(kind)
+            if let scope {
+                guard let r = scope() else { return [] }
+                let box = r.insetBy(dx: -1, dy: -1)
+                all = all.filter { box.contains(CGPoint(x: $0.frame.midX, y: $0.frame.midY)) && $0.frame != r }
+            }
+            return all
+        }
+    }
+
+    /// by accessibility id or label, as XCUIElementQuery's subscript; any kind of thing when none of this kind has it
+    subscript(_ key: String) -> Element {
+        let typed = resolve
+        return Element {
+            if let n = typed().first(where: { $0.id == key || $0.label == key }) { return n }
+            return Tree.nodes().first { $0.id == key || $0.label == key }
+        }
+    }
+
+    func matching(identifier: String) -> Query {
+        let r = resolve
+        return Query { r().filter { $0.id == identifier } }
+    }
+
+    /// an NSPredicate on label, identifier, value, placeholderValue (as the UI tests wrote them)
+    func matching(_ predicate: NSPredicate) -> Query {
+        let r = resolve
+        return Query { r().filter { predicate.evaluate(with: $0.snapshot) } }
+    }
+
+    var firstMatch: Element {
+        let r = resolve
+        return Element { r().first }
+    }
+
+    func element(boundBy i: Int) -> Element {
+        let r = resolve
+        return Element { let all = r(); return i < all.count ? all[i] : nil }
+    }
+
+    var count: Int { resolve().count }
+
+    /// the buttons inside what this query finds (e.g. app.alerts.buttons["Keep mine"])
+    var buttons: Query { inside(.button) }
+    var textFields: Query { inside(.textField) }
+
+    private func inside(_ kind: Kind) -> Query {
+        let r = resolve
+        return Query {
+            let boxes = r().map(\.frame)
+            return Tree.nodes(kind).filter { n in
+                boxes.contains { $0.insetBy(dx: -1, dy: -1).contains(CGPoint(x: n.frame.midX, y: n.frame.midY)) && $0 != n.frame }
+            }
+        }
+    }
+}
+
+/// One thing on screen, found again each time it's read (as XCUIElement is).
+@MainActor
+struct Element {
+    let resolve: () -> Node?
+    init(_ resolve: @escaping () -> Node?) { self.resolve = resolve }
+
+    var exists: Bool { resolve() != nil }
+
+    func waitForExistence(timeout: Double) -> Bool { poll(timeout) { resolve() != nil } }
+
+    func waitForNonExistence(timeout: Double) -> Bool { poll(timeout) { resolve() == nil } }
+
+    var label: String { resolve()?.label ?? "" }
+    var identifier: String { resolve()?.id ?? "" }
+    /// a field's text, a switch's "0" or "1", an accessibility value
+    var value: Any? { resolve()?.valueOrText }
+    var placeholderValue: String? { resolve()?.placeholder }
+    var frame: CGRect { resolve()?.frame ?? .zero }
+    var isSelected: Bool { resolve()?.isSelected ?? false }
+    var hasKeyboardFocus: Bool { resolve()?.hasKeyboardFocus ?? false }
+
+    /// on screen, above the keyboard, and the screen's touch there lands on it
+    var isHittable: Bool { resolve()?.isHittable ?? false }
+
+    private func node(_ what: String, file: StaticString, line: UInt) -> Node? {
+        // as XCUITest: an action waits a little for its element
+        if let n = resolve() ?? (poll(3) { resolve() != nil } ? resolve() : nil) { return n }
+        XCTFail("nothing to \(what)\n\(App.current?.debugDescription ?? "")", file: file, line: line)
+        return nil
+    }
+
+    func tap(file: StaticString = #filePath, line: UInt = #line) {
+        guard let n = node("tap", file: file, line: line) else { return }
+        n.tap()
+        idle()
+    }
+
+    func press(forDuration seconds: Double, file: StaticString = #filePath, line: UInt = #line) {
+        guard let n = node("press", file: file, line: line) else { return }
+        Finger.press(n.hitPoint, seconds: seconds)
+        idle()
+    }
+
+    func press(forDuration seconds: Double, thenDragTo other: Element, withVelocity v: Velocity = .default,
+               thenHoldForDuration hold: Double = 0, file: StaticString = #filePath, line: UInt = #line) {
+        guard let n = node("press", file: file, line: line), let to = other.resolve() else {
+            return XCTFail("nothing to drag to", file: file, line: line)
+        }
+        Finger.press(n.hitPoint, seconds: seconds, thenDragTo: to.hitPoint, speed: v.pointsPerSecond, hold: hold)
+        idle()
+    }
+
+    func coordinate(withNormalizedOffset v: CGVector) -> Coordinate {
+        let f = frame
+        return Coordinate(f, v)
+    }
+
+    /// types into this field (focusing it first when the keyboard is elsewhere); "\u{8}" deletes
+    func typeText(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
+        guard let n = node("type into", file: file, line: line) else { return }
+        if !n.hasKeyboardFocus {
+            n.tap()
+            poll(2) { resolve()?.hasKeyboardFocus ?? false }
+        }
+        guard let field = Tree.firstResponder() as? UIKeyInput else {
+            return XCTFail("no field has the keyboard for \(n.id)", file: file, line: line)
+        }
+        for ch in text {
+            if String(ch) == Key.delete { field.deleteBackward() } else { field.insertText(String(ch)) }
+            spin(0.005)
+        }
+        idle()
+    }
+
+    func swipeUp() { Element.swipe(in: frame, up: true) }
+    func swipeDown() { Element.swipe(in: frame, up: false) }
+
+    /// a quick swipe through the middle of `r` (as XCUIElement's swipeUp: the list flings on)
+    static func swipe(in r: CGRect, up: Bool) {
+        let a = CGPoint(x: r.midX, y: r.minY + r.height * (up ? 0.75 : 0.25))
+        let b = CGPoint(x: r.midX, y: r.minY + r.height * (up ? 0.25 : 0.75))
+        Finger.press(a, seconds: 0, thenDragTo: b, speed: 1500, hold: 0)
+        idle()
+    }
+
+    // scoped queries (inside this element's frame)
+    func descendants(matching kind: Kind) -> Query { Query(kind: kind, scope: { resolve()?.frame }) }
+    var buttons: Query { descendants(matching: .button) }
+    var switches: Query { descendants(matching: .toggle) }
+    var textFields: Query { descendants(matching: .textField) }
+}
+
+/// A point on screen (a fraction of an element's frame), as XCUICoordinate.
+@MainActor
+struct Coordinate {
+    let point: CGPoint
+    init(_ r: CGRect, _ v: CGVector) { point = CGPoint(x: r.minX + r.width * v.dx, y: r.minY + r.height * v.dy) }
+
+    func tap() {
+        Finger.tap(point)
+        idle()
+    }
+
+    func press(forDuration seconds: Double, thenDragTo other: Coordinate, withVelocity v: Velocity = .default,
+               thenHoldForDuration hold: Double = 0) {
+        Finger.press(point, seconds: seconds, thenDragTo: other.point, speed: v.pointsPerSecond, hold: hold)
+        idle()
+    }
+}
+
+// MARK: the accessibility tree
+
+/// One thing on screen as accessibility sees it.
+@MainActor
+struct Node {
+    let obj: NSObject
+    /// an alert's title
+    var name: String?
+    init(_ obj: NSObject, name: String? = nil) { self.obj = obj; self.name = name }
+
+    /// SwiftUI's elements answer accessibilityIdentifier without declaring UIAccessibilityIdentification
+    var id: String {
+        let sel = NSSelectorFromString("accessibilityIdentifier")
+        guard obj.responds(to: sel) else { return "" }
+        return (obj.perform(sel)?.takeUnretainedValue() as? String) ?? ""
+    }
+    var kind: String { String(describing: type(of: obj)) }
+    var label: String { name ?? obj.accessibilityLabel ?? "" }
+    var value: String { obj.accessibilityValue ?? "" }
+    var frame: CGRect {
+        if let v = obj as? UIView, v.window != nil { return v.convert(v.bounds, to: nil) }
+        return obj.accessibilityFrame
+    }
+    var traits: UIAccessibilityTraits { obj.accessibilityTraits }
+    var isSelected: Bool { traits.contains(.selected) }
+
+    var valueOrText: String? {
+        if let f = obj as? UITextField { return f.text?.isEmpty == false ? f.text : f.placeholder }
+        if let t = obj as? UITextView { return t.text }
+        return obj.accessibilityValue
+    }
+
+    var placeholder: String? {
+        if let f = obj as? UITextField { return f.placeholder }
+        let sel = NSSelectorFromString("accessibilityPlaceholderValue")
+        if obj.responds(to: sel), let s = obj.perform(sel)?.takeUnretainedValue() as? String { return s }
+        // SwiftUI's vertical TextField: a text view with its prompt in a label
+        if let v = obj as? UIView {
+            var found: String?
+            func walk(_ v: UIView) {
+                for s in v.subviews where found == nil {
+                    if let l = s as? UILabel, let t = l.text, !t.isEmpty { found = t } else { walk(s) }
+                }
+            }
+            walk(v)
+            return found
+        }
+        return nil
+    }
+
+    var hasKeyboardFocus: Bool {
+        guard let r = Tree.firstResponder() else { return false }
+        if let v = obj as? UIView { return r === v || r.isDescendant(of: v) }
+        let f = r.convert(r.bounds, to: nil), mine = frame
+        return mine.insetBy(dx: -2, dy: -2).contains(CGPoint(x: f.midX, y: f.midY))
+            || f.insetBy(dx: -2, dy: -2).contains(CGPoint(x: mine.midX, y: mine.midY))
+    }
+
+    /// where a finger touches it: its middle, kept on screen
+    var hitPoint: CGPoint {
+        let f = frame, screen = UIScreen.main.bounds
+        let visible = f.intersection(screen)
+        let r = visible.isNull || visible.isEmpty ? f : visible
+        return CGPoint(x: r.midX, y: r.midY)
+    }
+
+    var isHittable: Bool {
+        let p = hitPoint, screen = UIScreen.main.bounds
+        guard screen.contains(p) else { return false }
+        if let k = Tree.keyboardFrame(), k.contains(p) { return false }
+        guard let hit = Finger.target(p)?.hitTest(p, with: nil) else { return false }
+        guard let mine = (obj as? UIView) ?? Tree.container(of: obj) else { return true }
+        return hit === mine || hit.isDescendant(of: mine) || mine.isDescendant(of: hit)
+    }
+
+    /// a finger on its middle (what XCUITest did); a text field gets the keyboard as a tap would give it
+    func tap() {
+        Finger.tap(hitPoint)
+        if let r = obj as? UIResponder, !(r.isFirstResponder), obj is UITextField || obj is UITextView {
+            _ = r.becomeFirstResponder()
+        }
+    }
+
+    /// for NSPredicate: the names the UI tests' predicates use
+    var snapshot: Snapshot { Snapshot(self) }
+}
+
+/// What an NSPredicate reads (by key, as from an XCUIElement snapshot); each value is read only when asked.
+@MainActor
+final class Snapshot: NSObject {
+    let node: Node
+    init(_ node: Node) { self.node = node }
+    @objc var label: String { node.label }
+    @objc var identifier: String { node.id }
+    @objc var value: String? { node.valueOrText }
+    @objc var placeholderValue: String? { node.placeholder }
+    @objc var hasKeyboardFocus: Bool { node.hasKeyboardFocus }
+}
+
+@MainActor
+enum Tree {
+    /// the visible windows, back to front
+    static var windows: [UIWindow] {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows)
+            .filter { !$0.isHidden }.enumerated()
+            .sorted { ($0.element.windowLevel.rawValue, $0.offset) < ($1.element.windowLevel.rawValue, $1.offset) }
+            .map(\.element)
+    }
+
+    /// every accessibility element and identified container on screen, in tree order (and alerts, bars and lists
+    /// as XCUITest names them)
+    static func nodes(_ kind: Kind = .any) -> [Node] {
+        switch kind {
+        case .alert: return alerts()
+        case .navigationBar: return views(UINavigationBar.self).map { Node($0) }
+        case .collectionView: return views(UICollectionView.self).reversed().map { Node($0) }
+        case .window: return [App.current?.window].compactMap { $0 }.map { Node($0) }
+        case .keyboard: return keyboardFrame() == nil ? [] : keyboardHosts().map { Node($0) }
+        default: break
+        }
         var out: [Node] = [], seen = Set<ObjectIdentifier>()
         func walk(_ o: NSObject, _ depth: Int) {
             guard depth < 80, seen.insert(ObjectIdentifier(o)).inserted else { return }
@@ -57,153 +482,90 @@ final class Screen {
             }
             if let v = o as? UIView { for s in v.subviews { walk(s, depth + 1) } }
         }
-        for w in window.windowScene?.windows ?? [window] where !w.isHidden { walk(w, 0) }
+        for w in windows { walk(w, 0) }
+        return kind == .any ? out : out.filter { matches($0, kind) }
+    }
+
+    static func matches(_ n: Node, _ kind: Kind) -> Bool {
+        let o = n.obj, t = n.traits
+        switch kind {
+        case .button: return t.contains(.button) || o is UIButton
+        case .searchField: return o is UISearchTextField
+        case .textField: return (o is UITextField && !(o is UISearchTextField)) || (t.rawValue & (1 << 18) != 0 && !(o is UITextView))
+        case .textView: return o is UITextView
+        case .toggle: return o is UISwitch || t.contains(.toggleButton) || ["0", "1"].contains(n.value) && t.contains(.button)
+        case .segmentedControl: return o is UISegmentedControl
+        case .staticText: return t.contains(.staticText)
+        default: return true
+        }
+    }
+
+    /// views of a class, in tree order
+    static func views<T: UIView>(_ cls: T.Type) -> [T] {
+        var out: [T] = []
+        func walk(_ v: UIView) {
+            guard !v.isHidden, v.alpha >= 0.01 else { return }
+            if let t = v as? T { out.append(t) }
+            for s in v.subviews { walk(s) }
+        }
+        for w in windows { walk(w) }
         return out
     }
 
-    /// by accessibility id
-    func el(_ id: String) -> Node? { nodes().first { $0.id == id } }
-    /// any element whose label contains `text` (rows combine their texts into one element)
-    func find(_ text: String) -> Node? { nodes().first { $0.label.localizedCaseInsensitiveContains(text) } }
-    func all(_ id: String) -> [Node] { nodes().filter { $0.id == id } }
-
-    /// waits (letting the app run) until `ok` holds; false after `timeout` seconds
-    @discardableResult
-    func wait(_ timeout: Double = 5, until ok: () -> Bool) async -> Bool {
-        let end = Date().addingTimeInterval(timeout)
-        while Date() < end {
-            if ok() { return true }
-            try? await Task.sleep(for: .milliseconds(50))
+    /// presented alerts (their view, named by their title)
+    static func alerts() -> [Node] {
+        var out: [Node] = []
+        for w in windows {
+            var vc = w.rootViewController
+            while let c = vc {
+                if let a = c as? UIAlertController, a.preferredStyle == .alert, a.viewIfLoaded?.window != nil {
+                    out.append(Node(a.view, name: a.title ?? ""))
+                }
+                vc = c.presentedViewController
+            }
         }
-        return ok()
+        return out
     }
 
-    func waitFor(_ id: String, _ timeout: Double = 5) async -> Node? {
-        await wait(timeout) { el(id) != nil } ? el(id) : nil
-    }
-
-    func waitForText(_ text: String, _ timeout: Double = 5) async -> Node? {
-        await wait(timeout) { find(text) != nil } ? find(text) : nil
-    }
-
-    func gone(_ id: String, _ timeout: Double = 5) async -> Bool { await wait(timeout) { el(id) == nil } }
-
-    /// lets animations and the demo's PC finish
-    func settle(_ seconds: Double = 0.6) async { try? await Task.sleep(for: .seconds(seconds)) }
-
-    // MARK: acting
-
-    /// a tap through accessibility (the element's default action)
-    func tap(_ id: String, file: StaticString = #filePath, line: UInt = #line) async {
-        guard let n = await waitFor(id) else { return XCTFail("no \(id) to tap", file: file, line: line) }
-        n.tap()
-        await settle(0.3)
-    }
-
-    /// types into the field that has the keyboard (or `id`'s field first)
-    func type(_ text: String, into id: String? = nil, file: StaticString = #filePath, line: UInt = #line) async {
-        if let id {
-            guard let n = await waitFor(id) else { return XCTFail("no field \(id)", file: file, line: line) }
-            n.focus()
-            await settle(0.3)
+    static func firstResponder() -> UIView? {
+        func find(_ v: UIView) -> UIView? {
+            if v.isFirstResponder { return v }
+            for s in v.subviews { if let r = find(s) { return r } }
+            return nil
         }
-        guard let field = Self.firstResponder(in: window) as? UIKeyInput else {
-            return XCTFail("no field has the keyboard", file: file, line: line)
-        }
-        for ch in text { field.insertText(String(ch)) }
-        await settle(0.3)
-    }
-
-    static func firstResponder(in view: UIView) -> UIView? {
-        if view.isFirstResponder { return view }
-        for s in view.subviews { if let r = firstResponder(in: s) { return r } }
+        for w in windows.reversed() { if let r = find(w) { return r } }
         return nil
     }
 
-    // MARK: pictures
+    private static func keyboardHosts() -> [UIView] {
+        views(UIView.self).filter { String(describing: type(of: $0)) == "UIInputSetHostView" && $0.bounds.height > 100 }
+    }
 
-    /// the whole screen as the UI tests took it, attached and written to SHOTS_DIR
-    func shot(_ name: String) async {
-        await settle()
-        let png = Self.screenPNG(window)
-        let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-        a.name = name
-        a.lifetime = .keepAlways
-        test?.add(a)
-        if let dir = ProcessInfo.processInfo.environment["SHOTS_DIR"], !dir.isEmpty {
-            try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
-            try? png.write(to: URL(fileURLWithPath: dir).appendingPathComponent(name + ".png"))
+    /// the keyboard's frame on screen, when it's up
+    static func keyboardFrame() -> CGRect? {
+        let screen = UIScreen.main.bounds
+        return keyboardHosts().map { $0.convert($0.bounds, to: nil) }.first { $0.intersects(screen) && $0.minY < screen.maxY - 20 }
+    }
+
+    /// the view an accessibility element belongs to
+    static func container(of o: NSObject) -> UIView? {
+        var c: Any? = o.accessibilityContainer
+        for _ in 0..<20 {
+            if let v = c as? UIView { return v }
+            c = (c as? NSObject)?.accessibilityContainer
         }
+        return nil
     }
 
-    /// XCUIScreen (status bar and keyboard included) when it works in this bundle, else the app's own windows
-    static var fullScreen = false
-    static func screenPNG(_ window: UIWindow) -> Data {
-        if let full = uikitScreen() { return full }
-        return drawn(window)
-    }
-
-    /// the whole screen as the simulator shows it (status bar and keyboard included): UIKit's own screen capture
-    static func uikitScreen() -> Data? {
-        typealias Capture = @convention(c) () -> Unmanaged<UIImage>?
-        guard let lib = dlopen(nil, RTLD_NOW), let f = dlsym(lib, "_UICreateScreenUIImage") else { return nil }
-        return unsafeBitCast(f, to: Capture.self)()?.takeRetainedValue().pngData()
-    }
-
-    /// UIScreen's snapshot view drawn into a picture
-    static func screenSnapshot() -> Data? {
-        guard let screen = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.screen }).first,
-              let v = Optional(screen.snapshotView(afterScreenUpdates: true)) else { return nil }
-        v.frame = screen.bounds
-        return UIGraphicsImageRenderer(bounds: screen.bounds).pngData { _ in
-            v.drawHierarchy(in: screen.bounds, afterScreenUpdates: true)
-        }
-    }
-
-    /// the app's windows drawn into one picture (no status bar or keyboard)
-    static func drawn(_ window: UIWindow) -> Data {
-        let bounds = window.bounds
-        let r = UIGraphicsImageRenderer(bounds: bounds)
-        return r.pngData { _ in
-            for w in window.windowScene?.windows ?? [window] where !w.isHidden {
-                w.drawHierarchy(in: w.frame, afterScreenUpdates: true)
+    /// something on screen is still moving (not counting endless ones: spinners, pulsing dots)
+    static func animating() -> Bool {
+        func busy(_ l: CALayer) -> Bool {
+            for k in l.animationKeys() ?? [] {
+                if let a = l.animation(forKey: k), a.repeatCount < 1000, a.duration < 30, a.repeatDuration < 30 { return true }
             }
+            return (l.sublayers ?? []).contains { !$0.isHidden && busy($0) }
         }
-    }
-}
-
-/// One thing on screen as accessibility sees it.
-@MainActor
-struct Node {
-    let obj: NSObject
-    init(_ obj: NSObject) { self.obj = obj }
-
-    /// SwiftUI's elements answer accessibilityIdentifier without declaring UIAccessibilityIdentification
-    var id: String {
-        let sel = NSSelectorFromString("accessibilityIdentifier")
-        guard obj.responds(to: sel) else { return "" }
-        return (obj.perform(sel)?.takeUnretainedValue() as? String) ?? ""
-    }
-    var kind: String { String(describing: type(of: obj)) }
-    var label: String { obj.accessibilityLabel ?? "" }
-    var value: String { obj.accessibilityValue ?? "" }
-    var frame: CGRect { obj.accessibilityFrame }
-    var isSelected: Bool { obj.accessibilityTraits.contains(.selected) }
-    var isButton: Bool { obj.accessibilityTraits.contains(.button) }
-
-    /// a tap: the accessibility action when the element has one, else a finger (XCTest's event synthesizer)
-    @discardableResult
-    func tap() -> String {
-        if obj.accessibilityActivate() { return "activate" }
-        let f = frame
-        Finger.tap(CGPoint(x: f.midX, y: f.midY))
-        return "finger"
-    }
-
-    /// a text field: the keyboard to it
-    func focus() {
-        if let r = obj as? UIResponder, r.becomeFirstResponder() { return }
-        _ = obj.accessibilityActivate()
+        return windows.contains { busy($0.layer) }
     }
 }
 
@@ -223,40 +585,107 @@ enum Accessibility {
     }
 }
 
-/// Real touches inside the app (KIF builds the UITouch and HID events UIKit and SwiftUI's gestures see), in screen
-/// points. Each call returns once the touch is over.
+// MARK: touches
+
+/// Real touches inside the app, in screen points: KIF's UITouch and UIEvent helpers, sent through UIApplication as
+/// the system sends them. Each call returns once the finger is up.
 @MainActor
 enum Finger {
-    static var window: UIWindow? {
-        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            .flatMap(\.windows).last { $0.isKeyWindow } ?? UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }.first?.windows.first
-    }
-
     /// the window that shows `p` (a sheet or menu above the app's window takes the touch)
     static func target(_ p: CGPoint) -> UIWindow? {
-        let ws = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows)
-            .filter { !$0.isHidden }.sorted { $0.windowLevel < $1.windowLevel }
-        return ws.last { $0.hitTest($0.convert(p, from: nil), with: nil) != nil } ?? window
+        let mine = App.current?.window
+        for w in Tree.windows.reversed() where w.isUserInteractionEnabled {
+            guard let hit = w.hitTest(w.convert(p, from: nil), with: nil) else { continue }
+            // a system window above (the keyboard's) takes it only where it shows something
+            if w === mine || w.windowLevel <= (mine?.windowLevel ?? .normal) || hit !== w { return w }
+        }
+        return mine
     }
 
     static func tap(_ p: CGPoint) {
-        guard let w = target(p) else { return }
-        w.tap(at: w.convert(p, from: nil))
+        press(p, seconds: 0.05)
     }
 
-    static func longPress(_ p: CGPoint, seconds: Double) {
+    /// down at `p`, held `seconds`, then (if given) moved to `to` at `speed` points a second, held `hold`, up
+    static func press(_ p: CGPoint, seconds: Double, thenDragTo to: CGPoint? = nil, speed: CGFloat = 400, hold: Double = 0) {
         guard let w = target(p) else { return }
-        w.longPress(at: w.convert(p, from: nil), duration: seconds)
+        let view: UIView = w
+        if logged < 40 {
+            logged += 1
+            let hit = w.hitTest(w.convert(p, from: nil), with: nil)
+            print("FINGER \(p) \(seconds)s in \(type(of: w)) level \(w.windowLevel.rawValue) mine \(w === App.current?.window) "
+                  + "hit \(hit.map { "\(type(of: $0))" } ?? "nil") windows \(Tree.windows.map { "\(type(of: $0))" })")
+        }
+        let touch = Touch(at: w.convert(p, from: nil), in: w)
+        touch.send(.began, view)
+        step(0.01)
+        var held = 0.01
+        while held < seconds {
+            touch.send(.stationary, view)
+            step(0.01)
+            held += 0.01
+        }
+        if let to {
+            let d = hypot(to.x - p.x, to.y - p.y)
+            let n = max(2, Int((Double(d / max(speed, 1)) / 0.01).rounded()))
+            for i in 1...n {
+                let f = CGFloat(i) / CGFloat(n)
+                touch.move(to: w.convert(CGPoint(x: p.x + (to.x - p.x) * f, y: p.y + (to.y - p.y) * f), from: nil))
+                touch.send(.moved, view)
+                step(0.01)
+            }
+            var h = 0.0
+            while h < hold {
+                touch.send(.stationary, view)
+                step(0.01)
+                h += 0.01
+            }
+        }
+        touch.send(.ended, view)
+        step(0.02)
     }
 
-    static func drag(from a: CGPoint, to b: CGPoint, steps: Int = 20) {
-        guard let w = target(a) else { return }
-        w.drag(from: w.convert(a, from: nil), to: w.convert(b, from: nil), steps: UInt(steps))
+    private static var logged = 0
+
+    /// two fingers apart (a photo zooms in), KIF's own
+    static func zoom(at p: CGPoint, distance: CGFloat) {
+        guard let w = target(p) else { return }
+        w.zoom(at: w.convert(p, from: nil), distance: distance, steps: 20)
+        idle()
     }
 
-    static func pinch(at p: CGPoint, distance: CGFloat, steps: Int = 20) {
-        guard let w = target(p) else { return }
-        w.zoom(at: w.convert(p, from: nil), distance: distance, steps: UInt(steps))
+    private static func step(_ s: Double) { _ = CFRunLoopRunInMode(CFRunLoopMode.defaultMode, s, false) }
+}
+
+/// One finger: a UITouch made and moved with KIF's additions, called through the Objective-C runtime (their Swift
+/// names aren't part of KIF's promise).
+@MainActor
+final class Touch {
+    let touch: UITouch
+
+    init(at p: CGPoint, in window: UIWindow) {
+        typealias Alloc = @convention(c) (AnyClass, Selector) -> Unmanaged<AnyObject>
+        typealias Init = @convention(c) (AnyObject, Selector, CGPoint, UIView) -> Unmanaged<UITouch>
+        let cls: AnyClass = UITouch.self
+        let alloc = NSSelectorFromString("alloc"), sel = NSSelectorFromString("initAtPoint:inView:")
+        let a = method_getImplementation(class_getClassMethod(cls, alloc)!)
+        let i = method_getImplementation(class_getInstanceMethod(cls, sel)!)
+        let raw = unsafeBitCast(a, to: Alloc.self)(cls, alloc).takeUnretainedValue()  // init takes this reference
+        touch = unsafeBitCast(i, to: Init.self)(raw, sel, p, window).takeRetainedValue()
+    }
+
+    func move(to p: CGPoint) {
+        typealias Set = @convention(c) (AnyObject, Selector, CGPoint) -> Void
+        let sel = NSSelectorFromString("setLocationInWindow:")
+        unsafeBitCast(touch.method(for: sel)!, to: Set.self)(touch, sel, p)
+    }
+
+    func send(_ phase: UITouch.Phase, _ view: UIView) {
+        typealias SetPhase = @convention(c) (AnyObject, Selector, Int) -> Void
+        let sel = NSSelectorFromString("setPhaseAndUpdateTimestamp:")
+        unsafeBitCast(touch.method(for: sel)!, to: SetPhase.self)(touch, sel, phase.rawValue)
+        guard let event = view.perform(NSSelectorFromString("eventWithTouch:"), with: touch)?.takeUnretainedValue()
+        else { return }
+        UIApplication.shared.perform(NSSelectorFromString("kif_sendEvent:"), with: event)
     }
 }
