@@ -296,7 +296,10 @@ struct ChatView: View {
         // no bar band (a127): the turns scroll under the floating glass buttons and title pill, softly blurred and
         // faded at the top edge, as in Claude's app
         .toolbarBackgroundVisibility(.hidden, for: .navigationBar)
-        .scrollEdgeEffectStyle(.soft, for: .top)
+        // the system's top edge effect fades the turns to solid black across the status bar (a130); it's off, and the
+        // dim below lets them show through at the top instead, as in ChatGPT
+        .scrollEdgeEffectHidden(true, for: .top)
+        .overlay(alignment: .top) { TopDim() }
         .toolbar { toolbar }
         .task(id: "\(phase == .active) \(store.id)") {
             if phase == .active { await store.run() }
@@ -1489,5 +1492,26 @@ extension View {
             .frame(height: 44)
             .glassEffect(.regular.interactive(), in: .capsule)
             .contentShape(Capsule())
+    }
+}
+
+/// a130: a soft dark veil over the top of the chat, from the very top of the screen down through the glass buttons:
+/// the turns scrolling under the status bar and the Dynamic Island show through dimmed, never as a solid black band,
+/// and the status bar's own text stays readable on top of them
+struct TopDim: View {
+    var body: some View {
+        GeometryReader { geo in
+            let top = geo.safeAreaInsets.top
+            LinearGradient(stops: [
+                .init(color: Theme.background.opacity(0.78), location: 0),
+                .init(color: Theme.background.opacity(0.66), location: 0.45),
+                .init(color: Theme.background.opacity(0.3), location: 0.8),
+                .init(color: Theme.background.opacity(0), location: 1),
+            ], startPoint: .top, endPoint: .bottom)
+                .frame(height: top + 6)
+                .offset(y: -top)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

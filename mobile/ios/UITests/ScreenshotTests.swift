@@ -1157,6 +1157,33 @@ final class ScreenshotTests: XCTestCase {
         shot("a127-chat-2")
     }
 
+    /// a130: the same scrolled chats as a127's, now with the turns showing through dimmed under the status bar
+    func testA130SeeThroughProject() {
+        let app = project()
+        XCTAssertTrue(find(app, "NEEDS YOU").waitForExistence(timeout: 10))
+        scrollUnderBar(app)
+        shot("a130-project-chat")
+        scrollUnderBar(app, by: 0.3)
+        shot("a130-project-chat-2")
+    }
+
+    func testA130SeeThroughThread() {
+        let app = launch(["-place", "projects", "-push", contact])
+        XCTAssertTrue(el(app, "threadPill").waitForExistence(timeout: 20))
+        XCTAssertTrue(el(app, "taskCard").waitForExistence(timeout: 10))
+        scrollUnderBar(app)
+        shot("a130-thread")
+    }
+
+    func testA130SeeThroughChat() {
+        let app = openChat(gallery, waitFor: "All five pages pass")
+        unfoldLast(app)
+        scrollUnderBar(app)
+        shot("a130-chat")
+        scrollUnderBar(app, by: 0.3)
+        shot("a130-chat-2")
+    }
+
     /// 05 → 07: a thread card opens the thread; Back returns to the main chat
     func testP05ThreadCardOpensThread() {
         let app = project()

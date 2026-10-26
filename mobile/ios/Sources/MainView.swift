@@ -212,11 +212,18 @@ struct MainView: View {
         }
     }
 
-    /// a chat (or a pinned project's main chat) from the menu. They all become the main screen, so a swipe right
-    /// goes back to the menu; only the Projects page puts a project's chat over itself (back goes to Projects).
+    /// a chat (or a project's main chat) from the menu
     private func pick(_ c: Current) {
         _ = dropTemporary()
         temporary = false
+        if case .chat(let id, true) = c {
+            // a pinned project opens on its main chat over Projects (05), Back goes to the list
+            path = NavigationPath([Place.projects])
+            path.append(ChatRoute(id: id))
+            onProjects = true
+            close()
+            return
+        }
         if c != current {
             current = c
             madeId = nil
