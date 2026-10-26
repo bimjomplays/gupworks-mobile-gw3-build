@@ -6,6 +6,7 @@
 #  - full: the same with every UI test, plus the unsigned device build (artifact "GupWorks3-ipa").
 #  - release: full, then TestFlight (only when the App Store Connect secrets are set; otherwise it says so and
 #    skips cleanly). "update" (the old one-branch publish) counts as release.
+# The tests run on three simulators at once (clones of one iPhone 17, one xcodebuild each), split by rough length.
 # Failing tests are retried up to twice, so a timing flake doesn't fail the run (the report names them).
 # Inside a lane a newer quick run replaces a stale quick run; full and release runs are never cancelled.
 name: ios
@@ -71,15 +72,57 @@ jobs:
             ui="-only-testing:GupWorks3UITests"
           fi
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
-          echo "ui=$ui" >> "$GITHUB_OUTPUT"
           echo "### ${mode} run" >> "$GITHUB_STEP_SUMMARY"
           echo "mode: $mode; UI tests: ${ui:-none}"
+          # the tests are spread over SIMS simulators that run at the same time (one xcodebuild each). The first
+          # shard also takes everything of a bundle that isn't named elsewhere, so a test the split doesn't know
+          # still runs.
+          python3 - "$RUNNER_TEMP/shards" "$mode" $ui <<'EOF'
+          import pathlib, re, sys
+          out, mode, ui = pathlib.Path(sys.argv[1]), sys.argv[2], [a.removeprefix("-only-testing:") for a in sys.argv[3:]]
+          sims = 3
+          def methods(path, cls=None):
+              found, current = [], None
+              for line in path.read_text().splitlines():
+                  m = re.match(r"\s*(?:@\w+\s+)*(?:final\s+)?class\s+(\w+)\s*:\s*XCTestCase", line)
+                  if m:
+                      current = m.group(1)
+                  m = re.match(r"\s*func\s+(test\w+)\s*\(\s*\)", line)
+                  if m and current and (cls is None or current == cls):
+                      found.append((current, m.group(1)))
+              return found
+          uifiles = sorted(pathlib.Path("UITests").glob("*.swift"))
+          allui = [f"GupWorks3UITests/{c}/{t}" for f in uifiles for c, t in methods(f)]
+          # rough seconds each: a screen test ~9, a real UI test ~45 (an app launch per test and system gestures)
+          items = [(f"GupWorks3Tests/ScreenTests/{t}", 9) for _, t in methods(pathlib.Path("Tests/ScreenTests.swift"))]
+          if mode == "quick":
+              for t in ui:
+                  n = sum(1 for x in allui if x == t or x.startswith(t + "/"))
+                  items.append((t, 45 * max(n, 1)))
+          else:
+              items += [(t, 45) for t in allui]
+          shards = [{"items": [], "load": 40}] + [{"items": [], "load": 0} for _ in range(sims - 1)]
+          for name, w in sorted(items, key=lambda i: -i[1]):
+              s = min(shards, key=lambda s: s["load"])
+              s["items"].append(name)
+              s["load"] += w
+          shards = [s for i, s in enumerate(shards) if i == 0 or s["items"]]
+          elsewhere = [n for s in shards[1:] for n in s["items"]]
+          first = ["-only-testing:GupWorks3Tests"] + (["-only-testing:GupWorks3UITests"] if mode != "quick" else [])
+          first += [f"-only-testing:{n}" for n in shards[0]["items"]] + [f"-skip-testing:{n}" for n in elsewhere]
+          out.mkdir(parents=True, exist_ok=True)
+          for i, s in enumerate(shards):
+              flags = first if i == 0 else [f"-only-testing:{n}" for n in s["items"]]
+              (out / f"{i + 1}.args").write_text("\n".join(flags) + "\n")
+              print(f"shard {i + 1}: ~{s['load']} s, {len(s['items'])} named tests" + (" + the rest" if i == 0 else ""))
+          EOF
+          echo "sims=$(ls "$RUNNER_TEMP/shards" | wc -l | tr -d ' ')" >> "$GITHUB_OUTPUT"
       - name: Tools
         run: |
           brew install xcodegen
           xcodebuild -version
           xcodegen generate
-      - name: Simulator (boots while the app builds)
+      - name: Simulators (boot while the app builds)
         id: sim
         run: |
           # the newest iPhone 17 (the mockups are a 6.3" screen), else an iPhone 17 Pro, else any iPhone
@@ -93,8 +136,14 @@ jobs:
           print(devs[-1]["udid"] if devs else "")')
           test -n "$udid" || { xcrun simctl list devices available; exit 1; }
           xcrun simctl list devices | grep "$udid"
-          nohup xcrun simctl boot "$udid" > "$RUNNER_TEMP/boot.log" 2>&1 &
+          # one simulator per shard: clones of the same iPhone, all booting at once
+          udids=$udid
+          for i in $(seq 2 ${{ steps.plan.outputs.sims }}); do
+            udids="$udids $(xcrun simctl clone "$udid" "GupWorks shard $i")"
+          done
+          for u in $udids; do nohup xcrun simctl boot "$u" > "$RUNNER_TEMP/boot-$u.log" 2>&1 & done
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          echo "udids=$udids" >> "$GITHUB_OUTPUT"
       - name: Build for testing
         run: |
           set -o pipefail
@@ -106,50 +155,49 @@ jobs:
           echo "built in $((SECONDS - start)) s"
           sed -n '/Build Timing Summary/,$p' build.log | head -25
           grep -E "warning: .*took [0-9]+ms to type-check" build.log | sort -u | head -15 || true
-      - name: Simulator ready
+      - name: Simulators ready
         run: |
-          udid=${{ steps.sim.outputs.udid }}
-          xcrun simctl bootstatus "$udid" -b > /dev/null
-          xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 \
-            --cellularMode active --cellularBars 4 --batteryState discharging --batteryLevel 100
-          # the simulator has no camera, but a pending permission prompt would cover the screenshots
-          xcrun simctl privacy "$udid" grant camera app.gupworks3.phone || true
-      - name: Unit tests
-        id: unit
+          for udid in ${{ steps.sim.outputs.udids }}; do
+            xcrun simctl bootstatus "$udid" -b > /dev/null
+            xcrun simctl status_bar "$udid" override --time 9:41 --dataNetwork wifi --wifiMode active --wifiBars 3 \
+              --cellularMode active --cellularBars 4 --batteryState discharging --batteryLevel 100
+            # the simulator has no camera, but a pending permission prompt would cover the screenshots
+            xcrun simctl privacy "$udid" grant camera app.gupworks3.phone || true
+          done
+      - name: Tests
+        id: tests
         env:
           TEST_RUNNER_SHOTS_DIR: ${{ github.workspace }}/shots
         run: |
-          set -o pipefail
           start=$SECONDS
-          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination "id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath build -resultBundlePath unit.xcresult -only-testing:GupWorks3Tests \
-            -retry-tests-on-failure -test-iterations 3 \
-            CODE_SIGNING_ALLOWED=NO test-without-building > unit.log 2>&1 \
-            || { grep -E "error:|failed|XCTAssert" unit.log | head -80; tail -40 unit.log; exit 1; }
-          echo "unit tests in $((SECONDS - start)) s"
-      - name: UI tests
-        id: ui
-        if: always() && steps.plan.outputs.ui != '' && steps.unit.outcome != 'skipped'
-        env:
-          TEST_RUNNER_SHOTS_DIR: ${{ github.workspace }}/shots
-        run: |
-          set -o pipefail
-          start=$SECONDS
-          # -retry-tests-on-failure re-runs only the failing tests (no -test-repetition-relaunch-enabled: that
-          # re-runs the whole set)
-          xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination "id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath build -resultBundlePath ui.xcresult ${{ steps.plan.outputs.ui }} \
-            -retry-tests-on-failure -test-iterations 3 \
-            CODE_SIGNING_ALLOWED=NO test-without-building > ui.log 2>&1 \
-            || { grep -E "error:|failed|XCTAssert" ui.log | head -80; tail -60 ui.log; exit 1; }
-          echo "UI tests in $((SECONDS - start)) s"
+          xctestrun=$(ls build/Build/Products/*.xctestrun | head -1)
+          set -- ${{ steps.sim.outputs.udids }}
+          pids=()
+          for i in $(seq 1 ${{ steps.plan.outputs.sims }}); do
+            udid=$1; shift
+            # -retry-tests-on-failure re-runs only the failing tests (no -test-repetition-relaunch-enabled: that
+            # re-runs the whole set)
+            ( s=$SECONDS
+              xargs xcodebuild test-without-building -xctestrun "$xctestrun" -destination "id=$udid" \
+                -resultBundlePath "test-$i.xcresult" -retry-tests-on-failure -test-iterations 3 \
+                < "$RUNNER_TEMP/shards/$i.args" > "test-$i.log" 2>&1
+              r=$?; echo "shard $i: exit $r after $((SECONDS - s)) s"; exit $r ) &
+            pids+=($!)
+          done
+          failed=0
+          for i in "${!pids[@]}"; do wait "${pids[$i]}" || failed=1; done
+          echo "tests in $((SECONDS - start)) s"
+          if [ $failed = 1 ]; then
+            for f in test-*.log; do echo "--- $f"; grep -E "error:|failed|XCTAssert" "$f" | head -40; done
+            exit 1
+          fi
       - name: Report
         if: always()
         run: |
           mkdir -p "$GITHUB_WORKSPACE/report"
-          for r in unit ui; do
-            [ -d "$r.xcresult" ] || continue
-            xcrun xcresulttool get test-results tests --path "$r.xcresult" --compact > "$GITHUB_WORKSPACE/report/$r.json" || true
+          for r in test-*.xcresult; do
+            [ -d "$r" ] || continue
+            xcrun xcresulttool get test-results tests --path "$r" --compact > "$GITHUB_WORKSPACE/report/${r%.xcresult}.json" || true
           done
           python3 - "$GITHUB_WORKSPACE/report" <<'EOF' | tee "$GITHUB_WORKSPACE/report/report.txt" >> "$GITHUB_STEP_SUMMARY"
           import json, pathlib, sys
@@ -168,12 +216,14 @@ jobs:
               for v, unit in __import__("re").findall(r"([\d.]+)\s*(m|s)", str(n.get("duration", ""))):
                   total += float(v) * (60 if unit == "m" else 1)
               return total
-          for part in ("unit", "ui"):
-              f = d / f"{part}.json"
-              if not f.exists():
-                  continue
+          every = []
+          for f in sorted(d.glob("test-*.json")):
               data = json.loads(f.read_text())
-              cases = [(p, n) for top in data.get("testNodes", []) for p, n in walk(top)]
+              every += [(p, n) for top in data.get("testNodes", []) for p, n in walk(top)]
+          for part, bundle in (("unit", "GupWorks3Tests"), ("ui", "GupWorks3UITests")):
+              cases = [(p, n) for p, n in every if p[:1] == (bundle,)]
+              if not cases:
+                  continue
               name = lambda p, n: "/".join(p + (n.get("name", "?").removesuffix("()"),))
               res = {}
               for p, n in cases:
@@ -197,9 +247,9 @@ jobs:
         if: always()
         run: |
           mkdir -p "$GITHUB_WORKSPACE/shots"
-          for r in unit ui; do
-            [ -d "$r.xcresult" ] || continue
-            xcrun xcresulttool export attachments --path "$r.xcresult" --output-path "$GITHUB_WORKSPACE/shots/attachments-$r" || true
+          for r in test-*.xcresult; do
+            [ -d "$r" ] || continue
+            xcrun xcresulttool export attachments --path "$r" --output-path "$GITHUB_WORKSPACE/shots/attachments-${r%.xcresult}" || true
           done
           ls "$GITHUB_WORKSPACE/shots"
       - uses: actions/upload-artifact@v4
@@ -214,8 +264,7 @@ jobs:
           path: |
             report/
             mobile/ios/build.log
-            mobile/ios/unit.log
-            mobile/ios/ui.log
+            mobile/ios/test-*.log
 
   ipa:
     if: >-
