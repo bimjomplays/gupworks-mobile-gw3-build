@@ -355,7 +355,7 @@ enum MediaLink {
             let name = (rel as NSString).lastPathComponent
             let dir = (rel as NSString).deletingLastPathComponent
             let sub = dir.isEmpty ? "fixtures" : "fixtures/" + dir
-            return Bundle.main.url(forResource: name, withExtension: nil, subdirectory: sub)
+            return Demo.file(name, in: sub)
         }
         if link.hasPrefix("/v1/media/"), let base {
             return URL(string: link, relativeTo: base)?.absoluteURL

@@ -1,4 +1,8 @@
+#if canImport(Darwin)
 import Darwin
+#else
+import Glibc
+#endif
 import Foundation
 
 /// The two ways to the PC. One is its Tailscale name over HTTPS (the pairing's address). The other is its tailnet
@@ -193,13 +197,19 @@ enum MagicDNS {
     static func lookupNow(_ name: String) -> String? {
         let id = UInt16.random(in: 0...UInt16.max)
         guard let q = query(name, id: id) else { return nil }
+        #if canImport(Darwin)
         let fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)
+        #else
+        let fd = socket(AF_INET, Int32(SOCK_DGRAM.rawValue), Int32(IPPROTO_UDP))
+        #endif
         guard fd >= 0 else { return nil }
         defer { close(fd) }
         var limit = timeval(tv_sec: 2, tv_usec: 0)
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &limit, socklen_t(MemoryLayout<timeval>.size))
         var to = sockaddr_in()
+        #if canImport(Darwin)
         to.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        #endif
         to.sin_family = sa_family_t(AF_INET)
         to.sin_port = in_port_t(53).bigEndian
         to.sin_addr = in_addr(s_addr: 0x6464_6464)  // Tailscale's DNS: 100 in every byte, so byte order doesn't matter

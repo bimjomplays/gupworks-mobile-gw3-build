@@ -10,14 +10,23 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.9.3"
+    MARKETING_VERSION: "0.9.6"
     CURRENT_PROJECT_VERSION: "1"
+# Hammer: real touches (taps, drags, long presses, pinches) inside the unit-test process, for the screen tests
+# (Tests/ScreenDriver.swift); XCTest's own event synthesizer only works from a UI-test bundle
+packages:
+  Hammer:
+    url: https://github.com/lyft/Hammer
+    exactVersion: 2.1.1
 targets:
   GupWorks3:
     type: application
     platform: iOS
     sources:
       - Sources
+      # the plain logic (models, API, routes, pairing, stores): a Swift package that also builds and tests on Linux;
+      # the app compiles its files directly (mobile/GupKit/Package.swift says why)
+      - ../GupKit/Sources/GupKit
       - Resources
       # recorded gw3-phone answers (invented text) for the demo mode and the screenshot tests
       - path: ../fixtures
@@ -80,9 +89,14 @@ targets:
   GupWorks3Tests:
     type: bundle.unit-test
     platform: iOS
-    sources: [Tests]
+    sources:
+      - Tests
+      # GupKit's tests run here too, against the app's copy of the same files
+      - ../GupKit/Tests/GupKitTests
     dependencies:
       - target: GupWorks3
+      - package: Hammer
+        product: Hammer
     settings:
       base:
         GENERATE_INFOPLIST_FILE: "YES"
