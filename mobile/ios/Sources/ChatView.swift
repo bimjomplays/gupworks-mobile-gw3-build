@@ -20,21 +20,22 @@ struct ChatView: View {
     @State private var newTitle = ""
     @State private var confirmDelete = false
     @State private var selecting: SelectedText?
-    // slice 6: a project's main chat has the D9 sheet (threads, Library, Scheduled)
+    // a121: a project's main chat (05) has its Overview (06-10) and settings (11); a thread's chat (07) its task
     @State private var project: ProjectStore?
     @State private var showProject = false
-    @State private var projectDetent: PresentationDetent = .medium
-    @State private var projectTab: ProjectTab = .threads
     @State private var projectPath = NavigationPath()
     @State private var pendingChat: String?
+    @State private var pendingPut: String?
     @State private var opensSheet: Bool
-    @State private var confirmArchiveProject = false
+    @State private var showSettings = false
+    @State private var showTask = false
+    @State private var confirmStop = false
     @Environment(\.openChat) private var openChat
     @Environment(\.scenePhase) private var phase
     @Environment(\.dismiss) private var dismiss
     @Environment(AppModel.self) private var model
 
-    /// `projectSheet`: a project's main chat opened from the list shows its threads sheet at once (D9)
+    /// `projectSheet`: a project's main chat opens with its Overview up (06)
     init(id: String?, pairing: Pairing?, demo: Bool, projectSheet: Bool = false, shell: ChatShell? = nil) {
         self.shell = shell
         _store = State(initialValue: ChatStore(id: id ?? "", pairing: pairing, demo: demo))
@@ -51,16 +52,43 @@ struct ChatView: View {
         return h.project?.id
     }
 
+    /// a thread's own chat (07): its task, state and moves
+    private var work: ChatHeader.WorkInfo? {
+        guard let h = store.header, h.role == "worker" else { return nil }
+        return h.work
+    }
+
+    /// the project this chat leads or works in
+    private var projectOf: String? {
+        if let m = mainOf { return m }
+        guard let w = work else { return nil }
+        return w.projectId ?? store.header?.project?.id
+    }
+
+    /// the thread as the project's view has it now (live state), when this is a thread's chat
+    private var liveThread: ThreadItem? {
+        guard let w = work else { return nil }
+        return project?.view?.allThreads.first { $0.id == w.id }
+    }
+
+    private var threadsById: [String: ThreadItem] {
+        Dictionary((project?.view?.allThreads ?? []).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+    }
+
     /// split from body so the compiler can type-check it
     private func projectParts(_ v: some View) -> some View {
         v
-            .onChange(of: mainOf, initial: true) { _, pid in
+            .onChange(of: projectOf, initial: true) { _, pid in
                 guard let pid else { return }
                 if project?.id != pid { project = ProjectStore(id: pid, pairing: model.pairing, demo: model.demo) }
-                if opensSheet {
+                if opensSheet && mainOf != nil {
                     opensSheet = false
-                    projectDetent = .medium
-                    showProject = true
+                    projectPath = NavigationPath()
+                    // after the push has settled and the sheet can see the store just made
+                    Task {
+                        try? await Task.sleep(nanoseconds: 600_000_000)
+                        showProject = true
+                    }
                 }
             }
             .task(id: "\(phase == .active) \(project?.id ?? "")") {
@@ -70,25 +98,43 @@ struct ChatView: View {
                 if let id = pendingChat {
                     pendingChat = nil
                     openChat?(id)
+                } else if let text = pendingPut {
+                    pendingPut = nil
+                    store.put(text)
                 }
             }) {
                 if let project {
-                    ProjectSheet(store: project, tab: $projectTab, path: $projectPath, detent: $projectDetent) { id in
-                        pendingChat = id
+                    ProjectOverview(store: project, path: $projectPath, open: { id in
+                        if id != store.id { pendingChat = id }
                         showProject = false
+                    }, close: {
+                        showProject = false
+                    }, put: { text in
+                        pendingPut = text
+                        showProject = false
+                    })
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                if let pid = projectOf {
+                    ProjectSettingsSheet(projectId: pid) {
+                        // archived or deleted: its chat goes too, once the sheet has gone
+                        Task {
+                            try? await Task.sleep(nanoseconds: 450_000_000)
+                            leave()
+                        }
                     }
                 }
             }
-            .confirmationDialog("Archive \u{201C}\(project?.view?.name ?? "this project")\u{201D}?",
-                                isPresented: $confirmArchiveProject, titleVisibility: .visible) {
-                Button("Archive", role: .destructive) {
-                    guard let project else { return }
-                    Task { if await project.setArchived(true) { leave() } }
-                }
+            .sheet(isPresented: $showTask) {
+                if let work { TaskSheet(work: work) }
+            }
+            .confirmationDialog("Stop \u{201C}\(work?.title ?? "this thread")\u{201D}?", isPresented: $confirmStop,
+                                titleVisibility: .visible) {
+                Button("Stop", role: .destructive) { threadMove("stop") }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("It leaves your projects on the PC and the phone; its threads stop. It can be brought back from "
-                     + "the PC's archive.")
+                Text("Its Claude stops working on it. The thread stays in the project, so it can be picked up again.")
             }
             .alert("That didn't work", isPresented: Binding(get: { !showProject && project?.actionError != nil },
                                                            set: { if !$0 { project?.actionError = nil } })) {
@@ -96,6 +142,7 @@ struct ChatView: View {
             } message: {
                 Text(project?.actionError ?? "")
             }
+            .environment(\.projectThreads, threadsById)
     }
 
     /// The sheet closes first when something else is shown (one sheet at a time).
@@ -108,22 +155,20 @@ struct ChatView: View {
         }
     }
 
-    /// The Threads button: the sheet at full height (D9), or closed when it's already there.
-    private func toggleThreads() {
-        if showProject && projectDetent == .large {
+    /// 05's Overview button: the sheet, or closed when it's already up.
+    private func toggleOverview() {
+        if showProject {
             showProject = false
         } else {
-            projectTab = .threads
             projectPath = NavigationPath()
-            projectDetent = .large
             showProject = true
         }
     }
 
-    private func showProjectInfo() {
-        projectPath = NavigationPath([ProjectInfoRoute()])
-        projectDetent = .large
-        showProject = true
+    /// 07's ⋯: Pause or Resume, Mark done, Archive, Stop, as the Overview's swipes do
+    private func threadMove(_ move: String) {
+        guard let w = work, let project else { return }
+        Task { await project.move(move, thread: w.id) }
     }
 
     private var chat: some View {
@@ -134,8 +179,14 @@ struct ChatView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                 }
+                if let w = work, !store.more, store.header != nil {
+                    TaskCard(work: w) { showTask = true }
+                        .padding(.top, 12)
+                        .padding(.bottom, 4)
+                }
                 ForEach(store.turns) { t in
-                    TurnView(turn: t, base: store.baseURL, open: folds[t.id] ?? t.open) {
+                    TurnView(turn: t, base: store.baseURL, open: folds[t.id] ?? t.open,
+                             briefed: work != nil && !store.more && t.kind == "prompt" && t.id == store.turns.first?.id) {
                         withAnimation(.easeInOut(duration: 0.2)) { folds[t.id] = !(folds[t.id] ?? t.open) }
                     }
                 }
@@ -155,6 +206,10 @@ struct ChatView: View {
                     }
                     .id(d.sig ?? d.kind)
                     .padding(.top, 14)
+                }
+                if let w = work, (liveThread?.glyph ?? w.glyph) == "spin" {
+                    LiveLine(text: liveThread?.detail ?? w.detail)
+                        .padding(.top, 14)
                 }
                 footer
             }
@@ -223,7 +278,7 @@ struct ChatView: View {
         }
         .animation(.easeOut(duration: 0.18), value: usageOpen)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Composer(store: store, usage: usage, asking: asking, usageOpen: $usageOpen)
+            Composer(store: store, usage: usage, asking: asking, usageOpen: $usageOpen, prompt: composerPrompt)
         }
         .onChange(of: shell?.temporary ?? false, initial: true) { _, on in
             if store.isNew { store.temporary = on }
@@ -250,7 +305,6 @@ struct ChatView: View {
             CardDetailView(store: store, cardId: r.id)
         }
         .environment(\.messageActions, actions)
-        .environment(\.chatPhotos, photoSource)
     }
 
     /// split from body so the compiler can type-check it
@@ -305,14 +359,6 @@ struct ChatView: View {
     }
 
     private var pinned: Bool { store.header?.pinned ?? false }
-
-    /// the chat's pictures for the photo viewer: open one, swipe through them all (older pages load at the first)
-    private var photoSource: PhotoSource {
-        let s = store
-        return PhotoSource(photos: { ChatPhotos.collect(turns: s.turns) },
-                           more: { s.more },
-                           loadOlder: { await s.loadOlder() })
-    }
 
     /// D7's long-press actions and the thread card's answers, for the turns below
     private var actions: MessageActions {
@@ -425,6 +471,13 @@ struct ChatView: View {
                     .accessibilityIdentifier("temporaryChat")
                 }
             }
+        } else if mainOf != nil || work != nil {
+            ToolbarItem(placement: .principal) {
+                projectPill
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                if mainOf != nil { overviewButton } else { threadMenu }
+            }
         } else {
             ToolbarItem(placement: .principal) {
                 // 5e: just the title; the gauge holds the model. A tap opens the chat's details (D5).
@@ -442,28 +495,6 @@ struct ChatView: View {
                 .accessibilityIdentifier("chatTitle")
             }
             .sharedBackgroundVisibility(.hidden)
-            if let project {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(action: toggleThreads) {
-                        Image(systemName: "sidebar.left")
-                            .foregroundStyle(Theme.rowTitle)
-                            .overlay(alignment: .topTrailing) {
-                                if let n = project.view?.counts.threads, n > 0 {
-                                    Text("\(n)")
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundStyle(.white)
-                                        .padding(.horizontal, 5)
-                                        .frame(minWidth: 17, minHeight: 17)
-                                        .background(Color(hex: 0x2F5FB3), in: Capsule())
-                                        .offset(x: 10, y: -9)
-                                }
-                            }
-                    }
-                    .accessibilityLabel("Threads")
-                    .accessibilityValue(project.view.map { Format.plural($0.counts.threads, "thread") } ?? "")
-                    .accessibilityIdentifier("threadsButton")
-                }
-            }
             if let shell {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: shell.newChat) {
@@ -479,6 +510,90 @@ struct ChatView: View {
         }
     }
 
+    /// 05: the project's icon and name, a tap for its settings (11); 07: the thread's state and title, a tap for
+    /// its task.
+    private var projectPill: some View {
+        Button {
+            if mainOf != nil { overSheet { showSettings = true } } else { showTask = true }
+        } label: {
+            HStack(spacing: 10) {
+                if let w = work {
+                    ThreadMark(glyph: liveThread?.glyph ?? w.glyph, size: 20)
+                    Text(w.title)
+                } else {
+                    let p = store.header?.project
+                    ProjectTile(icon: project?.view?.icon ?? p?.icon, color: project?.view?.color ?? p?.color,
+                                size: 30, iconSize: 17, radius: 15)
+                    Text(project?.view?.name ?? p?.name ?? store.header?.title ?? "")
+                }
+            }
+            .font(.system(size: 17, weight: .semibold))
+            .foregroundStyle(Theme.title)
+            .lineLimit(1)
+            .padding(.leading, work == nil ? 2 : 8)
+            .padding(.trailing, 10)
+            .frame(maxWidth: 240)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(pillLabel)
+        .accessibilityIdentifier(mainOf != nil ? "projectPill" : "threadPill")
+    }
+
+    private var pillLabel: String {
+        if let w = work { return "\(w.title), \(liveThread?.word ?? w.word ?? w.status)" }
+        return "\(project?.view?.name ?? store.header?.project?.name ?? "Project") settings"
+    }
+
+    /// 05's Overview button: violet dot while something in the project needs you
+    private var overviewButton: some View {
+        let needs = (project?.view?.counts.needs ?? 0) > 0 || project?.view?.mainNeeds != nil
+        return Button(action: toggleOverview) {
+            LucideIcon(name: "list-checks", size: 21)
+                .foregroundStyle(Theme.rowTitle)
+                .overlay(alignment: .topTrailing) {
+                    if needs { Circle().fill(Theme.violet).frame(width: 8, height: 8).offset(x: 3, y: -3) }
+                }
+        }
+        .accessibilityLabel("Overview")
+        .accessibilityValue(needs ? "Something needs you" : "")
+        .accessibilityIdentifier("overviewButton")
+    }
+
+    /// 07's ⋯: the thread's moves
+    private var threadMenu: some View {
+        let moves = liveThread?.moves ?? work?.moves ?? []
+        return Menu {
+            Button("Task", systemImage: "target") { showTask = true }
+            Section {
+                if moves.contains("pause") { Button("Pause", systemImage: "pause") { threadMove("pause") } }
+                if moves.contains("resume") { Button("Resume", systemImage: "play") { threadMove("resume") } }
+                if moves.contains("done") { Button("Mark done", systemImage: "checkmark") { threadMove("done") } }
+                if moves.contains("archive") { Button("Archive", systemImage: "archivebox") { threadMove("archive") } }
+                if moves.contains("unarchive") {
+                    Button("Unarchive", systemImage: "tray.and.arrow.up") { threadMove("unarchive") }
+                }
+            }
+            if moves.contains("stop") {
+                Section {
+                    Button("Stop\u{2026}", systemImage: "stop", role: .destructive) { confirmStop = true }
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis").foregroundStyle(Theme.rowTitle)
+        }
+        .disabled(store.header == nil)
+        .accessibilityLabel("More")
+        .accessibilityIdentifier("more")
+    }
+
+    private var composerPrompt: String? {
+        if mainOf != nil { return "Message the main chat" }
+        if work != nil { return "Message this thread" }
+        return nil
+    }
+
     private var titleText: some View {
         Text(store.header?.title ?? " ")
             .font(.system(size: 17, weight: .semibold))
@@ -488,22 +603,6 @@ struct ChatView: View {
 
     private var moreMenu: some View {
         Menu {
-            if let v = project?.view, let pid = project?.id {
-                Section(v.name) {
-                    Button("Project info", systemImage: "info.circle", action: showProjectInfo)
-                    let pinnedProject = model.isPinned(project: pid)
-                    Button(pinnedProject ? "Unpin" : "Pin", systemImage: pinnedProject ? "pin.slash" : "pin") {
-                        Task { await model.togglePin(project: pid) }
-                    }
-                    Button(v.paused ? "Resume project" : "Pause project",
-                           systemImage: v.paused ? "play" : "pause") {
-                        Task { await project?.setPaused(!v.paused) }
-                    }
-                    Button("Archive project\u{2026}", systemImage: "archivebox") {
-                        overSheet { confirmArchiveProject = true }
-                    }
-                }
-            }
             Section {
                 // slice 8
                 Button("Claude's browser", systemImage: "globe") {}.disabled(true)
@@ -585,12 +684,13 @@ struct TurnView: View {
     let turn: Turn
     let base: URL?
     let open: Bool
+    /// a thread's first turn: its prompt is the brief, which the task card above stands for (07)
+    var briefed = false
     let toggle: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PromptView(turn: turn, base: base)
-                .environment(\.photoScope, ChatPhotos.promptScope(turn.id))
+            if !briefed { PromptView(turn: turn, base: base) }
             if let h = turn.handle {
                 HandleRow(handle: h, open: open, turnId: turn.id, toggle: toggle)
                     .padding(.top, 10)
@@ -598,7 +698,6 @@ struct TurnView: View {
             if lastAnswer == nil { outsideViews }
             ForEach(Array(shown.enumerated()), id: \.offset) { _, item in
                 BlockView(block: item.block, base: base)
-                    .environment(\.photoScope, ChatPhotos.blockScope(turn.id, item.index))
                 if item.index == lastAnswer { outsideViews }
             }
         }
@@ -669,16 +768,14 @@ struct Bubble: View {
     let prompt: Prompt
     let base: URL?
     var queued = false
-    @Environment(\.chatPhotos) private var photos
-    @Environment(\.photoScope) private var scope
-    @State private var open: MediaOpen?
+    @State private var open: MDItem?
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
             if let images = prompt.images, !images.isEmpty {
                 PhotoGrid {
-                    ForEach(Array(images.enumerated()), id: \.offset) { k, link in
-                        Button { openPicture(link, at: k) } label: {
+                    ForEach(Array(images.enumerated()), id: \.offset) { _, link in
+                        Button { open = MDItem(kind: "image", url: link, name: "Your picture") } label: {
                             PhotoTile { RemoteImage(url: MediaLink.url(link, base: base), fill: true) }
                         }
                         .buttonStyle(.plain)
@@ -715,12 +812,7 @@ struct Bubble: View {
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.top, 4)
-        .fullScreenCover(item: $open) { MediaViewer(open: $0, base: base, source: photos) }
-    }
-
-    private func openPicture(_ link: String, at k: Int) {
-        let item = MDItem(kind: "image", url: link, name: "Your picture")
-        open = MediaOpen.picture(item, id: scope.map { ChatPhotos.id(scope: $0, item: k) }, source: photos)
+        .fullScreenCover(item: $open) { MediaViewer(item: $0, base: base) }
     }
 }
 
@@ -979,20 +1071,152 @@ private struct NoticeCard: View {
     }
 }
 
+// MARK: - a thread's chat (07)
+
+/// 07: what the thread was asked, at the top of its chat; a tap shows all of it with how it's checked.
+private struct TaskCard: View {
+    let work: ChatHeader.WorkInfo
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 9) {
+                    LucideIcon(name: "target", size: 17).foregroundStyle(Color(hex: 0x98989F))
+                    Text(work.from == "you" ? "Your task" : "Task from the main chat")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color(hex: 0x98989F))
+                    Spacer(minLength: 6)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color(hex: 0x6C6C70))
+                }
+                Text(work.title)
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Theme.title)
+                    .padding(.top, 10)
+                if !work.outcome.isEmpty {
+                    Text(work.outcome)
+                        .font(.system(size: 15.5))
+                        .foregroundStyle(Color(hex: 0x98989F))
+                        .lineSpacing(4)
+                        .lineLimit(5)
+                        .multilineTextAlignment(.leading)
+                        .padding(.top, 6)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(Color(hex: 0x111113), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0x2C2C2E), lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("taskCard")
+    }
+}
+
+/// The task in full: its outcome and the checks it's held to.
+private struct TaskSheet: View {
+    let work: ChatHeader.WorkInfo
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(work.title).font(.system(size: 19, weight: .semibold)).foregroundStyle(Theme.title)
+                        Text("\(work.id) \u{00B7} \(work.from == "you" ? "your own thread" : "from the main chat")")
+                            .font(.system(size: 15)).foregroundStyle(SheetStyle.label)
+                    }
+                    .padding(.vertical, 4)
+                }
+                if !work.outcome.isEmpty {
+                    Section {
+                        Text(work.outcome).font(.system(size: 17)).foregroundStyle(Theme.rowTitle).textSelection(.enabled)
+                    } header: { Text("Outcome").textCase(nil) }
+                }
+                if !work.criteria.isEmpty {
+                    Section {
+                        ForEach(Array(work.criteria.enumerated()), id: \.offset) { _, c in
+                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                Image(systemName: "checkmark.circle").foregroundStyle(SheetStyle.label)
+                                Text(c).font(.system(size: 16)).foregroundStyle(Theme.rowTitle)
+                            }
+                        }
+                    } header: { Text("How it's checked").textCase(nil) }
+                }
+            }
+            .listRowBackground(SheetStyle.field)
+            .scrollContentBackground(.hidden)
+            .background(SheetStyle.background)
+            .navigationTitle("Task")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: { Image(systemName: "xmark") }
+                        .accessibilityLabel("Close")
+                        .accessibilityIdentifier("taskClose")
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationBackground(SheetStyle.background)
+    }
+}
+
+/// 07: what the thread is doing now, under its newest turn.
+private struct LiveLine: View {
+    /// the thread's activity as the server words it ("writing script.js 2m ago")
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Spinner()
+            Text(shown)
+                .font(.system(size: 16))
+                .foregroundStyle(Theme.rowTitle)
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("liveLine")
+    }
+
+    private var shown: String {
+        guard let first = text.first else { return "Working" }
+        return first.uppercased() + text.dropFirst()
+    }
+}
+
 // MARK: - outside the fold
 
 private struct OutsideView: View {
     let item: Outside
+    @Environment(\.projectThreads) private var live
+    @Environment(\.openChat) private var openChat
 
     var body: some View {
         switch item.type {
         case "ask":
             AskCard(item: item).padding(.top, 12)
         case "threads":
-            OutsideBox(title: item.title ?? "", meta: "", foldable: false) {
-                ForEach(item.threads ?? [], id: \.id) { t in
-                    row(icon: "arrow.triangle.branch", title: "\(t.id) \(t.title)", line: t.model, state: "")
+            if live.isEmpty {
+                OutsideBox(title: item.title ?? "", meta: "", foldable: false) {
+                    ForEach(item.threads ?? [], id: \.id) { t in
+                        row(icon: "arrow.triangle.branch", title: "\(t.id) \(t.title)", line: t.model, state: "")
+                    }
                 }
+            } else {
+                // 05: one live card per thread it started; a tap opens the thread (07)
+                VStack(spacing: 10) {
+                    ForEach(item.threads ?? [], id: \.id) { t in
+                        ThreadCard(info: t, live: live[t.id]) { id in openChat?(id) }
+                    }
+                }
+                .padding(.top, 12)
             }
         case "helpers":
             OutsideBox(title: item.title ?? "", meta: item.stats ?? "", foldable: true) {
@@ -1089,7 +1313,44 @@ private struct OutsideBox<Rows: View>: View {
     }
 }
 
-/// D11's "THREAD NEEDS YOU" card: a choice answers in this chat as `a6: Land it as is`, which the main chat passes on.
+/// 05: a thread the main chat started, live: ✓ landed, the spinner while working, violet when it needs you.
+private struct ThreadCard: View {
+    let info: Outside.ThreadInfo
+    let live: ThreadItem?
+    let open: (String) -> Void
+
+    var body: some View {
+        let glyph = live?.glyph ?? "ring"
+        let word = live?.word ?? live?.status ?? ""
+        Button { if let c = live?.chatId { open(c) } } label: {
+            HStack(spacing: 14) {
+                ThreadMark(glyph: glyph, size: 24)
+                Text(live?.title ?? info.title)
+                    .font(.system(size: 17))
+                    .foregroundStyle(Theme.rowTitle)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text(word.isEmpty ? info.id : "\(info.id) \u{00B7} \(word)")
+                    .font(.system(size: 15))
+                    .foregroundStyle(glyph == "spin" ? Theme.blue : glyph == "needs" ? Theme.violet : Color(hex: 0x8E8E93))
+                    .lineLimit(1)
+                    .layoutPriority(1)
+            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 56)
+            .background(Color(hex: 0x111113), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0x2C2C2E), lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(live?.chatId == nil)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("threadCard-\(info.id)")
+    }
+}
+
+/// 05's NEEDS YOU card: the main chat's own question (or a thread's, passed on); a choice answers in this chat,
+/// a thread's as `a6: Land it as is`.
 private struct AskCard: View {
     let item: Outside
     @Environment(\.messageActions) private var actions
@@ -1099,12 +1360,15 @@ private struct AskCard: View {
         let answered = item.answered == true || sent != nil
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text(answered ? "THREAD ASKED · ANSWERED" : "THREAD NEEDS YOU")
-                    .font(.system(size: 12, weight: .semibold))
-                    .tracking(0.6)
-                    .foregroundStyle(Theme.violetText)
+                HStack(spacing: 8) {
+                    if !answered { Circle().fill(Theme.violet).frame(width: 8, height: 8) }
+                    Text(answered ? "ANSWERED" : "NEEDS YOU")
+                        .font(.system(size: 13, weight: .semibold))
+                        .tracking(0.6)
+                        .foregroundStyle(Theme.violetText)
+                }
                 Spacer()
-                Text([item.work ?? "", Format.shortModel(item.model ?? "")].filter { !$0.isEmpty }.joined(separator: " · "))
+                Text((item.work ?? "").isEmpty ? "" : [item.work ?? "", Format.shortModel(item.model ?? "")].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.system(size: 13))
                     .foregroundStyle(ChatStyle.dim)
             }
@@ -1125,10 +1389,10 @@ private struct AskCard: View {
                             Text(o)
                                 .font(.system(size: 16))
                                 .foregroundStyle(i == 0 ? .white : ChatStyle.body)
-                                .padding(.horizontal, 16)
+                                .padding(.horizontal, 18)
                                 .frame(height: 44)
-                                .background(i == 0 ? ChatStyle.bubble : .clear, in: RoundedRectangle(cornerRadius: 12))
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(i == 0 ? ChatStyle.bubble : Color(hex: 0x34343A), lineWidth: 1))
+                                .background(i == 0 ? ChatStyle.bubble : .clear, in: Capsule())
+                                .overlay(Capsule().stroke(i == 0 ? ChatStyle.bubble : Color(hex: 0x3A3A40), lineWidth: 1))
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -1143,15 +1407,11 @@ private struct AskCard: View {
                     .padding(.top, 8)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 12)
-        .padding(.bottom, 14)
-        .background(Color(hex: 0x17151D), in: RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(answered ? Color(hex: 0x3A3358) : Theme.blue.opacity(0.75), lineWidth: answered ? 1 : 2)
-        )
-        .shadow(color: answered ? .clear : Theme.blue.opacity(0.25), radius: 12)
+        .padding(.horizontal, 18)
+        .padding(.top, 14)
+        .padding(.bottom, 16)
+        .background(Color(hex: 0x14121E), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color(hex: 0x37325A), lineWidth: 1))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("ask")
     }
