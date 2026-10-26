@@ -213,7 +213,8 @@ struct UsageCard: View {
 
     static let bg = Color(hex: 0x1C1C1E)
     static let edge = Color(hex: 0x2F2F31)
-    static let maxWidth: CGFloat = 300
+    /// always this wide, wherever it's shown (a flexible width once collapsed to a sliver with the keyboard up)
+    static let width: CGFloat = 300
 
     var body: some View {
         let rows = UsageCard.rows(usage, now: now)
@@ -242,7 +243,7 @@ struct UsageCard: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 15)
-        .frame(maxWidth: Self.maxWidth, alignment: .leading)
+        .frame(width: Self.width, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .background(Self.bg, in: RoundedRectangle(cornerRadius: 18))
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Self.edge, lineWidth: 1))

@@ -160,9 +160,6 @@ struct ChatView: View {
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 12)
-            // the column is the screen's width, whatever is in it: something too wide can't widen the chat and push
-            // the box and its send button off screen
-            .containerRelativeFrame(.horizontal)
         }
         .defaultScrollAnchor(.bottom)
         .scrollPosition($position)
@@ -205,7 +202,7 @@ struct ChatView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if usageOpen {
+            if usageOpen && !store.isNew {
                 // 5g: the card over a dimmed chat; the box below stays as it is
                 ZStack(alignment: .bottom) {
                     Color.black.opacity(0.4)

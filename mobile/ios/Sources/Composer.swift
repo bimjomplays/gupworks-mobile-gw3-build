@@ -212,18 +212,22 @@ struct Composer: View {
         .accessibilityIdentifier("gauge")
     }
 
-    /// the three rings: context, 5-hour, weekly (5g's card)
+    /// the three rings: context, 5-hour, weekly (5g's card). Before a chat exists (home, a new chat) they draw
+    /// empty and the button does nothing; the first message, or any existing chat, brings them to life.
     private var ringsButton: some View {
-        let ctx = usage.first { $0.label == "ctx" }?.percent
-        return Button { usageOpen.toggle() } label: {
-            UsageRings(percents: [ctx, usage.first { $0.label == "5h" }?.percent, usage.first { $0.label == "wk" }?.percent])
+        let live = !store.isNew
+        let ctx = live ? usage.first { $0.label == "ctx" }?.percent : nil
+        return Button { if live { usageOpen.toggle() } } label: {
+            UsageRings(percents: live
+                       ? [ctx, usage.first { $0.label == "5h" }?.percent, usage.first { $0.label == "wk" }?.percent]
+                       : [nil, nil, nil])
                 .frame(width: 37, height: 40)
                 .background(usageOpen ? Color(hex: 0x2C2C2E) : .clear, in: RoundedRectangle(cornerRadius: 20))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Usage")
-        .accessibilityValue("Context \(Int((ctx ?? 0).rounded())) percent used")
+        .accessibilityValue(live ? "Context \(Int((ctx ?? 0).rounded())) percent used" : "No chat yet")
         .accessibilityIdentifier("usage")
     }
 

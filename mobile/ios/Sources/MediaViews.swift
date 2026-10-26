@@ -32,7 +32,7 @@ final class ImageCache {
     }
 }
 
-/// Your photos in a message: square tiles in rows of up to three (four when there are more than six), right-aligned,
+/// Your photos in a message: square tiles in rows of two to four (four and nine make square blocks), right-aligned,
 /// wrapping onto more rows. Never wider than the width it's offered: one long row of 96 pt tiles once made the
 /// whole chat wider than the screen and pushed the box and its send button off it.
 struct PhotoGrid: Layout {
@@ -48,7 +48,7 @@ struct PhotoGrid: Layout {
     /// how `count` tiles sit in `width` (nil: as wide as they like)
     static func shape(count: Int, width: CGFloat?, tile: CGFloat = 96, spacing: CGFloat = 6) -> Shape {
         guard count > 0 else { return Shape(columns: 0, rows: 0, side: 0) }
-        var columns = min(count, count > 6 ? 4 : 3)
+        var columns = count <= 9 ? [1, 2, 3, 2, 3, 3, 4, 4, 3][count - 1] : 4
         guard let width, width.isFinite else {
             return Shape(columns: columns, rows: (count + columns - 1) / columns, side: tile)
         }

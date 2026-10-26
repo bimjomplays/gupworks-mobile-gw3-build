@@ -984,6 +984,8 @@ final class PhotoGridTests: XCTestCase {
         XCTAssertEqual(PhotoGrid.shape(count: 6, width: 297), .init(columns: 3, rows: 2, side: 95))
         XCTAssertEqual(PhotoGrid.shape(count: 12, width: 297), .init(columns: 4, rows: 3, side: 69))
         XCTAssertEqual(PhotoGrid.shape(count: 2, width: 344), .init(columns: 2, rows: 1, side: 96))
+        XCTAssertEqual(PhotoGrid.shape(count: 4, width: 297), .init(columns: 2, rows: 2, side: 96))
+        XCTAssertEqual(PhotoGrid.shape(count: 9, width: 297), .init(columns: 3, rows: 3, side: 95))
         XCTAssertEqual(PhotoGrid.shape(count: 0, width: 297).columns, 0)
         // asked how wide it likes to be: three 96 pt tiles, never one long row
         XCTAssertEqual(PhotoGrid.shape(count: 6, width: nil), .init(columns: 3, rows: 2, side: 96))
