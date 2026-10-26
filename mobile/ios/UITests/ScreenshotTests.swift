@@ -1121,6 +1121,42 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(find(app, "Looks good").exists)
     }
 
+    /// a127: drag the chat down a little (older turns come into view) so text passes under the glass top bar
+    private func scrollUnderBar(_ app: XCUIApplication, by fraction: CGFloat = 0.18) {
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35 + fraction))
+        from.press(forDuration: 0.1, thenDragTo: to)
+        sleep(1)
+    }
+
+    /// a127: no band across the top; the glass pills float and the chat shows blurred behind them
+    func testA127GlassBarProject() {
+        let app = project()
+        XCTAssertTrue(find(app, "NEEDS YOU").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "overviewButton").exists)
+        scrollUnderBar(app)
+        shot("a127-project-chat")
+        scrollUnderBar(app, by: 0.3)
+        shot("a127-project-chat-2")
+    }
+
+    func testA127GlassBarThread() {
+        let app = launch(["-place", "projects", "-push", contact])
+        XCTAssertTrue(el(app, "threadPill").waitForExistence(timeout: 20))
+        XCTAssertTrue(el(app, "taskCard").waitForExistence(timeout: 10))
+        scrollUnderBar(app)
+        shot("a127-thread")
+    }
+
+    func testA127GlassBarChat() {
+        let app = openChat(gallery, waitFor: "All five pages pass")
+        unfoldLast(app)
+        scrollUnderBar(app)
+        shot("a127-chat")
+        scrollUnderBar(app, by: 0.3)
+        shot("a127-chat-2")
+    }
+
     /// 05 → 07: a thread card opens the thread; Back returns to the main chat
     func testP05ThreadCardOpensThread() {
         let app = project()

@@ -293,9 +293,10 @@ struct ChatView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        // a solid bar under the title, as in D2: turns scroll under it instead of showing through
-        .toolbarBackground(Theme.background, for: .navigationBar)
-        .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+        // no bar band (a127): the turns scroll under the floating glass buttons and title pill, softly blurred and
+        // faded at the top edge, as in Claude's app
+        .toolbarBackgroundVisibility(.hidden, for: .navigationBar)
+        .scrollEdgeEffectStyle(.soft, for: .top)
         .toolbar { toolbar }
         .task(id: "\(phase == .active) \(store.id)") {
             if phase == .active { await store.run() }
@@ -489,6 +490,7 @@ struct ChatView: View {
             ToolbarItem(placement: .principal) {
                 projectPill
             }
+            .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .topBarTrailing) {
                 if mainOf != nil { overviewButton } else { threadMenu }
             }
@@ -499,9 +501,10 @@ struct ChatView: View {
                     // its own width (centred by the bar), cut at 230 pt when long
                     ViewThatFits(in: .horizontal) {
                         titleText.fixedSize()
-                        titleText.frame(width: 230)
+                        titleText.frame(width: 200)
                     }
-                    .frame(maxWidth: 230)
+                    .frame(maxWidth: 200)
+                    .glassPill()
                 }
                 .buttonStyle(.plain)
                 .disabled(store.header == nil)
@@ -544,10 +547,8 @@ struct ChatView: View {
             .font(.system(size: 17, weight: .semibold))
             .foregroundStyle(Theme.title)
             .lineLimit(1)
-            .padding(.leading, work == nil ? 2 : 8)
-            .padding(.trailing, 10)
-            .frame(maxWidth: 240)
-            .contentShape(Capsule())
+            .frame(maxWidth: 210)
+            .glassPill(leading: work == nil ? 7 : 16)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -1476,5 +1477,17 @@ struct FlowLayout: Layout {
             x += size.width + spacing
             row = max(row, size.height)
         }
+    }
+}
+
+extension View {
+    /// the chat title's floating Liquid Glass capsule (a127): 44 pt tall like the round buttons beside it
+    func glassPill(leading: CGFloat = 18) -> some View {
+        self
+            .padding(.leading, leading)
+            .padding(.trailing, 18)
+            .frame(height: 44)
+            .glassEffect(.regular.interactive(), in: .capsule)
+            .contentShape(Capsule())
     }
 }
