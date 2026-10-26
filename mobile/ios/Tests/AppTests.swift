@@ -958,3 +958,35 @@ final class MenuAndBoxTests: XCTestCase {
         XCTAssertEqual(past[1].detail, "Reset")
     }
 }
+
+/// Your photos in a message never get wider than the room they're given (a row of six once widened the whole chat).
+final class PhotoGridTests: XCTestCase {
+    private func width(_ s: PhotoGrid.Shape, spacing: CGFloat = 6) -> CGFloat {
+        CGFloat(s.columns) * s.side + CGFloat(max(s.columns - 1, 0)) * spacing
+    }
+
+    func testFitsEveryCountOnEveryPhone() {
+        // the bubble's room on a 375, 393 and 440 pt wide iPhone (screen - 2 × 18 - 60), and something narrow
+        for room in [279.0, 297.0, 344.0, 120.0, 40.0] as [CGFloat] {
+            for n in 1...24 {
+                let s = PhotoGrid.shape(count: n, width: room)
+                XCTAssertLessThanOrEqual(width(s), room, "\(n) photos in \(room) pt")
+                XCTAssertEqual(s.rows, (n + s.columns - 1) / s.columns)
+                XCTAssertGreaterThanOrEqual(s.columns * s.rows, n)
+                XCTAssertGreaterThan(s.side, 0)
+            }
+        }
+    }
+
+    func testShapes() {
+        XCTAssertEqual(PhotoGrid.shape(count: 1, width: 297), .init(columns: 1, rows: 1, side: 96))
+        XCTAssertEqual(PhotoGrid.shape(count: 3, width: 297), .init(columns: 3, rows: 1, side: 95))
+        XCTAssertEqual(PhotoGrid.shape(count: 6, width: 297), .init(columns: 3, rows: 2, side: 95))
+        XCTAssertEqual(PhotoGrid.shape(count: 12, width: 297), .init(columns: 4, rows: 3, side: 69))
+        XCTAssertEqual(PhotoGrid.shape(count: 2, width: 344), .init(columns: 2, rows: 1, side: 96))
+        XCTAssertEqual(PhotoGrid.shape(count: 0, width: 297).columns, 0)
+        // asked how wide it likes to be: three 96 pt tiles, never one long row
+        XCTAssertEqual(PhotoGrid.shape(count: 6, width: nil), .init(columns: 3, rows: 2, side: 96))
+        XCTAssertEqual(PhotoGrid.shape(count: 6, width: .infinity), .init(columns: 3, rows: 2, side: 96))
+    }
+}

@@ -202,7 +202,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(el(app, "usage-wk").label.contains("41%"), el(app, "usage-wk").label)
         // small and whole: narrower than the screen, and every row inside the card
         let card = el(app, "usageCard").frame
-        XCTAssertEqual(card.width, 300, accuracy: 1, "the card keeps its fixed width: \(card)")
+        XCTAssertLessThanOrEqual(card.width, 340, "\(card)")
         XCTAssertLessThan(card.height, 260, "\(card)")
         for l in ["ctx", "5h", "wk"] {
             let r = el(app, "usage-\(l)").frame
@@ -212,27 +212,6 @@ final class ScreenshotTests: XCTestCase {
         shot("5g-usage")
         el(app, "closeUsage").tap()
         XCTAssertTrue(el(app, "usageCard").waitForNonExistence(timeout: 5))
-    }
-
-    /// a118: on home (no chat yet) the rings draw empty and the button does nothing; the first message wakes it
-    func test5gUsageIsOffOnHome() {
-        let app = launch()
-        let usage = app.buttons["usage"]
-        XCTAssertTrue(usage.waitForExistence(timeout: 20))
-        XCTAssertTrue(hasFocus(box(app)), "the keyboard is up, as in the screenshot that showed the sliver")
-        XCTAssertEqual(usage.value as? String, "No chat yet", "the rings are empty")
-        usage.tap()
-        sleep(1)
-        XCTAssertFalse(el(app, "usageCard").exists, "the button opens nothing on home")
-        XCTAssertFalse(el(app, "closeUsage").exists)
-        shot("a118-home-usage-off")
-        box(app).typeText("Plan a picnic for six")
-        app.buttons["send"].tap()
-        XCTAssertTrue(find(app, "This is the demo").waitForExistence(timeout: 5))
-        XCTAssertNotEqual(usage.value as? String, "No chat yet", "now there is a chat")
-        usage.tap()
-        XCTAssertTrue(el(app, "usageCard").waitForExistence(timeout: 5), "the card opens in a chat")
-        XCTAssertEqual(el(app, "usageCard").frame.width, 300, accuracy: 1)
     }
 
     func testMenuSearch() {
@@ -438,6 +417,64 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(find(app, "This is the demo").waitForExistence(timeout: 5))
         sleep(1)
         shot("chat-sent")
+    }
+
+    /// x inside the screen (an element scrolled off still has its real x)
+    private func onScreen(_ app: XCUIApplication, _ e: XCUIElement, _ what: String) {
+        let screen = app.windows.firstMatch.frame
+        XCTAssertTrue(e.exists, what)
+        XCTAssertGreaterThanOrEqual(e.frame.minX, screen.minX - 0.5, "\(what) starts left of the screen: \(e.frame)")
+        XCTAssertLessThanOrEqual(e.frame.maxX, screen.maxX + 0.5, "\(what) ends right of the screen: \(e.frame)")
+    }
+
+    /// a120: a message with six photos once laid them in one row wider than the screen, which widened the whole
+    /// chat: the box and its send button went off screen and nothing could be sent. Messages with 1, 3, 12, only
+    /// photos and 6 photos: every picture, the words and the box stay inside the screen.
+    func testPhotosStayInsideTheScreen() {
+        let six = "Here are six photos of the living room"
+        let app = openChat(chat(16), waitFor: six)
+        let words = find(app, six)
+        onScreen(app, words, "the 6-photo message's words")
+        XCTAssertGreaterThan(words.frame.height, 40, "the words wrap onto more lines")
+        onScreen(app, el(app, "chatTitle"), "the title")
+        onScreen(app, box(app), "the box")
+        let send = app.buttons["send"]
+        onScreen(app, send, "the send button")
+        XCTAssertTrue(send.isHittable, "the send button can be tapped")
+        let pictures = app.buttons.matching(identifier: "yourPicture")
+        // the newest message's six at least (the older ones too when the chat lists them while off screen)
+        XCTAssertGreaterThanOrEqual(pictures.count, 6, "the photos show")
+        for i in 0..<pictures.count {
+            onScreen(app, pictures.element(boundBy: i), "photo \(i + 1)")
+        }
+        sleep(1)
+        shot("photos-6")
+        // still typeable and sendable
+        box(app).tap()
+        box(app).typeText("Fog it is")
+        onScreen(app, send, "the send button while typing")
+        XCTAssertTrue(send.isHittable)
+        sleep(1)
+        shot("photos-typing")
+        app.buttons["send"].tap()
+        XCTAssertTrue(find(app, "This is the demo").waitForExistence(timeout: 5))
+        // up to the twelve photos and the message that is only photos
+        let twelve = find(app, "Every room, so you can see")
+        for _ in 0..<6 where !(twelve.exists && twelve.isHittable) {
+            app.swipeDown()
+        }
+        onScreen(app, twelve, "the 12-photo message's words")
+        onScreen(app, send, "the send button with the 12 photos in view")
+        sleep(1)
+        shot("photos-12")
+        let three = find(app, "And these three for the bedroom")
+        for _ in 0..<6 where !(three.exists && three.isHittable) {
+            app.swipeDown()
+        }
+        onScreen(app, three, "the 3-photo message's words")
+        XCTAssertTrue(app.descendants(matching: .any)["picture"].exists, "Claude's pictures show")
+        sleep(1)
+        shot("photos-1-3")
     }
 
     func testAttachMenu() {

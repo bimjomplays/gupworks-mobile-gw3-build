@@ -160,6 +160,9 @@ struct ChatView: View {
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 12)
+            // the column is the screen's width, whatever is in it: something too wide can't widen the chat and push
+            // the box and its send button off screen
+            .containerRelativeFrame(.horizontal)
         }
         .defaultScrollAnchor(.bottom)
         .scrollPosition($position)
@@ -202,7 +205,7 @@ struct ChatView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if usageOpen && !store.isNew {
+            if usageOpen {
                 // 5g: the card over a dimmed chat; the box below stays as it is
                 ZStack(alignment: .bottom) {
                     Color.black.opacity(0.4)
@@ -663,18 +666,18 @@ struct Bubble: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
             if let images = prompt.images, !images.isEmpty {
-                HStack(spacing: 6) {
-                    Spacer(minLength: 60)
-                    ForEach(images, id: \.self) { link in
+                PhotoGrid {
+                    ForEach(Array(images.enumerated()), id: \.offset) { _, link in
                         Button { open = MDItem(kind: "image", url: link, name: "Your picture") } label: {
-                            RemoteImage(url: MediaLink.url(link, base: base), fill: true)
-                                .frame(width: 96, height: 96)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                            PhotoTile { RemoteImage(url: MediaLink.url(link, base: base), fill: true) }
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Your picture")
+                        .accessibilityIdentifier("yourPicture")
                     }
                 }
+                .padding(.leading, 60)
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             if let text = prompt.text, !text.isEmpty {
                 HStack {

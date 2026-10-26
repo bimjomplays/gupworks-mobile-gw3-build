@@ -212,22 +212,18 @@ struct Composer: View {
         .accessibilityIdentifier("gauge")
     }
 
-    /// the three rings: context, 5-hour, weekly (5g's card). Before a chat exists (home, a new chat) they draw
-    /// empty and the button does nothing; the first message, or any existing chat, brings them to life.
+    /// the three rings: context, 5-hour, weekly (5g's card)
     private var ringsButton: some View {
-        let live = !store.isNew
-        let ctx = live ? usage.first { $0.label == "ctx" }?.percent : nil
-        return Button { if live { usageOpen.toggle() } } label: {
-            UsageRings(percents: live
-                       ? [ctx, usage.first { $0.label == "5h" }?.percent, usage.first { $0.label == "wk" }?.percent]
-                       : [nil, nil, nil])
+        let ctx = usage.first { $0.label == "ctx" }?.percent
+        return Button { usageOpen.toggle() } label: {
+            UsageRings(percents: [ctx, usage.first { $0.label == "5h" }?.percent, usage.first { $0.label == "wk" }?.percent])
                 .frame(width: 37, height: 40)
                 .background(usageOpen ? Color(hex: 0x2C2C2E) : .clear, in: RoundedRectangle(cornerRadius: 20))
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Usage")
-        .accessibilityValue(live ? "Context \(Int((ctx ?? 0).rounded())) percent used" : "No chat yet")
+        .accessibilityValue("Context \(Int((ctx ?? 0).rounded())) percent used")
         .accessibilityIdentifier("usage")
     }
 
@@ -585,16 +581,13 @@ struct OutgoingBubble: View {
         VStack(alignment: .trailing, spacing: 6) {
             let photos = message.attachments.compactMap(\.image)
             if !photos.isEmpty {
-                HStack(spacing: 6) {
-                    Spacer(minLength: 60)
+                PhotoGrid {
                     ForEach(Array(photos.enumerated()), id: \.offset) { _, image in
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 96, height: 96)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        PhotoTile { Image(uiImage: image).resizable().scaledToFill() }
                     }
                 }
+                .padding(.leading, 60)
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             let others = message.attachments.filter { $0.image == nil }.map(\.name)
             if !others.isEmpty { FileLine(names: others) }

@@ -32,6 +32,67 @@ final class ImageCache {
     }
 }
 
+/// Your photos in a message: square tiles in rows of up to three (four when there are more than six), right-aligned,
+/// wrapping onto more rows. Never wider than the width it's offered: one long row of 96 pt tiles once made the
+/// whole chat wider than the screen and pushed the box and its send button off it.
+struct PhotoGrid: Layout {
+    var tile: CGFloat = 96
+    var spacing: CGFloat = 6
+
+    struct Shape: Equatable {
+        var columns: Int
+        var rows: Int
+        var side: CGFloat
+    }
+
+    /// how `count` tiles sit in `width` (nil: as wide as they like)
+    static func shape(count: Int, width: CGFloat?, tile: CGFloat = 96, spacing: CGFloat = 6) -> Shape {
+        guard count > 0 else { return Shape(columns: 0, rows: 0, side: 0) }
+        var columns = min(count, count > 6 ? 4 : 3)
+        guard let width, width.isFinite else {
+            return Shape(columns: columns, rows: (count + columns - 1) / columns, side: tile)
+        }
+        // fewer, bigger tiles rather than tiny ones on a narrow screen
+        while columns > 1, (width - spacing * CGFloat(columns - 1)) / CGFloat(columns) < 56 { columns -= 1 }
+        let side = max(1, min(tile, ((width - spacing * CGFloat(columns - 1)) / CGFloat(columns)).rounded(.down)))
+        return Shape(columns: columns, rows: (count + columns - 1) / columns, side: side)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let s = Self.shape(count: subviews.count, width: proposal.width, tile: tile, spacing: spacing)
+        guard s.columns > 0 else { return .zero }
+        return CGSize(width: CGFloat(s.columns) * s.side + CGFloat(s.columns - 1) * spacing,
+                      height: CGFloat(s.rows) * s.side + CGFloat(s.rows - 1) * spacing)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let s = Self.shape(count: subviews.count, width: bounds.width, tile: tile, spacing: spacing)
+        guard s.columns > 0 else { return }
+        let size = ProposedViewSize(width: s.side, height: s.side)
+        for (i, view) in subviews.enumerated() {
+            let row = i / s.columns, col = i % s.columns
+            let inRow = min(s.columns, subviews.count - row * s.columns)
+            // each row hugs the right edge, like the bubble under it
+            let rowWidth = CGFloat(inRow) * s.side + CGFloat(inRow - 1) * spacing
+            let x = bounds.maxX - rowWidth + CGFloat(col) * (s.side + spacing)
+            let y = bounds.minY + CGFloat(row) * (s.side + spacing)
+            view.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: size)
+        }
+    }
+}
+
+/// One square tile of a PhotoGrid: takes exactly the room it's given and crops the picture into it.
+struct PhotoTile<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        Color.clear
+            .overlay { content }
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
 /// A picture from a link: grey while it loads, a broken-picture mark when it can't.
 struct RemoteImage: View {
     let url: URL?

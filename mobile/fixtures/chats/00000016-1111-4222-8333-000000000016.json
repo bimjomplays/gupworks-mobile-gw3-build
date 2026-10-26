@@ -1,0 +1,242 @@
+{
+ "now": 1792000000000,
+ "header": {
+  "id": "00000016-1111-4222-8333-000000000016",
+  "title": "Paint colours for the flat",
+  "role": "chat",
+  "model": "Opus 5.5",
+  "modelId": "claude-opus-5-5",
+  "provider": "Claude",
+  "effort": "medium",
+  "bypass": true,
+  "mode": "bypass",
+  "door": false,
+  "usage": [
+   {
+    "label": "ctx",
+    "percent": 22,
+    "tokens": 44000,
+    "switchAt": 200000,
+    "auto": true
+   },
+   {
+    "label": "5h",
+    "percent": 18,
+    "resets": "2026-10-14T20:58:40.000Z"
+   },
+   {
+    "label": "wk",
+    "percent": 41,
+    "resets": "2026-10-17T17:46:40.000Z"
+   }
+  ],
+  "branch": "",
+  "folder": "/work/flat",
+  "running": false,
+  "state": "done",
+  "pinned": false
+ },
+ "status": {
+  "state": "done",
+  "ts": 1791996400000,
+  "live": false,
+  "running": false
+ },
+ "turns": {
+  "turns": [
+   {
+    "id": "00186a01-0000-4000-8000-000000186a01",
+    "kind": "prompt",
+    "start": 1791982001000,
+    "state": "done",
+    "prompt": {
+     "text": "Which of these colours would suit the hall?",
+     "images": [
+      "demo:media/dusk.png"
+     ]
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "00186a02-0000-4000-8000-000000186a02",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "The middle bands, a soft grey green. Here it is on a wall:"
+       },
+       {
+        "t": "media",
+        "items": [
+         {
+          "kind": "image",
+          "url": "demo:media/fog.png",
+          "name": "Hall"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "rev": "6570bd8cfb6b",
+    "rewind": true
+   },
+   {
+    "id": "00186a04-0000-4000-8000-000000186a04",
+    "kind": "prompt",
+    "start": 1791983205200,
+    "state": "done",
+    "prompt": {
+     "text": "And these three for the bedroom?",
+     "images": [
+      "demo:media/dusk.png",
+      "demo:media/fog.png",
+      "demo:media/tide.png"
+     ]
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "00186a05-0000-4000-8000-000000186a05",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "All three work. Side by side:"
+       },
+       {
+        "t": "media",
+        "items": [
+         {
+          "kind": "image",
+          "url": "demo:media/dusk.png",
+          "name": "Dusk"
+         },
+         {
+          "kind": "image",
+          "url": "demo:media/fog.png",
+          "name": "Fog"
+         },
+         {
+          "kind": "image",
+          "url": "demo:media/tide.png",
+          "name": "Tide"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "rev": "6d438bc26124",
+    "rewind": true
+   },
+   {
+    "id": "00186a07-0000-4000-8000-000000186a07",
+    "kind": "prompt",
+    "start": 1791984409400,
+    "state": "done",
+    "prompt": {
+     "text": "Every room, so you can see the whole flat at once.",
+     "images": [
+      "demo:media/dusk.png",
+      "demo:media/fog.png",
+      "demo:media/tide.png",
+      "demo:media/pasted-photo.png",
+      "demo:media/dusk.png",
+      "demo:media/fog.png",
+      "demo:media/tide.png",
+      "demo:media/pasted-photo.png",
+      "demo:media/dusk.png",
+      "demo:media/fog.png",
+      "demo:media/tide.png",
+      "demo:media/pasted-photo.png"
+     ]
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "00186a08-0000-4000-8000-000000186a08",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Twelve photos, four rooms. The flat reads as one cool palette with one warm room (the kitchen)."
+       }
+      ]
+     }
+    ],
+    "rev": "e57ac171bed8",
+    "rewind": true
+   },
+   {
+    "id": "00186a0a-0000-4000-8000-000000186a0a",
+    "kind": "prompt",
+    "start": 1791985614600,
+    "state": "done",
+    "prompt": {
+     "text": "",
+     "images": [
+      "demo:media/dusk.png",
+      "demo:media/fog.png",
+      "demo:media/tide.png",
+      "demo:media/pasted-photo.png"
+     ]
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "00186a0b-0000-4000-8000-000000186a0b",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Four more of the kitchen, got them."
+       }
+      ]
+     }
+    ],
+    "rev": "d764d500824e",
+    "rewind": true
+   },
+   {
+    "id": "00186a0d-0000-4000-8000-000000186a0d",
+    "kind": "prompt",
+    "start": 1791986817800,
+    "state": "done",
+    "prompt": {
+     "text": "Here are six photos of the living room at different times of day. Which paint keeps it light in the evening without looking cold in the morning?",
+     "images": [
+      "demo:media/dusk.png",
+      "demo:media/fog.png",
+      "demo:media/tide.png",
+      "demo:media/pasted-photo.png",
+      "demo:media/dusk.png",
+      "demo:media/fog.png"
+     ]
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "00186a0e-0000-4000-8000-000000186a0e",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Fog. It keeps the evening photos bright, and the morning ones stay warm because the floor carries the warmth."
+       }
+      ]
+     }
+    ],
+    "rev": "912be17644bc",
+    "rewind": true
+   }
+  ],
+  "more": false
+ },
+ "cards": {}
+}
