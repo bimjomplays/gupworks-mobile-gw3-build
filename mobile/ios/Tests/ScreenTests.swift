@@ -310,6 +310,16 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(el(app, "project-home-server-5e6f").waitForExistence(timeout: 5))
     }
 
+    /// the filter button, until its menu shows `item`. Right after the menu closed, its fading backdrop can still
+    /// take the touch for a moment (it only closes the menu again), so a second tap follows when the first did nothing.
+    private func openFilter(_ app: App, showing item: String) {
+        for _ in 0..<2 where !el(app, item).exists {
+            el(app, "projectFilter").tap()
+            if el(app, item).waitForExistence(timeout: 1.5) { return }
+        }
+        XCTAssertTrue(el(app, item).waitForExistence(timeout: 3), item)
+    }
+
     /// 02: the filter: Pinned, All, Archived and the folders switch
     func testP02Filter() {
         let app = projects(["-filter"])
@@ -320,18 +330,15 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(el(app, "project-old-blog-6e7f").waitForExistence(timeout: 5))
         // the list fades the others out
         XCTAssertTrue(el(app, "project-lumen-studio").waitForNonExistence(timeout: 5))
-        el(app, "projectFilter").tap()
-        XCTAssertTrue(el(app, "filter-all").waitForExistence(timeout: 5))
+        openFilter(app, showing: "filter-all")
         el(app, "filter-all").tap()
         XCTAssertTrue(el(app, "project-lumen-studio").waitForExistence(timeout: 5))
-        el(app, "projectFilter").tap()
-        XCTAssertTrue(el(app, "filter-folders").waitForExistence(timeout: 5))
+        openFilter(app, showing: "filter-folders")
         el(app, "filter-folders").tap()
         if el(app, "closeFilter").exists { el(app, "closeFilter").tap() }
         XCTAssertTrue(el(app, "folder-At home").waitForExistence(timeout: 5))
         // put it back for the other tests (the switch is remembered)
-        el(app, "projectFilter").tap()
-        XCTAssertTrue(el(app, "filter-folders").waitForExistence(timeout: 5))
+        openFilter(app, showing: "filter-folders")
         el(app, "filter-folders").tap()
         if el(app, "closeFilter").exists { el(app, "closeFilter").tap() }
         XCTAssertTrue(el(app, "folder-At home").waitForNonExistence(timeout: 5))
@@ -974,6 +981,42 @@ final class ScreenTests: XCTestCase {
         first.tap()
         XCTAssertTrue(find(app, "ANSWERED").waitForExistence(timeout: 5))
         XCTAssertTrue(find(app, "Looks good").exists)
+    }
+
+    /// a127: drag the chat down a little (older turns come into view) so text passes under the glass top bar
+    private func scrollUnderBar(_ app: App, by fraction: CGFloat = 0.18) {
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35 + fraction))
+        from.press(forDuration: 0.1, thenDragTo: to)
+        sleep(1)
+    }
+
+    /// a127: no band across the top; the glass pills float and the chat shows blurred behind them
+    func testA127GlassBarProject() {
+        let app = project()
+        XCTAssertTrue(find(app, "NEEDS YOU").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "overviewButton").exists)
+        scrollUnderBar(app)
+        shot("a127-project-chat")
+        scrollUnderBar(app, by: 0.3)
+        shot("a127-project-chat-2")
+    }
+
+    func testA127GlassBarThread() {
+        let app = launch(["-place", "projects", "-push", contact])
+        XCTAssertTrue(el(app, "threadPill").waitForExistence(timeout: 20))
+        XCTAssertTrue(el(app, "taskCard").waitForExistence(timeout: 10))
+        scrollUnderBar(app)
+        shot("a127-thread")
+    }
+
+    func testA127GlassBarChat() {
+        let app = openChat(gallery, waitFor: "All five pages pass")
+        unfoldLast(app)
+        scrollUnderBar(app)
+        shot("a127-chat")
+        scrollUnderBar(app, by: 0.3)
+        shot("a127-chat-2")
     }
 
     /// 05 → 07: a thread card opens the thread; Back returns to the main chat
