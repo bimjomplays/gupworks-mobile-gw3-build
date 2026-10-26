@@ -40,7 +40,8 @@ struct ChatShell {
 }
 
 /// 5a-5d: ChatGPT's layout. The app opens on a new chat with the keyboard up; the menu slides out from the left
-/// (its button, or a swipe right anywhere in the chat) and the chat slides over to the right, dimmed.
+/// (its button, or a swipe right anywhere in the chat) and the chat slides over to the right, dimmed. A swipe left
+/// anywhere (the menu or the chat's strip) closes it the same way.
 struct MainView: View {
     @Environment(AppModel.self) private var model
     @State private var current: Current
@@ -48,6 +49,10 @@ struct MainView: View {
     @State private var menuOpen: Bool
     /// how far a swipe has moved the chat so far (0 when nothing moves)
     @State private var drag: CGFloat = 0
+    /// a pin is lifted for sorting: a sideways move drags the pin, not the menu
+    @State private var pinLifted = false
+    /// when the menu's swipe moved and let go: the row it started on doesn't count as tapped
+    @State private var swipeClock = SwipeClock()
     @State private var temporary: Bool
     /// the temporary chat once its first message made it: deleted when you leave
     @State private var temporaryId: String?
@@ -70,14 +75,19 @@ struct MainView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let width = max(geo.size.width - 91, 240)
-            let x = min(max((menuOpen ? width : 0) + drag, 0), width)
+            let swipe = MenuDrag(width: max(geo.size.width - 91, 240))
+            let width = swipe.width
+            let x = swipe.x(open: menuOpen, dx: drag)
             ZStack(alignment: .topLeading) {
-                MenuView(current: shownId, open: menuOpen, pick: pick, newChat: { newChat() },
-                         place: { p in go(p) }, settings: { showSettings = true })
+                MenuView(current: shownId, open: menuOpen,
+                         pick: { c in if !swipeClock.recent { pick(c) } },
+                         newChat: { if !swipeClock.recent { newChat() } },
+                         place: { p in if !swipeClock.recent { go(p) } },
+                         settings: { if !swipeClock.recent { showSettings = true } },
+                         lifting: { pinLifted = $0 })
                     .frame(width: width)
                     .offset(x: (x - width) * 0.25)
-                    .opacity(menuOpen || drag > 0 ? 1 : 0)
+                    .opacity(menuOpen || x > 0 ? 1 : 0)
                     .accessibilityHidden(!menuOpen)
                     .ignoresSafeArea(.keyboard)
                 stack
@@ -93,24 +103,31 @@ struct MainView: View {
                                 .ignoresSafeArea()
                                 .contentShape(Rectangle())
                                 .onTapGesture { close() }
-                                .gesture(closeDrag(width))
                                 .accessibilityLabel("Close the menu")
                                 .accessibilityAddTraits(.isButton)
                                 .accessibilityIdentifier("closeMenu")
                         }
                     }
                     .offset(x: x)
-                    .gesture(MenuSwipe(enabled: path.isEmpty && !menuOpen,
-                                       changed: { dx in drag = max(0, dx) },
-                                       ended: { dx, v in
-                                           let opens = dx > width * 0.35 || v > 500
-                                           withAnimation(.snappy(duration: 0.3)) {
-                                               drag = 0
-                                               if opens { openMenu() }
-                                           }
-                                       }))
             }
             .background(Color.black)
+            // one pan over the whole screen opens and closes, so a swipe starting anywhere (the menu's rows, its
+            // empty space, the chat's strip) follows the finger the same way
+            .gesture(MenuSwipe(closing: menuOpen,
+                               enabled: menuOpen ? !pinLifted : path.isEmpty,
+                               changed: { dx in
+                                   swipeClock.moving = true
+                                   drag = dx
+                               },
+                               ended: { dx, v in
+                                   swipeClock.letGo()
+                                   let open = swipe.endsOpen(open: menuOpen, dx: dx, velocity: v)
+                                   withAnimation(.snappy(duration: 0.3)) {
+                                       drag = 0
+                                       if open && !menuOpen { openMenu() }
+                                       if !open { menuOpen = false }
+                                   }
+                               }))
         }
         .sensoryFeedback(.impact(weight: .light), trigger: opened)
         .sheet(isPresented: $showSettings) { SettingsView() }
@@ -184,18 +201,6 @@ struct MainView: View {
         }
     }
 
-    private func closeDrag(_ width: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { g in drag = min(0, g.translation.width) }
-            .onEnded { g in
-                let closes = g.translation.width < -width * 0.3 || g.predictedEndTranslation.width < -width * 0.5
-                withAnimation(.snappy(duration: 0.3)) {
-                    drag = 0
-                    if closes { menuOpen = false }
-                }
-            }
-    }
-
     /// a chat (or a project's main chat) from the menu
     private func pick(_ c: Current) {
         _ = dropTemporary()
@@ -242,9 +247,51 @@ struct MainView: View {
     }
 }
 
-/// A swipe right anywhere in the chat opens the menu (5a). A UIKit pan, so it works beside the chat's own scrolling:
-/// it starts only on a mostly sideways move to the right.
+/// A row's button fires when the finger lifts over it, even after a swipe across it (seen on the old menu: a flick
+/// to close from Gup Bot's row opened Gup Bot). The menu's actions check this first and skip what a swipe ended.
+final class SwipeClock {
+    var moving = false
+    private var endedAt = Date.distantPast
+
+    func letGo() {
+        moving = false
+        endedAt = Date()
+    }
+
+    /// a swipe is under way or let go a moment ago
+    var recent: Bool { moving || Date().timeIntervalSince(endedAt) < 0.4 }
+}
+
+/// Where the chat sits while a swipe moves it, and where it ends up when the finger lets go. Opening and closing
+/// feel the same: the chat follows the finger 1:1, and letting go past 35% of the way, or a flick (500 pt/s) that
+/// way, finishes the move; a flick back cancels it.
+struct MenuDrag {
+    /// how far the chat moves over when the menu is open
+    let width: CGFloat
+
+    static let flick: CGFloat = 500
+    static let past: CGFloat = 0.35
+
+    /// the chat's left edge for the menu's state and how far the finger has moved since the swipe began
+    func x(open: Bool, dx: CGFloat) -> CGFloat {
+        min(max((open ? width : 0) + dx, 0), width)
+    }
+
+    /// whether the menu is open once a swipe of `dx` lets go at `velocity` (both in points, right is positive)
+    func endsOpen(open: Bool, dx: CGFloat, velocity: CGFloat) -> Bool {
+        if abs(velocity) >= Self.flick { return velocity > 0 }
+        let moved = open ? -dx : dx
+        return moved > width * Self.past ? !open : open
+    }
+}
+
+/// The menu's swipe (5a): a UIKit pan over the whole screen, so it works beside the scroll views and the pin's long
+/// press. Closed, it starts on a mostly sideways move to the right; open, on one to the left. It measures in the
+/// window's points, so the chat moving under the finger doesn't shrink the swipe. Once a close starts, the scroll
+/// views under the finger stop, so the menu list doesn't drift up or down while it slides away.
 struct MenuSwipe: UIGestureRecognizerRepresentable {
+    /// the menu is open: a swipe left closes it
+    var closing: Bool
     var enabled: Bool
     var changed: (CGFloat) -> Void
     var ended: (CGFloat, CGFloat) -> Void
@@ -255,34 +302,65 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
         let g = UIPanGestureRecognizer()
         g.delegate = context.coordinator
         g.cancelsTouchesInView = false
+        g.maximumNumberOfTouches = 1
         return g
     }
 
     func updateUIGestureRecognizer(_ g: UIPanGestureRecognizer, context: Context) {
+        // read when a swipe would start (the menu doesn't open or close while one is under way)
+        context.coordinator.closing = closing
         g.isEnabled = enabled
     }
 
     func handleUIGestureRecognizerAction(_ g: UIPanGestureRecognizer, context: Context) {
-        let dx = g.translation(in: g.view).x
+        let dx = g.translation(in: nil).x
         switch g.state {
-        case .began, .changed: changed(dx)
-        case .ended: ended(dx, g.velocity(in: g.view).x)
+        case .began:
+            if context.coordinator.closing { context.coordinator.stopScrolling() }
+            changed(dx)
+        case .changed:
+            if context.coordinator.closing { context.coordinator.stopScrolling() }
+            changed(dx)
+        case .ended: ended(dx, g.velocity(in: nil).x)
         case .cancelled, .failed: ended(0, 0)
         default: break
         }
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var closing = false
+        /// the scroll views' pans this touch also reaches
+        private var scrolls: [WeakPan] = []
+
         func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
             guard let pan = g as? UIPanGestureRecognizer else { return false }
-            let v = pan.velocity(in: pan.view)
-            return v.x > 0 && abs(v.x) > 1.5 * abs(v.y)
+            let v = pan.velocity(in: nil)
+            let sideways = abs(v.x) > 1.5 * abs(v.y)
+            return sideways && (closing ? v.x < 0 : v.x > 0)
         }
 
         func gestureRecognizer(_ g: UIGestureRecognizer,
                                shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
-            true
+            if let pan = other as? UIPanGestureRecognizer, let scroll = other.view as? UIScrollView,
+               scroll.panGestureRecognizer === pan {
+                scrolls.removeAll { $0.pan == nil || $0.pan === pan }
+                scrolls.append(WeakPan(pan: pan))
+            }
+            return true
         }
+
+        /// cancels the scroll views' pans (turning one off and on again ends its touch; it stays where it is)
+        func stopScrolling() {
+            for w in scrolls {
+                guard let pan = w.pan, pan.state == .began || pan.state == .changed else { continue }
+                pan.isEnabled = false
+                pan.isEnabled = true
+            }
+        }
+    }
+
+    struct WeakPan {
+        weak var pan: UIPanGestureRecognizer?
     }
 }
 

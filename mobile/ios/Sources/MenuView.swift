@@ -13,6 +13,8 @@ struct MenuView: View {
     let newChat: () -> Void
     let place: (Place) -> Void
     let settings: () -> Void
+    /// told when a pin is lifted for sorting and put down again (the menu's swipe waits meanwhile)
+    var lifting: (Bool) -> Void = { _ in }
 
     @State private var searching = false
     @State private var query = ""
@@ -56,6 +58,7 @@ struct MenuView: View {
                 endSearch()
             }
         }
+        .onChange(of: dragged != nil) { _, d in lifting(d) }
         .sensoryFeedback(.selection, trigger: slotTick)
         .sensoryFeedback(.impact(weight: .medium), trigger: liftTick)
         .alert("Rename chat", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }),

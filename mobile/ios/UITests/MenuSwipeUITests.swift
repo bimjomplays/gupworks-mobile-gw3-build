@@ -31,19 +31,24 @@ final class MenuSwipeUITests: XCTestCase {
         sleep(1)
     }
 
-    /// a swipe across the window from (x0, y) to (x1, y + a little), by fractions of the window. Slow ones stop
-    /// before the finger lifts, so only the distance counts.
+    /// a swipe across the window from (x0, y) to (x1, y + a little), by fractions of the window. Velocities are in
+    /// pixels per second (.fast is only 750, 250 pt/s on a 3x screen): fast is 1000 pt/s, a flick; slow ones are
+    /// 50 pt/s and stop before the finger lifts, so only the distance counts.
     private func swipe(_ x0: CGFloat, to x1: CGFloat, y: CGFloat, slow: Bool) {
         let win = app.windows.firstMatch
         win.coordinate(withNormalizedOffset: CGVector(dx: x0, dy: y))
             .press(forDuration: 0.05,
                    thenDragTo: win.coordinate(withNormalizedOffset: CGVector(dx: x1, dy: y + 0.01)),
-                   withVelocity: slow ? XCUIGestureVelocity(rawValue: 150) : .fast,
+                   withVelocity: XCUIGestureVelocity(rawValue: slow ? 150 : 3000),
                    thenHoldForDuration: slow ? 0.4 : 0)
     }
 
     private func assertCloses(_ what: String, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(menuShown.waitForNonExistence(timeout: 5), "\(what) closes the menu", file: file, line: line)
+        // and it was only a swipe: the row it started on didn't open (the old menu opened Gup Bot here)
+        XCTAssertFalse(el("comingSoon").exists, "\(what) opened a page", file: file, line: line)
+        XCTAssertTrue(app.buttons["menu"].waitForExistence(timeout: 5), "\(what): back on the chat",
+                      file: file, line: line)
     }
 
     private func assertStaysOpen(_ what: String, file: StaticString = #filePath, line: UInt = #line) {
