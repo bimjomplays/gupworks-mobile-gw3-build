@@ -41,6 +41,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(el(app, "place-projects").waitForExistence(timeout: 5))
     }
 
+    // ci-covers: MenuView.swift Rows.swift
     func test5dSortPins() {
         let app = launch(["-menu"])
         let wallpaper = el(app, "pin-Wallpaper ideas"), lumenRow = el(app, "pin-Lumen Studio website")
@@ -61,6 +62,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertLessThan(el(app, "pin-Wallpaper ideas").frame.minY, el(app, "pin-Lumen Studio website").frame.minY)
     }
 
+    // ci-covers: PairingView.swift Pairing.swift QRScanner.swift
     func testPairing() {
         let app = launch(["-unpaired"])
         XCTAssertTrue(find(app, "Pair with your PC").waitForExistence(timeout: 20))
@@ -87,6 +89,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(find(app, text).waitForExistence(timeout: 10), text)
     }
 
+    // ci-covers: MediaViews.swift ChatView.swift
     func testLiveChatWithPictures() {
         let app = launch()
         open(app, "Wallpaper ideas", waitFor: "Working")
@@ -129,6 +132,7 @@ final class ScreenshotTests: XCTestCase {
         start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
     }
 
+    // ci-covers: ProjectOverview.swift
     func testP06SwipeAndPress() {
         let app = overview()
         drag(app, el(app, "thread-a6"), from: 0.9, to: 0.4)

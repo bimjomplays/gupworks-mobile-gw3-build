@@ -108,6 +108,8 @@ final class App {
     /// the whole screen as the UI tests took it, attached and written to SHOTS_DIR
     func shot(_ name: String) {
         idle()
+        let t0 = Date()
+        defer { Timing.shots += Date().timeIntervalSince(t0) }
         let png = Self.screenPNG(window)
         let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
         a.name = name
@@ -161,6 +163,8 @@ func poll(_ timeout: Double, until ok: () -> Bool) -> Bool {
 /// lets the app finish what a tap started: at least a moment, then until no (finite) animation runs, at most 1.5 s
 @MainActor
 func idle(_ least: Double = 0.15) {
+    let t0 = Date()
+    defer { Timing.idle += Date().timeIntervalSince(t0) }
     spin(least)
     // SwiftUI moves things without Core Animation, so "still" is also: the same elements in the same places as a
     // moment ago
@@ -178,6 +182,8 @@ func idle(_ least: Double = 0.15) {
 /// (when given) holding still for a frame or two; at most 3 s
 @MainActor
 func settle(_ frame: (() -> CGRect?)? = nil) {
+    let t0 = Date()
+    defer { Timing.settle += Date().timeIntervalSince(t0) }
     var last = frame?()
     poll(3) {
         if (UIApplication.shared as UIApplicationDeprecated).isIgnoringInteractionEvents || Tree.animating() { return false }
@@ -532,6 +538,8 @@ enum Tree {
         default: break
         }
         if let all = cache { return kind == .any ? all : all.filter { matches($0, kind) } }
+        let t0 = Date()
+        defer { Timing.walks += 1; Timing.walk += Date().timeIntervalSince(t0) }
         var out: [Node] = [], seen = Set<ObjectIdentifier>()
         func walk(_ o: NSObject, _ depth: Int) {
             guard depth < 80, seen.insert(ObjectIdentifier(o)).inserted else { return }
@@ -595,14 +603,19 @@ enum Tree {
         return out
     }
 
+    /// the view that has the keyboard: UIKit's own answer (an action sent to nobody goes to the first responder),
+    /// else the first view that says it is first responder and takes text, else any that says it is
     static func firstResponder() -> UIView? {
-        func find(_ v: UIView) -> UIView? {
-            if v.isFirstResponder { return v }
-            for s in v.subviews { if let r = find(s) { return r } }
-            return nil
+        Responder.current = nil
+        UIApplication.shared.sendAction(#selector(UIResponder.gw3CaptureFirstResponder), to: nil, from: nil, for: nil)
+        if let v = Responder.current as? UIView { return v }
+        var all: [UIView] = []
+        func find(_ v: UIView) {
+            if v.isFirstResponder { all.append(v) }
+            for s in v.subviews { find(s) }
         }
-        for w in windows.reversed() { if let r = find(w) { return r } }
-        return nil
+        for w in windows.reversed() { find(w) }
+        return all.first { $0 is UIKeyInput } ?? all.first
     }
 
     private static func keyboardHosts() -> [UIView] {
@@ -703,5 +716,28 @@ enum Finger {
     static func zoom(at p: CGPoint, distance: CGFloat) {
         run("zoom at \(p)") { try $0.fingerPinch(at: p, fromDistance: 40, toDistance: 40 + distance, duration: 0.5) }
         idle()
+    }
+}
+
+@MainActor
+enum Responder {
+    static weak var current: UIResponder?
+}
+
+extension UIResponder {
+    @objc func gw3CaptureFirstResponder() {
+        MainActor.assumeIsolated { Responder.current = self }
+    }
+}
+
+/// where a screen test's time goes, printed after each test (TIMING lines in unit.log)
+@MainActor
+enum Timing {
+    static var walks = 0, walk = 0.0, idle = 0.0, settle = 0.0, shots = 0.0
+
+    static func report(_ test: String, _ total: Double) {
+        print(String(format: "TIMING %@: %.1f s; %d tree reads %.1f s, idle %.1f s, settle %.1f s, pictures %.1f s",
+                     test, total, walks, walk, idle, settle, shots))
+        walks = 0; walk = 0; idle = 0; settle = 0; shots = 0
     }
 }

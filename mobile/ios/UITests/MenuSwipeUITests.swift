@@ -1,5 +1,6 @@
 import XCTest
 
+// ci-covers: MenuView.swift MainView.swift
 /// Closing the side menu by a swipe left, from wherever the finger starts: the menu's rows on the left, its empty
 /// space in the middle, the dimmed chat strip on the right; a short flick closes too, a short slow drag snaps back.
 /// The menu still scrolls up and down, and a lifted pin moved sideways sorts instead of closing it.

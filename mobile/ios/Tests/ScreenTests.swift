@@ -8,7 +8,10 @@ import XCTest
 /// that need the system's own touches stay in UITests/.
 @MainActor
 final class ScreenTests: XCTestCase {
+    private nonisolated(unsafe) var started = Date()
+
     override nonisolated func setUp() {
+        started = Date()
         continueAfterFailure = false
     }
 
@@ -21,6 +24,7 @@ final class ScreenTests: XCTestCase {
                 print("SCREEN at the failure of \(name):\n\(app.debugDescription)")
             }
             App.current?.close()
+            Timing.report(name, Date().timeIntervalSince(started))
         }
     }
 
@@ -314,7 +318,8 @@ final class ScreenTests: XCTestCase {
         shot("02-filter")
         el(app, "filter-archived").tap()
         XCTAssertTrue(el(app, "project-old-blog-6e7f").waitForExistence(timeout: 5))
-        XCTAssertFalse(el(app, "project-lumen-studio").exists)
+        // the list fades the others out
+        XCTAssertTrue(el(app, "project-lumen-studio").waitForNonExistence(timeout: 5))
         el(app, "projectFilter").tap()
         XCTAssertTrue(el(app, "filter-all").waitForExistence(timeout: 5))
         el(app, "filter-all").tap()
