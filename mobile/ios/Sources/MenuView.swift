@@ -58,10 +58,7 @@ struct MenuView: View {
                 endSearch()
             }
         }
-        .onChange(of: dragged != nil) { _, d in
-            // -slowLift (demo, a UI test): the main view hears a second late, as on a busy phone
-            if Demo.slowLift { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { lifting(d) } } else { lifting(d) }
-        }
+        .onChange(of: dragged != nil) { _, d in lifting(d) }
         .sensoryFeedback(.selection, trigger: slotTick)
         .sensoryFeedback(.impact(weight: .medium), trigger: liftTick)
         .alert("Rename chat", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } }),
@@ -546,20 +543,15 @@ private struct PinLift: UIGestureRecognizerRepresentable {
     func makeUIGestureRecognizer(context: Context) -> UILongPressGestureRecognizer {
         let g = UILongPressGestureRecognizer()
         g.minimumPressDuration = 0.4
-        g.name = MenuSwipe.pinLift
         return g
     }
 
     func handleUIGestureRecognizerAction(_ g: UILongPressGestureRecognizer, context: Context) {
         let y = g.location(in: nil).y
         switch g.state {
-        case .began:
-            MenuSwipe.pinHeld = true
-            began(y)
+        case .began: began(y)
         case .changed: moved(y)
-        case .ended, .cancelled, .failed:
-            MenuSwipe.pinHeld = false
-            ended()
+        case .ended, .cancelled, .failed: ended()
         default: break
         }
     }

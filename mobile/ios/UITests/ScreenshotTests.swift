@@ -114,7 +114,7 @@ final class ScreenshotTests: XCTestCase {
     func test5cMenu() {
         let app = launch()
         openMenu(app)
-        for id in ["place-projects", "place-scheduled", "place-quick", "place-bot", "pin-Lumen Studio website",
+        for id in ["place-projects", "place-scheduled", "place-quick", "place-transfer", "place-bot", "pin-Lumen Studio website",
                    "pin-Home server", "pin-Wallpaper ideas", "pin-Gallery lightbox fix", "chat-Recipe scaler",
                    "newChat", "settings", "search"] {
             XCTAssertTrue(el(app, id).exists, id)
@@ -381,7 +381,7 @@ final class ScreenshotTests: XCTestCase {
 
     func testComingSoonPlaces() {
         let app = launch(["-menu"])
-        for p in ["scheduled", "quick", "bot"] {
+        for p in ["scheduled", "quick", "transfer", "bot"] {
             if !el(app, "place-\(p)").exists { openMenu(app) }
             XCTAssertTrue(el(app, "place-\(p)").waitForExistence(timeout: 20))
             el(app, "place-\(p)").tap()
@@ -469,7 +469,7 @@ final class ScreenshotTests: XCTestCase {
         shot("chat-media")
         // its top: the composer may cover the rest
         video.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
-        XCTAssertTrue(app.buttons["videoClose"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5))
         sleep(2)
         shot("video")
     }
@@ -566,6 +566,105 @@ final class ScreenshotTests: XCTestCase {
         shot("photos-typing")
         send.tap()
         XCTAssertTrue(find(app, "This is the demo").waitForExistence(timeout: 5))
+    }
+
+    // MARK: a124: Markdown tables
+
+    /// a124: a table's cells were measured one line tall and drawn wrapped, so long cells ran over the next rows,
+    /// and a wide table ran off the screen. Demo chat 17: a 3-column table with long cells fits the screen with
+    /// rows as tall as their text; a 6-column one scrolls inside its box (and a swipe back doesn't open the menu).
+    func testTablesWrapAndScroll() {
+        checkTables([], shots: true)
+    }
+
+    /// the same at the largest accessibility text size
+    func testTablesAtTheLargestTextSize() {
+        checkTables(["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], shots: false)
+    }
+
+    private func checkTables(_ extra: [String], shots: Bool) {
+        let app = openChat(chat(17), waitFor: "The quick lane is the best next step", extra)
+        let screen = app.windows.firstMatch.frame
+        let tables = app.descendants(matching: .any).matching(identifier: "table")
+        XCTAssertTrue(tables.firstMatch.waitForExistence(timeout: 10), "a table shows")
+        onScreen(app, el(app, "chatTitle"), "the title")
+        onScreen(app, box(app), "the box")
+        onScreen(app, app.buttons["send"], "the send button")
+
+        // the newest reply's 6-column table: wider than the screen, so it scrolls inside its box
+        let wide = tables.containing(NSPredicate(format: "label CONTAINS %@", "Hosted runners")).firstMatch
+        XCTAssertTrue(wide.exists, "the 6-column table")
+        var cells = tableCells(wide, columns: 6, rows: 5)
+        onScreen(app, wide, "the wide table's box")
+        XCTAssertGreaterThan(wide.frame.width, screen.width * 0.7, "the wide table's box fills the chat's width")
+        noOverlap(cells, "the wide table")
+        let lastHead = wide.descendants(matching: .any)["cell-0-5"]
+        XCTAssertGreaterThan(lastHead.frame.maxX, wide.frame.maxX + 1, "the 6th column starts off to the right")
+        if shots { sleep(1); shot("table-wide") }
+        for _ in 0..<4 where lastHead.frame.maxX > wide.frame.maxX + 1 {
+            wide.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
+                .press(forDuration: 0.05, thenDragTo: wide.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)),
+                       withVelocity: .slow, thenHoldForDuration: 0.3)
+        }
+        XCTAssertLessThanOrEqual(lastHead.frame.maxX, wide.frame.maxX + 1, "scrolled: the 6th column shows")
+        onScreen(app, wide, "the wide table's box, scrolled")
+        onScreen(app, box(app), "the box with the table scrolled")
+        noOverlap(tableCells(wide, columns: 6, rows: 5), "the wide table, scrolled")
+        let first = wide.descendants(matching: .any)["cell-0-0"]
+        let scrolledX = first.frame.minX
+        if shots { sleep(1); shot("table-wide-scrolled") }
+        // back: the table scrolls back, the menu stays shut
+        wide.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: wide.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5)),
+                   withVelocity: .slow, thenHoldForDuration: 0.3)
+        sleep(1)
+        XCTAssertFalse(el(app, "place-projects").exists, "a swipe back on a scrolled table doesn't open the menu")
+        XCTAssertGreaterThan(first.frame.minX, scrolledX + 100, "the table scrolled back")
+
+        // the first reply's 3-column table, long cells wrapped, as wide as the chat at most
+        scrollUp(app, until: find(app, "start with step 1"))
+        let narrow = tables.containing(NSPredicate(format: "label CONTAINS %@", "its own quick check")).firstMatch
+        XCTAssertTrue(narrow.exists, "the 3-column table")
+        cells = tableCells(narrow, columns: 3, rows: 4)
+        onScreen(app, narrow, "the 3-column table's box")
+        noOverlap(cells, "the 3-column table")
+        for row in cells {
+            for c in row {
+                XCTAssertLessThanOrEqual(c.maxX, narrow.frame.maxX + 0.5, "every column fits: \(c) in \(narrow.frame)")
+            }
+        }
+        XCTAssertGreaterThan(cells[1][1].height, 40, "a long cell wraps onto more lines: \(cells[1][1])")
+        onScreen(app, box(app), "the box with the 3-column table in view")
+        if shots { sleep(1); shot("table-3-columns") }
+    }
+
+    /// the frames of a table's cells, row by row (row 0 is the header)
+    private func tableCells(_ table: XCUIElement, columns: Int, rows: Int) -> [[CGRect]] {
+        (0..<rows).map { r in
+            (0..<columns).map { c in
+                let e = table.descendants(matching: .any)["cell-\(r)-\(c)"]
+                XCTAssertTrue(e.exists, "cell \(r), \(c)")
+                return e.frame
+            }
+        }
+    }
+
+    /// no two cells overlap, and every row starts below the one above it
+    private func noOverlap(_ cells: [[CGRect]], _ what: String) {
+        let all = cells.flatMap { $0 }
+        for i in all.indices {
+            XCTAssertGreaterThan(all[i].height, 10, "\(what): cell \(i) has a size: \(all[i])")
+            for j in all.indices where j > i {
+                let o = all[i].intersection(all[j])
+                XCTAssertFalse(!o.isNull && o.width > 0.5 && o.height > 0.5,
+                               "\(what): cells \(i) \(all[i]) and \(j) \(all[j]) overlap")
+            }
+        }
+        for r in cells.indices.dropFirst() {
+            let above = cells[r - 1].map(\.maxY).max() ?? 0
+            let top = cells[r].map(\.minY).min() ?? 0
+            XCTAssertGreaterThanOrEqual(top, above - 0.5, "\(what): row \(r) starts inside the row above")
+        }
     }
 
     /// drags the chat down in short steps until `e` sits in the lower part of the screen (its photos above it show)

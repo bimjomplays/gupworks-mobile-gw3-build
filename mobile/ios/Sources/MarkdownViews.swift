@@ -71,15 +71,15 @@ struct MarkdownView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ForEach(Array(blocks.enumerated()), id: \.offset) { i, b in
-                block(b, at: i)
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, b in
+                block(b)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
-    private func block(_ b: MD, at i: Int) -> some View {
+    private func block(_ b: MD) -> some View {
         switch b.t {
         case "p":
             Text(Inline.text(b.text ?? ""))
@@ -110,7 +110,7 @@ struct MarkdownView: View {
         case "hr":
             Rectangle().fill(ChatStyle.line).frame(height: 1).padding(.vertical, 4)
         case "media":
-            MediaGroup(items: b.items ?? [], base: base, slot: i)
+            MediaGroup(items: b.items ?? [], base: base)
         default:
             if let t = b.text { Text(t).font(.system(size: 17)).foregroundStyle(ChatStyle.body) }
         }
@@ -199,46 +199,132 @@ struct CodePanel: View {
     }
 }
 
-/// A Markdown table: header row, then the rows; wide tables scroll sideways.
+/// A Markdown table: header row, then the rows, in a rounded box no wider than the chat. Columns are as wide as
+/// their widest cell (see `TableLayout`) and every row as tall as its tallest cell; a table still wider than the
+/// chat scrolls sideways inside its box.
 private struct TableBlock: View {
     let head: [String]
     let rows: [[String]]
     let align: [String]
+    /// the chat column's width, and the table's own (0 until measured)
+    @State private var room: CGFloat = 0
+    @State private var natural: CGFloat = 0
+
+    private var columns: Int { max(head.count, rows.map(\.count).max() ?? 0) }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
-                GridRow {
-                    ForEach(Array(head.enumerated()), id: \.offset) { i, h in
-                        cell(h, i, bold: true)
-                    }
+        let n = columns
+        let layout = TableLayout(columns: n, fit: room > 0 ? room : TableLayout.guess)
+        ScrollView(.horizontal) {
+            layout {
+                ForEach(0..<n, id: \.self) { c in
+                    cell(c < head.count ? head[c] : "", row: 0, column: c)
                 }
-                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                    Divider().overlay(ChatStyle.cardBorder)
-                    GridRow {
-                        ForEach(0..<max(head.count, row.count), id: \.self) { i in
-                            cell(i < row.count ? row[i] : "", i, bold: false)
-                        }
+                ForEach(Array(rows.enumerated()), id: \.offset) { r, row in
+                    ForEach(0..<n, id: \.self) { c in
+                        cell(c < row.count ? row[c] : "", row: r + 1, column: c)
                     }
                 }
             }
-            .background(ChatStyle.cardBG, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(ChatStyle.cardBorder, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { natural = $0 }
         }
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        .scrollIndicatorsFlash(onAppear: true)
+        // a narrow table keeps a narrow box; a wide one fills the chat's width and scrolls inside it
+        .frame(maxWidth: natural > 0 ? natural : nil, alignment: .leading)
+        .background(ChatStyle.cardBG, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(ChatStyle.cardBorder, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("table")
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { room = $0 }
     }
 
-    private func cell(_ s: String, _ i: Int, bold: Bool) -> some View {
-        let a = i < align.count ? align[i] : ""
+    private func cell(_ s: String, row: Int, column: Int) -> some View {
+        let a = column < align.count ? align[column] : ""
         let h: HorizontalAlignment = a == "right" ? .trailing : a == "center" ? .center : .leading
+        let bold = row == 0
         return Text(Inline.text(s, size: 15, color: bold ? Theme.title : ChatStyle.body))
             .font(.system(size: 15, weight: bold ? .semibold : .regular))
+            .multilineTextAlignment(a == "right" ? .trailing : a == "center" ? .center : .leading)
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
-            .frame(maxWidth: 260, alignment: Alignment(horizontal: h, vertical: .center))
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: Alignment(horizontal: h, vertical: .center))
+            // filled to the row's height, so the header's tint and the lines between rows run edge to edge
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: Alignment(horizontal: h, vertical: .top))
             .background(bold ? Color(hex: 0x202024) : .clear)
-            .gridColumnAlignment(h)
+            .overlay(alignment: .top) {
+                if row > 0 { Rectangle().fill(ChatStyle.cardBorder).frame(height: 1) }
+            }
+            .accessibilityIdentifier("cell-\(row)-\(column)")
+    }
+}
+
+/// Lays a table's cells (row by row, `columns` to a row) in columns. A column is as wide as its widest cell, at most
+/// `most` of the chat's width; if they still add up to more than `fit`, the widest columns give way first, down to
+/// `least`, and only then is the table wider than the chat (it scrolls). Every row is as tall as its tallest cell at
+/// its column's width, so wrapped text never runs into the next row, at any text size.
+struct TableLayout: Layout {
+    var columns: Int
+    /// the chat column's width
+    var fit: CGFloat
+
+    /// the width used before the chat's is known (one layout pass)
+    static let guess: CGFloat = 353
+    static let most: CGFloat = 0.6
+    static let least: CGFloat = 120
+
+    /// the columns' widths from their widest cells' one-line widths
+    static func widths(_ ideal: [CGFloat], fit: CGFloat) -> [CGFloat] {
+        let least = min(Self.least, fit * 0.45)
+        let cap = floor(max(fit * most, least))
+        let w = ideal.map { min(ceil($0), cap) }
+        guard w.reduce(0, +) > fit else { return w }
+        // the widest give way first: the cap c where the columns, each at most c, just fill the chat
+        var left = fit
+        var c = least
+        let sorted = w.sorted()
+        for (k, x) in sorted.enumerated() {
+            let share = left / CGFloat(sorted.count - k)
+            if x <= share { left -= x } else { c = share; break }
+        }
+        c = max(floor(c), least)
+        return w.map { min($0, c) }
+    }
+
+    /// the columns' widths and the rows' heights
+    func measure(_ subviews: Subviews) -> (widths: [CGFloat], heights: [CGFloat]) {
+        let n = max(columns, 1)
+        var ideal = [CGFloat](repeating: 0, count: n)
+        for (i, s) in subviews.enumerated() {
+            ideal[i % n] = max(ideal[i % n], s.sizeThatFits(.unspecified).width)
+        }
+        let widths = Self.widths(ideal, fit: fit)
+        var heights = [CGFloat](repeating: 0, count: (subviews.count + n - 1) / n)
+        for (i, s) in subviews.enumerated() {
+            let h = s.sizeThatFits(ProposedViewSize(width: widths[i % n], height: nil)).height
+            heights[i / n] = max(heights[i / n], ceil(h))
+        }
+        return (widths, heights)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let m = measure(subviews)
+        return CGSize(width: m.widths.reduce(0, +), height: m.heights.reduce(0, +))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let m = measure(subviews)
+        let n = m.widths.count
+        var y = bounds.minY
+        for (r, h) in m.heights.enumerated() {
+            var x = bounds.minX
+            for (c, w) in m.widths.enumerated() where r * n + c < subviews.count {
+                subviews[r * n + c].place(at: CGPoint(x: x, y: y), anchor: .topLeading,
+                                          proposal: ProposedViewSize(width: w, height: h))
+                x += w
+            }
+            y += h
+        }
     }
 }
