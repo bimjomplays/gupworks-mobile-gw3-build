@@ -286,19 +286,96 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(el(app, "pin-Trip packing list").waitForExistence(timeout: 5))
     }
 
-    func testProjectsPage() {
-        let app = launch(["-menu"])
-        XCTAssertTrue(el(app, "place-projects").waitForExistence(timeout: 20))
-        el(app, "place-projects").tap()
-        let folder = el(app, "folder-At home")
-        XCTAssertTrue(folder.waitForExistence(timeout: 5))
-        XCTAssertTrue(find(app, "Garden planner").exists)
+    // MARK: a121: the Projects pages (docs/projects-mobile-mockups 01-12)
+
+    private func projects(_ extra: [String] = []) -> XCUIApplication {
+        let app = launch(["-place", "projects"] + extra)
+        XCTAssertTrue(el(app, "project-lumen-studio").waitForExistence(timeout: 20))
+        return app
+    }
+
+    /// 01: newest first with what each is doing; a tap opens the project's main chat; search finds chats too
+    func testP01Projects() {
+        let app = projects()
+        XCTAssertTrue(find(app, "Needs you").exists)
+        XCTAssertLessThan(el(app, "project-lumen-studio").frame.minY, el(app, "project-garden-planner-1a2b").frame.minY)
+        XCTAssertFalse(el(app, "project-old-blog-6e7f").exists, "archived stays out of the list")
         sleep(1)
-        shot("projects")
-        folder.tap()
-        XCTAssertTrue(find(app, "Garden planner").waitForNonExistence(timeout: 5))
-        find(app, "Lumen Studio website").tap()
-        XCTAssertTrue(el(app, "tab-threads").waitForExistence(timeout: 10))
+        shot("01-projects")
+        el(app, "project-lumen-studio").tap()
+        XCTAssertTrue(find(app, "THREAD NEEDS YOU").waitForExistence(timeout: 10))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(el(app, "project-lumen-studio").waitForExistence(timeout: 5))
+        // the menu also reaches it
+        el(app, "searchProjects").tap()
+        let field = el(app, "projectSearch")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.typeText("lu")
+        XCTAssertTrue(el(app, "hit-lumen-studio").waitForExistence(timeout: 5))
+        XCTAssertFalse(el(app, "project-home-server-5e6f").exists)
+        el(app, "closeSearch").tap()
+        XCTAssertTrue(el(app, "project-home-server-5e6f").waitForExistence(timeout: 5))
+    }
+
+    /// 02: the filter: Pinned, All, Archived and the folders switch
+    func testP02Filter() {
+        let app = projects(["-filter"])
+        XCTAssertTrue(el(app, "filter-archived").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("02-filter")
+        el(app, "filter-archived").tap()
+        XCTAssertTrue(el(app, "project-old-blog-6e7f").waitForExistence(timeout: 5))
+        XCTAssertFalse(el(app, "project-lumen-studio").exists)
+        el(app, "projectFilter").tap()
+        XCTAssertTrue(el(app, "filter-all").waitForExistence(timeout: 5))
+        el(app, "filter-all").tap()
+        XCTAssertTrue(el(app, "project-lumen-studio").waitForExistence(timeout: 5))
+        el(app, "projectFilter").tap()
+        XCTAssertTrue(el(app, "filter-folders").waitForExistence(timeout: 5))
+        el(app, "filter-folders").tap()
+        if el(app, "closeFilter").exists { el(app, "closeFilter").tap() }
+        XCTAssertTrue(el(app, "folder-At home").waitForExistence(timeout: 5))
+        // put it back for the other tests (the switch is remembered)
+        el(app, "projectFilter").tap()
+        XCTAssertTrue(el(app, "filter-folders").waitForExistence(timeout: 5))
+        el(app, "filter-folders").tap()
+        if el(app, "closeFilter").exists { el(app, "closeFilter").tap() }
+        XCTAssertTrue(el(app, "folder-At home").waitForNonExistence(timeout: 5))
+    }
+
+    /// 03: New project: name, goal, files, folder; Create adds it to the list
+    func testP03NewProject() {
+        let app = projects(["-newProject"])
+        let name = el(app, "newName")
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertTrue(el(app, "newGoal").exists)
+        XCTAssertTrue(el(app, "newFolder").exists)
+        sleep(1)
+        shot("03-new-project")
+        name.typeText("Film shelf")
+        el(app, "newCreate").tap()
+        // a project without a main chat yet opens its settings
+        XCTAssertTrue(el(app, "settingsClose").waitForExistence(timeout: 10))
+        el(app, "settingsClose").tap()
+        XCTAssertTrue(find(app, "Film shelf").waitForExistence(timeout: 5))
+    }
+
+    /// 04: the icon picker: colours, the grid, search through every Lucide icon
+    func testP04ProjectIcon() {
+        let app = launch(["-place", "projects", "-newProject", "-iconPicker"])
+        XCTAssertTrue(el(app, "icon-clapperboard").waitForExistence(timeout: 20))
+        sleep(1)
+        shot("04-project-icon")
+        let search = app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS[c] %@", "icon")).firstMatch
+        XCTAssertTrue(search.exists)
+        search.tap()
+        search.typeText("film")
+        XCTAssertTrue(el(app, "icon-film").waitForExistence(timeout: 5))
+        XCTAssertFalse(el(app, "icon-rocket").exists)
+        el(app, "icon-film").tap()
+        el(app, "colour-blue").tap()
+        el(app, "iconDone").tap()
+        XCTAssertTrue(el(app, "newName").waitForExistence(timeout: 5))
     }
 
     func testComingSoonPlaces() {

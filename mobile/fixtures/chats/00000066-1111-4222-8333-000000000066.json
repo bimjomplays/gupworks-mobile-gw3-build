@@ -37,7 +37,10 @@
   "pinned": false,
   "project": {
    "id": "lumen-studio",
-   "name": "Lumen Studio website"
+   "name": "Lumen Studio website",
+   "icon": null,
+   "color": null,
+   "mainChatId": "00000066-1111-4222-8333-000000000066"
   }
  },
  "status": {

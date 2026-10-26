@@ -28,6 +28,32 @@ struct ChatHeader: Codable, Equatable {
     struct ProjectRef: Codable, Equatable {
         var id: String?
         var name: String
+        var icon: String?
+        var color: String?
+        var mainChatId: String?
+    }
+
+    /// a thread's own chat (07): its task and live line (gw3-phone a121)
+    var work: WorkInfo?
+
+    struct WorkInfo: Codable, Equatable {
+        var id: String
+        var title: String
+        var state: String
+        var status: String
+        var glyph: String
+        var part: String
+        var detail: String
+        var word: String?
+        var line: String?
+        var modelLabel: String?
+        var ago: String?
+        var usage: String?
+        var outcome: String
+        var criteria: [String]
+        var projectId: String?
+        var from: String?       // you | main
+        var moves: [String]?
     }
 
     /// the prompt cache: written at `at` (ms), kept `ttlMin` minutes
