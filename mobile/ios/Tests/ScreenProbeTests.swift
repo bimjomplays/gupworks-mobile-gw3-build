@@ -41,11 +41,31 @@ final class ScreenProbeTests: XCTestCase {
         note("menu gone: \(menuGone)")
         await s.shot("probe-chat")
         // a drag from the left edge: the menu comes back in (MenuSwipeUITests does this with XCUITest)
-        let sw = Finger.swipe(from: CGPoint(x: 8, y: 400), to: CGPoint(x: 330, y: 400))
+        Finger.drag(from: CGPoint(x: 60, y: 400), to: CGPoint(x: 360, y: 410))
+        let sw = "kif"
         let back = await s.waitFor("place-projects", 5)
         note("edge swipe: \(sw), menu back: \(back != nil)")
         await s.shot("probe-swipe")
         note("total \(Date().timeIntervalSince(t0))s")
+    }
+
+    func testProbePressMenu() async throws {
+        let t0 = Date()
+        let s = await Screen(["-menu"], test: self)
+        defer { s.close(); flush() }
+        guard let row = await s.waitFor("chat-Recipe scaler", 10) else { return note("no Recipe scaler row") }
+        let f = row.frame
+        Finger.longPress(CGPoint(x: f.midX, y: f.midY), seconds: 1.2)
+        let rename = await s.waitForText("Rename", 5)
+        note("press menu: \(rename != nil) \(rename.map { "[\($0.id)] \($0.kind)" } ?? "") after \(Date().timeIntervalSince(t0))s")
+        await s.shot("probe-press")
+        if let del = s.nodes().first(where: { $0.label == "Delete\u{2026}" }) {
+            note("delete tap: \(del.tap())")
+            let ask = await s.waitForText("Recipe scaler\u{201D}?", 5)
+            note("confirm: \(ask != nil)")
+            await s.shot("probe-confirm")
+        }
+        for n in s.nodes() { note("  [\(n.id)] \(n.kind) \(n.label.prefix(60)) \(n.frame)") }
     }
 
     func testProbeFullScreenShot() async throws {

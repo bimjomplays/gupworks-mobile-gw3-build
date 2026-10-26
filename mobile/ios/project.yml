@@ -12,6 +12,12 @@ settings:
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "0.9.0"
     CURRENT_PROJECT_VERSION: "1"
+# KIF: real touches (taps, drags, long presses, pinches) inside the unit-test process, for the screen tests
+# (Tests/ScreenDriver.swift); XCTest's own event synthesizer only works from a UI-test bundle
+packages:
+  KIF:
+    url: https://github.com/kif-framework/KIF
+    exactVersion: 4.1.0
 targets:
   GupWorks3:
     type: application
@@ -83,6 +89,7 @@ targets:
       - ../GupKit/Tests/GupKitTests
     dependencies:
       - target: GupWorks3
+      - package: KIF
     settings:
       base:
         GENERATE_INFOPLIST_FILE: "YES"
