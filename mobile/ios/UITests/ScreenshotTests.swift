@@ -1,8 +1,8 @@
 import XCTest
 
-/// The few screens that need the system's own touches and media: sorting pins by a held drag, the video player, and
-/// pairing (a typed return). Everything else moved to Tests/ScreenTests.swift, which drives the screens inside the
-/// unit-test process in seconds. Each picture is attached to the test result and, when the runner sets SHOTS_DIR
+/// The few screens that need the system's own touches and media: sorting pins by a held drag, the video player, the
+/// Overview's swipe actions, and pairing (a typed return). Everything else moved to Tests/ScreenTests.swift, which
+/// drives the screens inside the unit-test process in seconds. Each picture is attached to the test result and, when the runner sets SHOTS_DIR
 /// (TEST_RUNNER_SHOTS_DIR for xcodebuild), also written there as a PNG.
 final class ScreenshotTests: XCTestCase {
     override func setUp() {
@@ -103,6 +103,48 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5))
         sleep(2)
         shot("video")
+    }
+
+    // MARK: the Overview's swipe actions and press menu (a list's swipe needs the system's own touches)
+
+    private let lumen = "00000066-1111-4222-8333-000000000066"
+
+    private func project(_ extra: [String] = []) -> XCUIApplication {
+        let app = launch(["-place", "projects", "-push", lumen] + extra)
+        XCTAssertTrue(el(app, "projectPill").waitForExistence(timeout: 20))
+        return app
+    }
+
+    private func overview(_ extra: [String] = []) -> XCUIApplication {
+        let app = project(["-sheet"] + extra)
+        XCTAssertTrue(el(app, "overviewGlance").waitForExistence(timeout: 10))
+        return app
+    }
+
+    private func drag(_ app: XCUIApplication, _ row: XCUIElement, from: CGFloat, to: CGFloat) {
+        let win = app.windows.firstMatch
+        let y = row.frame.midY / win.frame.height
+        let start = win.coordinate(withNormalizedOffset: CGVector(dx: from, dy: y))
+        let end = win.coordinate(withNormalizedOffset: CGVector(dx: to, dy: y))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
+    }
+
+    func testP06SwipeAndPress() {
+        let app = overview()
+        drag(app, el(app, "thread-a6"), from: 0.9, to: 0.4)
+        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Mark done"].exists)
+        sleep(1)
+        shot("06-swipe")
+        app.buttons["Pause"].tap()
+        drag(app, el(app, "thread-a6"), from: 0.9, to: 0.4)
+        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
+        app.buttons["Resume"].tap()
+        el(app, "thread-a4").press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Stop\u{2026}"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Open thread"].exists)
+        app.buttons["Stop\u{2026}"].tap()
+        XCTAssertTrue(find(app, "Stop \u{201C}Contact page form\u{201D}?").waitForExistence(timeout: 5))
     }
 
     private func el(_ app: XCUIApplication, _ id: String) -> XCUIElement {

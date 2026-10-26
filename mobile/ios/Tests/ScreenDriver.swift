@@ -30,6 +30,13 @@ final class App {
         App.current?.close()
         Accessibility.enable()
         Demo.args = ["-demo"] + flags
+        // each screen starts as a fresh install would (the projects filter and such are kept in the defaults);
+        // Hammer's own note that the accessibility engine is warm stays
+        let defaults = UserDefaults.standard
+        for key in (defaults.persistentDomain(forName: Bundle.main.bundleIdentifier ?? "") ?? [:]).keys
+        where key != "accessibility_activated" {
+            defaults.removeObject(forKey: key)
+        }
         model = AppModel(demo: true)
         self.test = test
         let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first!
@@ -136,7 +143,7 @@ final class Flag { var on = false }
 func spin(_ seconds: Double) {
     let end = Date().addingTimeInterval(seconds)
     repeat {
-        _ = CFRunLoopRunInMode(CFRunLoopMode.defaultMode, max(0.001, min(0.02, end.timeIntervalSinceNow)), false)
+        Tree.run(max(0.001, min(0.02, end.timeIntervalSinceNow)))
     } while Date() < end
 }
 
@@ -146,7 +153,7 @@ func poll(_ timeout: Double, until ok: () -> Bool) -> Bool {
     let end = Date().addingTimeInterval(timeout)
     while Date() < end {
         if ok() { return true }
-        _ = CFRunLoopRunInMode(CFRunLoopMode.defaultMode, 0.02, false)
+        Tree.run(0.02)
     }
     return ok()
 }
@@ -155,7 +162,16 @@ func poll(_ timeout: Double, until ok: () -> Bool) -> Bool {
 @MainActor
 func idle(_ least: Double = 0.15) {
     spin(least)
-    poll(1.5) { !Tree.animating() }
+    // SwiftUI moves things without Core Animation, so "still" is also: the same elements in the same places as a
+    // moment ago
+    var last = ""
+    poll(1.5) {
+        if Tree.animating() { return false }
+        let now = Tree.nodes().map { "\($0.id)|\($0.label)|\($0.frame)" }.joined(separator: "\n")
+        defer { last = now }
+        spin(0.05)
+        return now == last
+    }
 }
 
 /// before a touch, as XCUITest waits for the app to be idle: no transition or animation running and the target
@@ -332,9 +348,9 @@ struct Element {
     /// types into this field (focusing it first when the keyboard is elsewhere); "\u{8}" deletes
     func typeText(_ text: String, file: StaticString = #filePath, line: UInt = #line) {
         guard let n = node("type into", file: file, line: line) else { return }
-        if !n.hasKeyboardFocus {
+        if !n.hasKeyboardFocus || !(Tree.firstResponder() is UIKeyInput) {
             n.tap()
-            poll(2) { resolve()?.hasKeyboardFocus ?? false }
+            poll(3) { Tree.firstResponder() is UIKeyInput }
         }
         guard let field = Tree.firstResponder() as? UIKeyInput else {
             return XCTFail("no field has the keyboard for \(n.id)", file: file, line: line)
@@ -496,6 +512,16 @@ enum Tree {
 
     /// every accessibility element and identified container on screen, in tree order (and alerts, bars and lists
     /// as XCUITest names them)
+    /// lets the app run for up to `seconds`; what was read from the tree before is stale after it
+    static func run(_ seconds: Double) {
+        cache = nil
+        _ = CFRunLoopRunInMode(CFRunLoopMode.defaultMode, seconds, false)
+        cache = nil
+    }
+
+    /// the tree as last read, while the app hasn't run since (a test's queries in a row read it once)
+    static var cache: [Node]?
+
     static func nodes(_ kind: Kind = .any) -> [Node] {
         switch kind {
         case .alert: return alerts()
@@ -505,6 +531,7 @@ enum Tree {
         case .keyboard: return keyboardFrame() == nil ? [] : keyboardHosts().map { Node($0) }
         default: break
         }
+        if let all = cache { return kind == .any ? all : all.filter { matches($0, kind) } }
         var out: [Node] = [], seen = Set<ObjectIdentifier>()
         func walk(_ o: NSObject, _ depth: Int) {
             guard depth < 80, seen.insert(ObjectIdentifier(o)).inserted else { return }
@@ -523,6 +550,7 @@ enum Tree {
             if let v = o as? UIView { for s in v.subviews { walk(s, depth + 1) } }
         }
         for w in windows { walk(w, 0) }
+        cache = out
         return kind == .any ? out : out.filter { matches($0, kind) }
     }
 
@@ -648,6 +676,8 @@ enum Finger {
 
     private static func run(_ what: String, _ body: (EventGenerator) throws -> Void) {
         guard let g = App.current?.fingers else { return XCTFail("no screen to touch (\(what))") }
+        Tree.cache = nil
+        defer { Tree.cache = nil }
         do { try body(g) } catch { XCTFail("\(what) failed: \(error)") }
     }
 

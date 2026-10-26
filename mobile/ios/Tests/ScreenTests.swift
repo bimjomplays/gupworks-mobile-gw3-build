@@ -608,14 +608,6 @@ final class ScreenTests: XCTestCase {
     }
 
     /// a slow partial drag across a row, so its swipe buttons show (a quick full swipe would run the first one)
-    private func drag(_ app: App, _ row: Element, from: CGFloat, to: CGFloat) {
-        let win = app.windows.firstMatch
-        let y = row.frame.midY / win.frame.height
-        let start = win.coordinate(withNormalizedOffset: CGVector(dx: from, dy: y))
-        let end = win.coordinate(withNormalizedOffset: CGVector(dx: to, dy: y))
-        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
-    }
-
     // MARK: slice 4: answer, pick, command
 
     private let gallery = "00000009-1111-4222-8333-000000000009"
@@ -1003,24 +995,6 @@ final class ScreenTests: XCTestCase {
         // the Overview goes and the thread's chat is pushed over the main chat
         XCTAssertTrue(el(app, "taskCard").waitForExistence(timeout: 10))
         XCTAssertFalse(el(app, "overviewGlance").exists)
-    }
-
-    func testP06SwipeAndPress() {
-        let app = overview()
-        drag(app, el(app, "thread-a6"), from: 0.9, to: 0.4)
-        XCTAssertTrue(app.buttons["Pause"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Mark done"].exists)
-        sleep(1)
-        shot("06-swipe")
-        app.buttons["Pause"].tap()
-        drag(app, el(app, "thread-a6"), from: 0.9, to: 0.4)
-        XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
-        app.buttons["Resume"].tap()
-        el(app, "thread-a4").press(forDuration: 1.2)
-        XCTAssertTrue(app.buttons["Stop\u{2026}"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Open thread"].exists)
-        app.buttons["Stop\u{2026}"].tap()
-        XCTAssertTrue(find(app, "Stop \u{201C}Contact page form\u{201D}?").waitForExistence(timeout: 5))
     }
 
     func testP06NewThread() {
