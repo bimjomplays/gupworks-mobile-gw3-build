@@ -1,0 +1,387 @@
+{
+ "now": 1792000000000,
+ "header": {
+  "id": "00000018-1111-4222-8333-000000000018",
+  "title": "Overview designs",
+  "role": "chat",
+  "model": "Opus 5.5",
+  "modelId": "claude-opus-5-5",
+  "provider": "Claude",
+  "effort": "high",
+  "bypass": true,
+  "mode": "bypass",
+  "door": false,
+  "usage": [
+   {
+    "label": "ctx",
+    "percent": 20,
+    "tokens": 40000,
+    "switchAt": 200000,
+    "auto": true
+   },
+   {
+    "label": "5h",
+    "percent": 18,
+    "resets": "2026-10-14T20:58:40.000Z"
+   },
+   {
+    "label": "wk",
+    "percent": 41,
+    "resets": "2026-10-17T17:46:40.000Z"
+   }
+  ],
+  "branch": "",
+  "folder": "/work/lumen-studio",
+  "running": false,
+  "state": "done",
+  "pinned": false
+ },
+ "status": {
+  "state": "done",
+  "ts": 1791481600000,
+  "live": false,
+  "running": false
+ },
+ "turns": {
+  "turns": [
+   {
+    "id": "001b7741-0000-4000-8000-0000001b7741",
+    "kind": "prompt",
+    "start": 1791994601000,
+    "state": "done",
+    "prompt": {
+     "text": "Show me a few designs for the project Overview on the phone"
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "001b7742-0000-4000-8000-0000001b7742",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Three Overview designs. All three slide in from the right and have the glass pill at the top."
+       },
+       {
+        "t": "mockups",
+        "set": {
+         "title": "Phone project Overview · round 1",
+         "same": "Same in all: slides in from the right, glass pill (Overview, Library, Ideas, Scheduled)",
+         "options": [
+          {
+           "n": 1,
+           "name": "Sections",
+           "differs": "the desktop's right bar group by group, as grouped cards",
+           "shots": [
+            {
+             "badge": "1a",
+             "label": "Slide in",
+             "url": "demo:media/sections-slide-in.png"
+            },
+            {
+             "badge": "1b",
+             "label": "Overview",
+             "url": "demo:media/sections-overview.png"
+            },
+            {
+             "badge": "1c",
+             "label": "Scrolled",
+             "url": "demo:media/sections-scrolled.png"
+            },
+            {
+             "badge": "1d",
+             "label": "Library",
+             "url": "demo:media/sections-library.png"
+            },
+            {
+             "badge": "1e",
+             "label": "Ideas",
+             "url": "demo:media/sections-ideas.png"
+            },
+            {
+             "badge": "1f",
+             "label": "Scheduled",
+             "url": "demo:media/sections-scheduled.png"
+            }
+           ]
+          },
+          {
+           "n": 2,
+           "name": "Cards",
+           "differs": "roomy; questions as swipeable cards you answer in place, count tiles",
+           "shots": [
+            {
+             "badge": "2a",
+             "label": "Slide in",
+             "url": "demo:media/cards-slide-in.png"
+            },
+            {
+             "badge": "2b",
+             "label": "Overview",
+             "url": "demo:media/cards-overview.png"
+            },
+            {
+             "badge": "2c",
+             "label": "Scrolled",
+             "url": "demo:media/cards-scrolled.png"
+            },
+            {
+             "badge": "2d",
+             "label": "Bottom",
+             "url": "demo:media/cards-bottom.png"
+            },
+            {
+             "badge": "2e",
+             "label": "Library",
+             "url": "demo:media/cards-library.png"
+            },
+            {
+             "badge": "2f",
+             "label": "Ideas",
+             "url": "demo:media/cards-ideas.png"
+            },
+            {
+             "badge": "2g",
+             "label": "Scheduled",
+             "url": "demo:media/cards-scheduled.png"
+            }
+           ]
+          },
+          {
+           "n": 3,
+           "name": "Ledger",
+           "differs": "dense and flat; filter chips, usage strip, tap a row to open it in place",
+           "shots": [
+            {
+             "badge": "3a",
+             "label": "Slide in",
+             "url": "demo:media/ledger-slide-in.png"
+            },
+            {
+             "badge": "3b",
+             "label": "Overview",
+             "url": "demo:media/ledger-overview.png"
+            },
+            {
+             "badge": "3c",
+             "label": "Scrolled",
+             "url": "demo:media/ledger-scrolled.png"
+            },
+            {
+             "badge": "3d",
+             "label": "Bottom",
+             "url": "demo:media/ledger-bottom.png"
+            },
+            {
+             "badge": "3e",
+             "label": "Library",
+             "url": "demo:media/ledger-library.png"
+            },
+            {
+             "badge": "3f",
+             "label": "Ideas",
+             "url": "demo:media/ledger-ideas.png"
+            },
+            {
+             "badge": "3g",
+             "label": "Scheduled",
+             "url": "demo:media/ledger-scheduled.png"
+            }
+           ]
+          }
+         ],
+         "head": [
+          "",
+          "1 Sections",
+          "2 Cards",
+          "3 Ledger"
+         ],
+         "rows": [
+          [
+           "Density",
+           "Medium",
+           "Low, roomy",
+           "High"
+          ],
+          [
+           "Questions",
+           "In a group",
+           "Cards you answer in place",
+           "A row with a filter chip"
+          ],
+          [
+           "Usage",
+           "In each row",
+           "Model bar and gauges",
+           "A strip at the top"
+          ]
+         ]
+        }
+       },
+       {
+        "t": "p",
+        "text": "**Mockup set: Phone project Overview · round 1** (3 options)",
+        "fallback": true
+       },
+       {
+        "t": "p",
+        "text": "Same in all: slides in from the right, glass pill (Overview, Library, Ideas, Scheduled)",
+        "fallback": true
+       },
+       {
+        "t": "p",
+        "text": "**1 Sections**: the desktop's right bar group by group, as grouped cards\nScreens: 1a Slide in, 1b Overview, 1c Scrolled, 1d Library, 1e Ideas, 1f Scheduled\n(picture 1a missing: /work/lumen-studio/mockups/overview/sections-slide-in.png)\n(picture 1b missing: /work/lumen-studio/mockups/overview/sections-overview.png)\n(picture 1c missing: /work/lumen-studio/mockups/overview/sections-scrolled.png)\n(picture 1d missing: /work/lumen-studio/mockups/overview/sections-library.png)\n(picture 1e missing: /work/lumen-studio/mockups/overview/sections-ideas.png)\n(picture 1f missing: /work/lumen-studio/mockups/overview/sections-scheduled.png)",
+        "fallback": true
+       },
+       {
+        "t": "p",
+        "text": "**2 Cards**: roomy; questions as swipeable cards you answer in place, count tiles\nScreens: 2a Slide in, 2b Overview, 2c Scrolled, 2d Bottom, 2e Library, 2f Ideas, 2g Scheduled\n(picture 2a missing: /work/lumen-studio/mockups/overview/cards-slide-in.png)\n(picture 2b missing: /work/lumen-studio/mockups/overview/cards-overview.png)\n(picture 2c missing: /work/lumen-studio/mockups/overview/cards-scrolled.png)\n(picture 2d missing: /work/lumen-studio/mockups/overview/cards-bottom.png)\n(picture 2e missing: /work/lumen-studio/mockups/overview/cards-library.png)\n(picture 2f missing: /work/lumen-studio/mockups/overview/cards-ideas.png)\n(picture 2g missing: /work/lumen-studio/mockups/overview/cards-scheduled.png)",
+        "fallback": true
+       },
+       {
+        "t": "p",
+        "text": "**3 Ledger**: dense and flat; filter chips, usage strip, tap a row to open it in place\nScreens: 3a Slide in, 3b Overview, 3c Scrolled, 3d Bottom, 3e Library, 3f Ideas, 3g Scheduled\n(picture 3a missing: /work/lumen-studio/mockups/overview/ledger-slide-in.png)\n(picture 3b missing: /work/lumen-studio/mockups/overview/ledger-overview.png)\n(picture 3c missing: /work/lumen-studio/mockups/overview/ledger-scrolled.png)\n(picture 3d missing: /work/lumen-studio/mockups/overview/ledger-bottom.png)\n(picture 3e missing: /work/lumen-studio/mockups/overview/ledger-library.png)\n(picture 3f missing: /work/lumen-studio/mockups/overview/ledger-ideas.png)\n(picture 3g missing: /work/lumen-studio/mockups/overview/ledger-scheduled.png)",
+        "fallback": true
+       },
+       {
+        "t": "p",
+        "text": "**How they differ**",
+        "fallback": true
+       },
+       {
+        "t": "table",
+        "head": [
+         "",
+         "1 Sections",
+         "2 Cards",
+         "3 Ledger"
+        ],
+        "rows": [
+         [
+          "Density",
+          "Medium",
+          "Low, roomy",
+          "High"
+         ],
+         [
+          "Questions",
+          "In a group",
+          "Cards you answer in place",
+          "A row with a filter chip"
+         ],
+         [
+          "Usage",
+          "In each row",
+          "Model bar and gauges",
+          "A strip at the top"
+         ]
+        ],
+        "align": [
+         "left",
+         "left",
+         "left",
+         "left"
+        ],
+        "fallback": true
+       },
+       {
+        "t": "p",
+        "text": "My pick is **3 Ledger**: it shows the most without scrolling."
+       }
+      ]
+     }
+    ],
+    "rev": "0e532153e061",
+    "rewind": true
+   },
+   {
+    "id": "001b7744-0000-4000-8000-0000001b7744",
+    "kind": "prompt",
+    "start": 1791995810200,
+    "state": "done",
+    "prompt": {
+     "text": "Show me just the main screens again"
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "001b7745-0000-4000-8000-0000001b7745",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Here are the three Overview screens again."
+       },
+       {
+        "t": "p",
+        "text": "**1 Sections:** closest to the desktop's right bar, grouped cards, medium density."
+       },
+       {
+        "t": "media",
+        "items": [
+         {
+          "kind": "image",
+          "url": "demo:media/sections-overview.png",
+          "name": "1 Sections"
+         }
+        ]
+       },
+       {
+        "t": "p",
+        "text": "**2 Cards:** the roomiest. Questions show as cards you can reply to right there."
+       },
+       {
+        "t": "media",
+        "items": [
+         {
+          "kind": "image",
+          "url": "demo:media/cards-overview.png",
+          "name": "2 Cards"
+         }
+        ]
+       },
+       {
+        "t": "p",
+        "text": "**3 Ledger:** dense and flat, with filter chips and usage at the top."
+       },
+       {
+        "t": "media",
+        "items": [
+         {
+          "kind": "image",
+          "url": "demo:media/ledger-overview.png",
+          "name": "3 Ledger"
+         }
+        ]
+       },
+       {
+        "t": "p",
+        "text": "Here's how it slides in from the right:"
+       },
+       {
+        "t": "media",
+        "items": [
+         {
+          "kind": "image",
+          "url": "demo:media/ledger-slide-in.png",
+          "name": "Slide in"
+         }
+        ]
+       },
+       {
+        "t": "p",
+        "text": "My pick is **3**, because it shows the most without scrolling."
+       }
+      ]
+     }
+    ],
+    "rev": "709a3bffb817",
+    "rewind": true
+   }
+  ],
+  "more": false
+ },
+ "cards": {}
+}

@@ -10,6 +10,9 @@ struct ChatPhoto: Equatable, Identifiable {
     let id: String
     let link: String
     let mine: Bool
+    /// a mockup set's picture: "2b · Cards · Overview" and how its option differs, shown under it
+    var title: String? = nil
+    var detail: String? = nil
 }
 
 /// A chat's pictures, oldest first, as the chat shows them. Ids come from where a picture sits (turn, block,
@@ -39,7 +42,8 @@ enum ChatPhotos {
                 let scope = blockScope(t.id, bi)
                 switch b.type {
                 case "text":
-                    for (mi, m) in (b.md ?? []).enumerated() where m.t == "media" {
+                    // a mockup set's pictures open among the set's own (MockupSetView), not the chat's
+                    for (mi, m) in (b.md ?? []).enumerated() where m.t == "media" && !m.isFallback {
                         for (k, it) in (m.items ?? []).enumerated() where isPicture(it) {
                             out.append(ChatPhoto(id: id(scope: scope, slot: mi, item: k), link: it.url ?? "", mine: false))
                         }
@@ -172,6 +176,7 @@ struct PhotoViewer: View {
                 .ignoresSafeArea()
             if chrome && !dragging {
                 bar.transition(.opacity)
+                caption.transition(.opacity)
             }
         }
         .accessibilityElement(children: .contain)
@@ -201,6 +206,33 @@ struct PhotoViewer: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
+    }
+
+    /// a mockup set's picture says which one it is: "2b · Cards · Overview" and how the option differs
+    @ViewBuilder
+    private var caption: some View {
+        if photos.indices.contains(index), let title = photos[index].title {
+            VStack(spacing: 3) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .accessibilityIdentifier("photoTitle")
+                if let d = photos[index].detail, !d.isEmpty {
+                    Text(d)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .lineLimit(2)
+                }
+            }
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .glassEffect(in: .rect(cornerRadius: 18))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .allowsHitTesting(false)
+        }
     }
 
     private func glassButton(_ symbol: String, _ label: String, id: String, action: @escaping () -> Void) -> some View {

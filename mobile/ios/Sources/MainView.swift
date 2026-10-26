@@ -65,7 +65,7 @@ struct MainView: View {
     @State private var onProjects = false
 
     init() {
-        let args = ProcessInfo.processInfo.arguments
+        let args = Demo.args
         // the demo's flags for the screenshot tests
         var start = Current.fresh
         if Demo.isOn, let i = args.firstIndex(of: "-open"), i + 1 < args.count {

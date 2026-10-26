@@ -26,7 +26,7 @@ struct ProjectsPage: View {
 
     init(openMenu: @escaping () -> Void) {
         self.openMenu = openMenu
-        let args = ProcessInfo.processInfo.arguments
+        let args = Demo.args
         _filterOpen = State(initialValue: Demo.isOn && args.contains("-filter"))
         _newProject = State(initialValue: Demo.isOn && args.contains("-newProject"))
     }
@@ -243,26 +243,18 @@ struct ProjectsPage: View {
         model.pinnedItems.compactMap { if case .project(let p) = $0 { return p } else { return nil } }
     }
 
-    /// newest first (last activity, else when it was made)
-    static func newestFirst(_ rows: [ProjectRow]) -> [ProjectRow] {
-        rows.enumerated().sorted { a, b in
-            let x = a.element.lastActive ?? a.element.created ?? 0, y = b.element.lastActive ?? b.element.created ?? 0
-            return x != y ? x > y : a.offset < b.offset
-        }.map(\.element)
-    }
-
     private var shown: [ProjectRow] {
         guard let h = model.home else { return [] }
         let rows: [ProjectRow]
         switch filter {
         case .pinned: rows = pinnedRows
-        case .all: rows = Self.newestFirst(h.projects)
-        case .archived: rows = Self.newestFirst(h.archivedProjects ?? [])
+        case .all: rows = ProjectRow.newestFirst(h.projects)
+        case .archived: rows = ProjectRow.newestFirst(h.archivedProjects ?? [])
         }
         guard searching else { return rows }
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         guard !q.isEmpty else { return rows }
-        return Self.newestFirst((h.projects + (h.archivedProjects ?? [])).filter { $0.name.lowercased().contains(q) })
+        return ProjectRow.newestFirst((h.projects + (h.archivedProjects ?? [])).filter { $0.name.lowercased().contains(q) })
     }
 
     private var list: some View {
@@ -273,7 +265,7 @@ struct ProjectsPage: View {
                         note("Projects can't be read right now (\(e)).")
                     }
                     if showFolders && filter == .all && !searching {
-                        ForEach(ProjectLayout.rows(Self.newestFirst(home.projects), layout: home.layout,
+                        ForEach(ProjectLayout.rows(ProjectRow.newestFirst(home.projects), layout: home.layout,
                                                    open: openFolders)) { row in
                             switch row {
                             case .folder(let f, let count): folderHeader(f, count: count)
@@ -500,22 +492,5 @@ struct RoundButton<Label: View>: View {
 struct RowPress: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.background(configuration.isPressed ? Color.white.opacity(0.06) : .clear)
-    }
-}
-
-extension Format {
-    /// "just now", "4 min ago", "2 hours ago", "Yesterday", "3 days ago", "Oct 12"; `ms` since 1970.
-    static func ago(_ ms: Double, now: Date = Date(), calendar: Calendar = .current, locale: Locale = .current) -> String {
-        guard ms > 0 else { return "" }
-        let s = now.timeIntervalSince1970 - ms / 1000
-        if s < 60 { return "just now" }
-        if s < 3600 { return "\(Int(s / 60)) min ago" }
-        if s < 86_400 { return Int(s / 3600) == 1 ? "1 hour ago" : "\(Int(s / 3600)) hours ago" }
-        let date = Date(timeIntervalSince1970: ms / 1000)
-        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date),
-                                           to: calendar.startOfDay(for: now)).day ?? 0
-        if days <= 1 { return "Yesterday" }
-        if days < 7 { return "\(days) days ago" }
-        return time(ms, now: now, calendar: calendar, locale: locale)
     }
 }

@@ -1,6 +1,8 @@
 import Foundation
 import Observation
+#if canImport(UIKit)
 import UIKit
+#endif
 
 /// The app's state: the pairing (Keychain), the last home list and what went wrong last.
 @Observable
@@ -22,7 +24,7 @@ final class AppModel {
 
     /// `demo`: the unit tests' demo model (the app reads -demo from its arguments)
     init(demo forced: Bool? = nil) {
-        let args = ProcessInfo.processInfo.arguments
+        let args = Demo.args
         demo = forced ?? Demo.isOn
         if demo {
             pairing = args.contains("-unpaired") ? nil : Demo.pairing
@@ -34,7 +36,12 @@ final class AppModel {
     var isPaired: Bool { pairing != nil }
 
     func pair(with link: PairLink) async throws {
-        let p = try await api.pair(link, device: UIDevice.current.name)
+        #if canImport(UIKit)
+        let device = UIDevice.current.name
+        #else
+        let device = "Linux"
+        #endif
+        let p = try await api.pair(link, device: device)
         guard PairingStore.save(p) else { throw APIError.server("The phone couldn't keep the key (Keychain).") }
         pairing = p
         error = nil
