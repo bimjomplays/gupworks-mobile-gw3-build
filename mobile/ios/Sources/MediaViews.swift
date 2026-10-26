@@ -1,4 +1,3 @@
-import AVKit
 import SwiftUI
 import UIKit
 
@@ -131,39 +130,54 @@ struct RemoteImage: View {
     }
 }
 
-/// A reply's pictures and videos: one fills the column; several sit in a two-column grid. Tap for full screen.
+/// A reply's pictures and videos: one fills the column; several sit in a two-column grid. Tap for full screen;
+/// a picture opens among the chat's other pictures when it sits in a chat (`slot`: its block in the reply).
 struct MediaGroup: View {
     let items: [MDItem]
     let base: URL?
-    @State private var open: MDItem?
+    let slot: Int?
+    @Environment(\.chatPhotos) private var photos
+    @Environment(\.photoScope) private var scope
+    @State private var open: MediaOpen?
 
-    init(items: [MDItem], base: URL?) {
+    init(items: [MDItem], base: URL?, slot: Int? = nil) {
         self.items = items
         self.base = base
+        self.slot = slot
     }
 
     var body: some View {
         Group {
             if items.count == 1, let it = items.first {
-                tile(it, single: true)
+                tile(it, at: 0, single: true)
             } else {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(Array(items.enumerated()), id: \.offset) { _, it in
-                        tile(it, single: false)
+                    ForEach(Array(items.enumerated()), id: \.offset) { k, it in
+                        tile(it, at: k, single: false)
                     }
                 }
             }
         }
-        .fullScreenCover(item: $open) { it in
-            MediaViewer(item: it, base: base)
+        .fullScreenCover(item: $open) { o in
+            MediaViewer(open: o, base: base, source: photos)
         }
     }
 
+    private func tap(_ it: MDItem, at k: Int) {
+        if it.kind == "video" {
+            open = MediaOpen(item: it)
+            return
+        }
+        var id: String?
+        if let scope, let slot { id = ChatPhotos.id(scope: scope, slot: slot, item: k) }
+        open = MediaOpen.picture(it, id: id, source: photos)
+    }
+
     @ViewBuilder
-    private func tile(_ it: MDItem, single: Bool) -> some View {
+    private func tile(_ it: MDItem, at k: Int, single: Bool) -> some View {
         let isVideo = it.kind == "video"
         let picture = MediaLink.url(isVideo ? it.poster : it.url, base: base)
-        Button { open = it } label: {
+        Button { tap(it, at: k) } label: {
             ZStack {
                 if single {
                     RemoteImage(url: picture)
@@ -193,50 +207,17 @@ extension MDItem: Identifiable {
     var id: String { (url ?? "") + (name ?? "") }
 }
 
-/// Full screen: a picture you can pinch, or a video playing in the system player.
+/// Full screen: a video in the video player, or pictures in the photo viewer.
 struct MediaViewer: View {
-    let item: MDItem
+    let open: MediaOpen
     let base: URL?
-    @Environment(\.dismiss) private var dismiss
-    @State private var player: AVPlayer?
-    @State private var scale: CGFloat = 1
-
-    init(item: MDItem, base: URL?) {
-        self.item = item
-        self.base = base
-    }
+    var source: PhotoSource? = nil
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            Color.black.ignoresSafeArea()
-            if item.kind == "video" {
-                VideoPlayer(player: player)
-                    .ignoresSafeArea()
-                    .onAppear {
-                        if player == nil, let url = MediaLink.url(item.url, base: base) {
-                            let p = AVPlayer(url: url)
-                            player = p
-                            p.play()
-                        }
-                    }
-                    .onDisappear { player?.pause() }
-            } else {
-                RemoteImage(url: MediaLink.url(item.url, base: base))
-                    .scaleEffect(scale)
-                    .gesture(MagnifyGesture()
-                        .onChanged { scale = max(1, min(5, $0.magnification)) }
-                        .onEnded { _ in withAnimation { scale = 1 } })
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.glass)
-            .padding(16)
-            .accessibilityLabel("Close")
+        if open.item.kind == "video" {
+            VideoPlayerScreen(item: open.item, base: base)
+        } else {
+            PhotoViewer(photos: open.photos, start: open.start, base: base, source: source)
         }
     }
 }

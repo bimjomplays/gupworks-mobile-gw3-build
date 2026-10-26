@@ -10,21 +10,5 @@
    "title": "Recipe scaler",
    "snippet": "…scale the sourdough starter by weight, not by cups, so the header row stays…"
   }
- ],
- "projects": [
-  {
-   "id": "lumen-studio",
-   "name": "Lumen Studio website",
-   "chatId": "00000076-2222-4222-8333-000000000076",
-   "title": "Contrast pass",
-   "snippet": "…every page passes contrast with the darker palette, the gallery too…"
-  },
-  {
-   "id": "garden-planner-1a2b",
-   "name": "Garden planner",
-   "chatId": "00000065-1111-4222-8333-000000000065",
-   "title": "Main chat",
-   "snippet": "…the tomato beds want the darker corner by the fence…"
-  }
  ]
 }

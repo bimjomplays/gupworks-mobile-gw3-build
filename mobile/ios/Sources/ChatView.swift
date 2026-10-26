@@ -250,6 +250,7 @@ struct ChatView: View {
             CardDetailView(store: store, cardId: r.id)
         }
         .environment(\.messageActions, actions)
+        .environment(\.chatPhotos, photoSource)
     }
 
     /// split from body so the compiler can type-check it
@@ -304,6 +305,14 @@ struct ChatView: View {
     }
 
     private var pinned: Bool { store.header?.pinned ?? false }
+
+    /// the chat's pictures for the photo viewer: open one, swipe through them all (older pages load at the first)
+    private var photoSource: PhotoSource {
+        let s = store
+        return PhotoSource(photos: { ChatPhotos.collect(turns: s.turns) },
+                           more: { s.more },
+                           loadOlder: { await s.loadOlder() })
+    }
 
     /// D7's long-press actions and the thread card's answers, for the turns below
     private var actions: MessageActions {
@@ -581,6 +590,7 @@ struct TurnView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             PromptView(turn: turn, base: base)
+                .environment(\.photoScope, ChatPhotos.promptScope(turn.id))
             if let h = turn.handle {
                 HandleRow(handle: h, open: open, turnId: turn.id, toggle: toggle)
                     .padding(.top, 10)
@@ -588,6 +598,7 @@ struct TurnView: View {
             if lastAnswer == nil { outsideViews }
             ForEach(Array(shown.enumerated()), id: \.offset) { _, item in
                 BlockView(block: item.block, base: base)
+                    .environment(\.photoScope, ChatPhotos.blockScope(turn.id, item.index))
                 if item.index == lastAnswer { outsideViews }
             }
         }
@@ -658,14 +669,16 @@ struct Bubble: View {
     let prompt: Prompt
     let base: URL?
     var queued = false
-    @State private var open: MDItem?
+    @Environment(\.chatPhotos) private var photos
+    @Environment(\.photoScope) private var scope
+    @State private var open: MediaOpen?
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
             if let images = prompt.images, !images.isEmpty {
                 PhotoGrid {
-                    ForEach(Array(images.enumerated()), id: \.offset) { _, link in
-                        Button { open = MDItem(kind: "image", url: link, name: "Your picture") } label: {
+                    ForEach(Array(images.enumerated()), id: \.offset) { k, link in
+                        Button { openPicture(link, at: k) } label: {
                             PhotoTile { RemoteImage(url: MediaLink.url(link, base: base), fill: true) }
                         }
                         .buttonStyle(.plain)
@@ -702,7 +715,12 @@ struct Bubble: View {
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.top, 4)
-        .fullScreenCover(item: $open) { MediaViewer(item: $0, base: base) }
+        .fullScreenCover(item: $open) { MediaViewer(open: $0, base: base, source: photos) }
+    }
+
+    private func openPicture(_ link: String, at k: Int) {
+        let item = MDItem(kind: "image", url: link, name: "Your picture")
+        open = MediaOpen.picture(item, id: scope.map { ChatPhotos.id(scope: $0, item: k) }, source: photos)
     }
 }
 

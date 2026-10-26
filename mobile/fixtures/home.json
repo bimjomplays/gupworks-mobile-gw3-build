@@ -10,11 +10,7 @@
    "permission": 0,
    "working": 0,
    "paused": false,
-   "mainChatId": "00000065-1111-4222-8333-000000000065",
-   "icon": "sprout",
-   "color": "green",
-   "lastActive": 1791999760000,
-   "created": 1790272000000
+   "mainChatId": "00000065-1111-4222-8333-000000000065"
   },
   {
    "id": "lumen-studio",
@@ -25,11 +21,7 @@
    "permission": 0,
    "working": 2,
    "paused": false,
-   "mainChatId": "00000066-1111-4222-8333-000000000066",
-   "icon": "camera",
-   "color": "orange",
-   "lastActive": 1791999940000,
-   "created": 1791222400000
+   "mainChatId": "00000066-1111-4222-8333-000000000066"
   },
   {
    "id": "home-server-5e6f",
@@ -40,88 +32,7 @@
    "permission": 1,
    "working": 0,
    "paused": false,
-   "mainChatId": "00000067-1111-4222-8333-000000000067",
-   "icon": "server",
-   "color": "blue",
-   "lastActive": 1791998500000,
-   "created": 1788544000000
-  },
-  {
-   "id": "bike-log-7c8d",
-   "name": "Bike log",
-   "state": "working",
-   "detail": "1 thread",
-   "needs": 0,
-   "permission": 0,
-   "working": 1,
-   "paused": false,
-   "mainChatId": null,
-   "icon": "bike",
-   "color": "teal",
-   "lastActive": 1791999280000,
-   "created": 1791481600000
-  },
-  {
-   "id": "recipe-box-9e0f",
-   "name": "Recipe box",
-   "state": "idle",
-   "detail": "",
-   "needs": 0,
-   "permission": 0,
-   "working": 0,
-   "paused": false,
-   "mainChatId": null,
-   "icon": "chef-hat",
-   "color": "amber",
-   "lastActive": 1791992800000,
-   "created": 1790704000000
-  },
-  {
-   "id": "budget-sheet-1a3c",
-   "name": "Budget sheet",
-   "state": "idle",
-   "detail": "",
-   "needs": 0,
-   "permission": 0,
-   "working": 0,
-   "paused": false,
-   "mainChatId": null,
-   "icon": "wallet",
-   "color": null,
-   "lastActive": 1791974800000,
-   "created": 1789408000000
-  },
-  {
-   "id": "study-cards-4b5d",
-   "name": "Study cards",
-   "state": "idle",
-   "detail": "",
-   "needs": 0,
-   "permission": 0,
-   "working": 0,
-   "paused": false,
-   "mainChatId": null,
-   "icon": "graduation-cap",
-   "color": "violet",
-   "lastActive": 1791906400000,
-   "created": 1787680000000
-  }
- ],
- "archivedProjects": [
-  {
-   "id": "old-blog-6e7f",
-   "name": "Old blog",
-   "state": "idle",
-   "detail": "",
-   "needs": 0,
-   "permission": 0,
-   "working": 0,
-   "paused": false,
-   "mainChatId": null,
-   "icon": "newspaper",
-   "color": "pink",
-   "lastActive": 1790963200000,
-   "created": 1774720000000
+   "mainChatId": "00000067-1111-4222-8333-000000000067"
   }
  ],
  "layout": [

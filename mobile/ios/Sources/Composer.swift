@@ -413,39 +413,26 @@ struct Composer: View {
     private func addFiles(_ result: Result<[URL], Error>) {
         guard case .success(let urls) = result else { return }
         for url in urls {
-            guard attachments.count < 10 else { problem = "Up to 10 at a time."; return }
-            switch Attachment.file(url) {
-            case .success(let a): attachments.append(a)
-            case .failure(let e): problem = e.message
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            let name = url.lastPathComponent
+            guard let data = try? Data(contentsOf: url) else { problem = "\(name) couldn't be read."; continue }
+            let type = UTType(filenameExtension: url.pathExtension)
+            if type?.conforms(to: .image) == true, !Attachment.readableImage(url.pathExtension), let image = UIImage(data: data) {
+                // HEIC and the like: sent as JPEG, which Claude can open
+                addPhoto(image, name: (name as NSString).deletingPathExtension + ".jpg")
+                continue
             }
+            guard data.count <= Self.uploadMax else { problem = "\(name) is over 30 MB."; continue }
+            guard attachments.count < 10 else { problem = "Up to 10 at a time."; return }
+            let isImage = type?.conforms(to: .image) == true
+            attachments.append(Attachment(name: name, type: type?.preferredMIMEType ?? "application/octet-stream",
+                                          data: data, image: isImage ? UIImage(data: data) : nil))
         }
     }
-}
-
-/// why a file couldn't be added
-struct AttachmentProblem: Error {
-    let message: String
 }
 
 extension Attachment {
-    /// A file picked in Files, as the PC gets it: HEIC and other pictures Claude can't open become JPEG.
-    static func file(_ url: URL) -> Result<Attachment, AttachmentProblem> {
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-        let name = url.lastPathComponent
-        guard let data = try? Data(contentsOf: url) else { return .failure(.init(message: "\(name) couldn't be read.")) }
-        let type = UTType(filenameExtension: url.pathExtension)
-        if type?.conforms(to: .image) == true, !readableImage(url.pathExtension), let image = UIImage(data: data) {
-            let jpeg = (name as NSString).deletingPathExtension + ".jpg"
-            guard let a = photo(image, name: jpeg) else { return .failure(.init(message: "\(name) couldn't be read.")) }
-            return .success(a)
-        }
-        guard data.count <= Composer.uploadMax else { return .failure(.init(message: "\(name) is over 30 MB.")) }
-        let isImage = type?.conforms(to: .image) == true
-        return .success(Attachment(name: name, type: type?.preferredMIMEType ?? "application/octet-stream",
-                                   data: data, image: isImage ? UIImage(data: data) : nil))
-    }
-
     /// A photo as the PC gets it: JPEG, at most 2048 px on its long side.
     static func photo(_ image: UIImage, name: String) -> Attachment? {
         let small = image.scaledDown(to: 2048)
@@ -474,7 +461,7 @@ extension UIImage {
 }
 
 /// The picked photos and files above the field, each with an × to take it out again.
-struct AttachmentStrip: View {
+private struct AttachmentStrip: View {
     @Binding var attachments: [Attachment]
 
     var body: some View {
