@@ -12,7 +12,7 @@ final class Screen {
     let model: AppModel
     private weak var test: XCTestCase?
 
-    init(_ flags: [String] = [], test: XCTestCase) {
+    init(_ flags: [String] = [], test: XCTestCase) async {
         Accessibility.enable()
         Demo.args = ["-demo"] + flags
         model = AppModel(demo: true)
@@ -24,6 +24,7 @@ final class Screen {
             .preferredColorScheme(.dark).tint(Theme.blue)
         window.rootViewController = UIHostingController(rootView: root)
         window.makeKeyAndVisible()
+        await model.refresh()  // what RootView's task does once the app is in front
     }
 
     func close() {
@@ -189,9 +190,13 @@ struct Node {
     var isSelected: Bool { obj.accessibilityTraits.contains(.selected) }
     var isButton: Bool { obj.accessibilityTraits.contains(.button) }
 
-    func tap() {
-        if obj.accessibilityActivate() { return }
-        if let c = obj as? UIControl { c.sendActions(for: .touchUpInside) }
+    /// a tap: the accessibility action when the element has one, else a finger (XCTest's event synthesizer)
+    @discardableResult
+    func tap() -> String {
+        if obj.accessibilityActivate() { return "activate" }
+        if let c = obj as? UIControl { c.sendActions(for: .touchUpInside); return "control" }
+        let f = frame
+        return Finger.tap(CGPoint(x: f.midX, y: f.midY))
     }
 
     /// a text field: the keyboard to it
@@ -214,5 +219,71 @@ enum Accessibility {
                 if let f = dlsym(lib, name) { unsafeBitCast(f, to: SetBool.self)(true) }
             }
         }
+    }
+}
+
+/// Touches through XCTest's own event synthesizer (what XCUIElement.tap() uses), from inside the app.
+@MainActor
+enum Finger {
+    private typealias InitPath = @convention(c) (AnyObject, Selector, CGPoint, Double) -> AnyObject
+    private typealias AtOffset = @convention(c) (AnyObject, Selector, Double) -> Void
+    private typealias MoveTo = @convention(c) (AnyObject, Selector, CGPoint, Double) -> Void
+    private typealias InitRecord = @convention(c) (AnyObject, Selector, NSString, Int) -> AnyObject
+    private typealias AddPath = @convention(c) (AnyObject, Selector, AnyObject) -> Void
+    private typealias SynthWithError = @convention(c) (AnyObject, Selector, UnsafeMutablePointer<NSError?>?) -> Bool
+
+    private static func imp<T>(_ cls: AnyClass, _ name: String, _: T.Type) -> T? {
+        guard let m = class_getInstanceMethod(cls, NSSelectorFromString(name)) else { return nil }
+        return unsafeBitCast(method_getImplementation(m), to: T.self)
+    }
+
+    /// a path of points (screen coordinates); one point is a tap
+    static func path(_ points: [CGPoint], seconds: Double = 0.05) -> String {
+        guard let pathCls = NSClassFromString("XCPointerEventPath"),
+              let recCls = NSClassFromString("XCSynthesizedEventRecord"),
+              let initPath = imp(pathCls, "initForTouchAtPoint:offset:", InitPath.self),
+              let lift = imp(pathCls, "liftUpAtOffset:", AtOffset.self),
+              let move = imp(pathCls, "moveToPoint:atOffset:", MoveTo.self),
+              let initRec = imp(recCls, "initWithName:interfaceOrientation:", InitRecord.self),
+              let add = imp(recCls, "addPointerEventPath:", AddPath.self)
+        else { return "no XCTest synthesizer classes" }
+        let p = initPath((pathCls as! NSObject.Type).alloc(), NSSelectorFromString("initForTouchAtPoint:offset:"), points[0], 0)
+        let step = points.count > 1 ? seconds / Double(points.count - 1) : 0
+        for (i, pt) in points.enumerated().dropFirst() {
+            move(p, NSSelectorFromString("moveToPoint:atOffset:"), pt, step * Double(i))
+        }
+        lift(p, NSSelectorFromString("liftUpAtOffset:"), points.count > 1 ? seconds : 0.05)
+        let rec = initRec((recCls as! NSObject.Type).alloc(), NSSelectorFromString("initWithName:interfaceOrientation:"),
+                          "a125 finger" as NSString, UIInterfaceOrientation.portrait.rawValue)
+        add(rec, NSSelectorFromString("addPointerEventPath:"), p)
+        if let synth = imp(recCls, "synthesizeWithError:", SynthWithError.self) {
+            var err: NSError?
+            let ok = synth(rec, NSSelectorFromString("synthesizeWithError:"), &err)
+            return ok ? "synthesized" : "synthesize failed: \(err?.localizedDescription ?? "?")"
+        }
+        // newer XCTest: XCUIDevice's event synthesizer, answers through a block
+        typealias Synth = @convention(c) (AnyObject, Selector, AnyObject, @escaping @convention(block) (NSError?) -> Void) -> Void
+        let dev = XCUIDevice.shared as NSObject
+        guard dev.responds(to: NSSelectorFromString("eventSynthesizer")),
+              let es = dev.value(forKey: "eventSynthesizer") as? NSObject,
+              let m = class_getInstanceMethod(type(of: es), NSSelectorFromString("synthesizeEvent:completion:"))
+        else { return "no synthesizer" }
+        var done = false, failure: String?
+        unsafeBitCast(method_getImplementation(m), to: Synth.self)(es, NSSelectorFromString("synthesizeEvent:completion:"), rec) { e in
+            failure = e?.localizedDescription
+            done = true
+        }
+        let end = Date().addingTimeInterval(10)
+        while !done && Date() < end { RunLoop.current.run(until: Date().addingTimeInterval(0.02)) }
+        return !done ? "synthesizer timed out" : failure.map { "synthesizer: " + $0 } ?? "synthesized (device)"
+    }
+
+    static func tap(_ at: CGPoint) -> String { path([at]) }
+
+    static func swipe(from a: CGPoint, to b: CGPoint, steps: Int = 12, seconds: Double = 0.3) -> String {
+        path((0...steps).map { i in
+            let t = CGFloat(i) / CGFloat(steps)
+            return CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+        }, seconds: seconds)
     }
 }

@@ -100,9 +100,12 @@ jobs:
           set -o pipefail
           start=$SECONDS
           xcodebuild -project "$PROJECT" -scheme "$SCHEME" -destination "id=${{ steps.sim.outputs.udid }}" \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build-for-testing > build.log 2>&1 \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO COMPILER_INDEX_STORE_ENABLE=NO -showBuildTimingSummary \
+            OTHER_SWIFT_FLAGS='$(inherited) -Xfrontend -warn-long-function-bodies=400' build-for-testing > build.log 2>&1 \
             || { grep -E "error:" build.log | head -80; tail -40 build.log; exit 1; }
           echo "built in $((SECONDS - start)) s"
+          sed -n '/Build Timing Summary/,$p' build.log | head -25
+          grep -E "warning: .*took [0-9]+ms to type-check" build.log | sort -u | head -15 || true
       - name: Simulator ready
         run: |
           udid=${{ steps.sim.outputs.udid }}

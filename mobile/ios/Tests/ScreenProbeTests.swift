@@ -23,7 +23,7 @@ final class ScreenProbeTests: XCTestCase {
 
     func testProbeTreeAndTap() async throws {
         let t0 = Date()
-        let s = Screen(["-menu"], test: self)
+        let s = await Screen(["-menu"], test: self)
         defer { s.close(); flush() }
         let found = await s.waitFor("place-projects", 20)
         note("place-projects after \(Date().timeIntervalSince(t0))s: \(found != nil)")
@@ -32,17 +32,24 @@ final class ScreenProbeTests: XCTestCase {
         for n in nodes.prefix(120) { note("  [\(n.id)] \(n.kind) \(n.label.prefix(60)) = \(n.value.prefix(30)) \(n.frame)") }
         await s.shot("probe-menu")
         let t1 = Date()
-        await s.tap("pin-Gallery lightbox fix")
+        note("pins: \(s.nodes().filter { $0.id.hasPrefix("pin-") }.map(\.id))")
+        let how = await s.waitFor("pin-Gallery lightbox fix")?.tap() ?? "missing"
+        note("pin tap: \(how)")
         let chat = await s.waitForText("All five pages pass", 10)
         note("chat after tap \(Date().timeIntervalSince(t1))s: \(chat != nil)")
         let menuGone = await s.gone("place-projects")
         note("menu gone: \(menuGone)")
         await s.shot("probe-chat")
+        // a drag from the left edge: the menu comes back in (MenuSwipeUITests does this with XCUITest)
+        let sw = Finger.swipe(from: CGPoint(x: 8, y: 400), to: CGPoint(x: 330, y: 400))
+        let back = await s.waitFor("place-projects", 5)
+        note("edge swipe: \(sw), menu back: \(back != nil)")
+        await s.shot("probe-swipe")
         note("total \(Date().timeIntervalSince(t0))s")
     }
 
     func testProbeFullScreenShot() async throws {
-        let s = Screen([], test: self)
+        let s = await Screen([], test: self)
         defer { s.close(); flush() }
         _ = await s.waitFor("composer", 20)
         await s.settle(1.5)
@@ -52,6 +59,7 @@ final class ScreenProbeTests: XCTestCase {
             let png = f()
             note("\(name): \(png?.count ?? -1) bytes in \(Date().timeIntervalSince(t))s, keyboard pixels: \(png.map(Self.lowerBrightness) ?? -1)")
             if let png, let dir = ProcessInfo.processInfo.environment["SHOTS_DIR"], !dir.isEmpty {
+                try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
                 try? png.write(to: URL(fileURLWithPath: dir).appendingPathComponent("probe-full-\(name).png"))
             }
         }
@@ -77,7 +85,7 @@ final class ScreenProbeTests: XCTestCase {
 
     func testProbeTypingAndSend() async throws {
         let t0 = Date()
-        let s = Screen([], test: self)
+        let s = await Screen([], test: self)
         defer { s.close(); flush() }
         let box = await s.waitFor("composer", 20)
         note("composer: \(box != nil) \(box.map { "\(type(of: $0.obj))" } ?? "")")
@@ -95,13 +103,14 @@ final class ScreenProbeTests: XCTestCase {
 
     func testProbeSheetAndProject() async throws {
         let t0 = Date()
-        let s = Screen(["-place", "projects", "-push", "00000066-1111-4222-8333-000000000066", "-sheet"], test: self)
+        let s = await Screen(["-place", "projects", "-push", "00000066-1111-4222-8333-000000000066", "-sheet"], test: self)
         defer { s.close(); flush() }
         let glance = await s.waitFor("overviewGlance", 20)
         note("overview sheet: \(glance != nil) after \(Date().timeIntervalSince(t0))s")
         note("needsMain \(s.el("needsMain") != nil) thread-a6 \(s.el("thread-a6") != nil)")
         await s.shot("probe-overview")
-        await s.tap("thread-a4")
+        let how = await s.waitFor("thread-a4")?.tap() ?? "missing"
+        note("thread-a4 tap: \(how)")
         let task = await s.waitFor("taskCard", 10)
         note("taskCard after tap: \(task != nil)")
         await s.shot("probe-thread")
