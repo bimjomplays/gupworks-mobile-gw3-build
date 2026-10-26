@@ -332,7 +332,10 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
     func updateUIGestureRecognizer(_ g: UIPanGestureRecognizer, context: Context) {
         // read when a swipe would start (the menu doesn't open or close while one is under way)
         context.coordinator.closing = closing
+        let moving = g.state == .began || g.state == .changed
         g.isEnabled = enabled
+        // turned off mid-swipe (a pin lifted under the finger): the chat goes back to where it was
+        if moving && !enabled { Task { @MainActor in ended(0, 0) } }
     }
 
     func handleUIGestureRecognizerAction(_ g: UIPanGestureRecognizer, context: Context) {
@@ -356,44 +359,16 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
         private var scrolls: [WeakPan] = []
 
         func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
-            guard let pan = g as? UIPanGestureRecognizer else { return false }
+            guard let pan = g as? UIPanGestureRecognizer, !MenuSwipe.pinHeld else { return false }
             let v = pan.velocity(in: nil)
             let sideways = abs(v.x) > 1.5 * abs(v.y)
-
-            // a wide table or code panel scrolled sideways under the finger scrolls back first
-            if !closing, sideways, v.x > 0, scrollsBack(pan) { return false }
             return sideways && (closing ? v.x < 0 : v.x > 0)
-        }
-
-        /// the view UIKit found under the finger when the touch began
-        private weak var touched: UIView?
-
-        func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-            touched = touch.view
-            return true
-        }
-
-        /// whether a sideways scroll view under the touch is scrolled away from its start (a swipe right moves it)
-        private func scrollsBack(_ pan: UIPanGestureRecognizer) -> Bool {
-            if Self.scrollsBack(from: touched) { return true }
-            guard let root = pan.view else { return false }
-            return Self.scrollsBack(from: root.hitTest(pan.location(in: root), with: nil))
-        }
-
-        static func scrollsBack(from start: UIView?) -> Bool {
-            var v = start
-            while let view = v {
-                if let s = view as? UIScrollView, s.contentSize.width > s.bounds.width + 1,
-                   s.contentOffset.x > -s.adjustedContentInset.left + 0.5 {
-                    return true
-                }
-                v = view.superview
-            }
-            return false
         }
 
         func gestureRecognizer(_ g: UIGestureRecognizer,
                                shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            // a lifted pin owns the touch: whichever starts first wins, so the menu never slides while a pin sorts
+            if other.name == MenuSwipe.pinLift { return false }
             if let pan = other as? UIPanGestureRecognizer, let scroll = other.view as? UIScrollView,
                scroll.panGestureRecognizer === pan {
                 scrolls.removeAll { $0.pan == nil || $0.pan === pan }
@@ -411,6 +386,12 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
             }
         }
     }
+
+    /// the name of the pins' long press (PinLift in MenuView.swift)
+    static let pinLift = "pinLift"
+    /// a pin's long press holds the finger. PinLift sets it in UIKit's own callback, so the swipe can't start in the
+    /// gap before SwiftUI turns it off (`enabled`): on a busy phone that gap outlasted the finger's first move.
+    static var pinHeld = false
 
     struct WeakPan {
         weak var pan: UIPanGestureRecognizer?

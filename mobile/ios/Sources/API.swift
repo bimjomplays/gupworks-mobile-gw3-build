@@ -789,6 +789,8 @@ private final class NoRedirects: NSObject, URLSessionTaskDelegate {
 /// the times moved so the recorded "now" is now.
 enum Demo {
     static var isOn: Bool { ProcessInfo.processInfo.arguments.contains("-demo") }
+    /// the menu tells the main view a second late that a pin lifted (MenuView), for MenuSwipeUITests
+    static var slowLift: Bool { isOn && ProcessInfo.processInfo.arguments.contains("-slowLift") }
 
     static func load<T: Decodable>(_ name: String, in folder: String = "fixtures") -> T? {
         guard let url = Bundle.main.url(forResource: name, withExtension: "json", subdirectory: folder),
