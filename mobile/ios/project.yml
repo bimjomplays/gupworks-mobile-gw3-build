@@ -10,7 +10,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.9.0"
+    MARKETING_VERSION: "0.8.1"
     CURRENT_PROJECT_VERSION: "1"
 targets:
   GupWorks3:
@@ -35,7 +35,11 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UIUserInterfaceStyle: Dark
-        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # upright only, except the video player (AppDelegate's mask in VideoPlayer.swift)
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft,
+                                           UIInterfaceOrientationLandscapeRight]
+        # picture in picture keeps a video playing outside the app
+        UIBackgroundModes: [audio]
         UIRequiredDeviceCapabilities: [arm64]
         ITSAppUsesNonExemptEncryption: false
         # the pairing QR holds a gupworks3://pair link, so the iPhone camera app can open it here too
@@ -56,6 +60,8 @@ targets:
               NSExceptionAllowsInsecureHTTPLoads: true
         NSLocalNetworkUsageDescription: >-
           GupWorks reaches your PC through Tailscale, by its Tailscale address when its name can't be looked up.
+        NSPhotoLibraryAddUsageDescription: >-
+          GupWorks saves a chat's picture or video to your photos only when you choose Save in the share sheet.
         NSSpeechRecognitionUsageDescription: >-
           When your PC can't be reached, GupWorks turns your recording into text on this iPhone instead. Nothing is
           sent anywhere else.

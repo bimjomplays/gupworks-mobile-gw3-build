@@ -60,8 +60,6 @@ struct MainView: View {
     @State private var madeId: String?
     @State private var showSettings = false
     @State private var opened = 0
-    /// the stack starts at Projects (its page and a project's chat open from it take the menu's swipe too)
-    @State private var onProjects = false
 
     init() {
         let args = ProcessInfo.processInfo.arguments
@@ -73,14 +71,6 @@ struct MainView: View {
         _current = State(initialValue: start)
         _menuOpen = State(initialValue: Demo.isOn && args.contains("-menu"))
         _temporary = State(initialValue: Demo.isOn && args.contains("-temporary"))
-        if Demo.isOn, let i = args.firstIndex(of: "-place"), i + 1 < args.count, let p = Place(rawValue: args[i + 1]) {
-            var path = NavigationPath([p])
-            if let j = args.firstIndex(of: "-push"), j + 1 < args.count {
-                path.append(ChatRoute(id: args[j + 1], sheet: args.contains("-sheet")))
-            }
-            _path = State(initialValue: path)
-            _onProjects = State(initialValue: p == .projects)
-        }
     }
 
     var body: some View {
@@ -124,7 +114,7 @@ struct MainView: View {
             // one pan over the whole screen opens and closes, so a swipe starting anywhere (the menu's rows, its
             // empty space, the chat's strip) follows the finger the same way
             .gesture(MenuSwipe(closing: menuOpen,
-                               enabled: menuOpen ? !pinLifted : path.count <= (onProjects ? 1 : 0),
+                               enabled: menuOpen ? !pinLifted : path.isEmpty,
                                changed: { dx in
                                    swipeClock.moving = true
                                    drag = dx
@@ -158,7 +148,7 @@ struct MainView: View {
                 }
                 .navigationDestination(for: Place.self) { p in
                     if p == .projects {
-                        ProjectsPage(openMenu: { withAnimation(.snappy(duration: 0.3)) { openMenu() } })
+                        ProjectsPage { id in pick(.chat(id, sheet: true)) }
                     } else {
                         ComingSoonPage(place: p)
                     }
@@ -179,7 +169,7 @@ struct MainView: View {
                                   if temporary { temporaryId = id }
                               },
                               menuDot: model.needsYou,
-                              menuIsOpen: { menuOpen || !path.isEmpty })
+                              menuIsOpen: { menuOpen })
         switch current {
         case .new:
             ChatView(id: nil, pairing: model.pairing, demo: model.demo, shell: shell)
@@ -215,20 +205,11 @@ struct MainView: View {
     private func pick(_ c: Current) {
         _ = dropTemporary()
         temporary = false
-        if case .chat(let id, true) = c {
-            // a pinned project opens on its main chat over Projects (05), Back goes to the list
-            path = NavigationPath([Place.projects])
-            path.append(ChatRoute(id: id))
-            onProjects = true
-            close()
-            return
-        }
         if c != current {
             current = c
             madeId = nil
         }
         path = NavigationPath()
-        onProjects = false
         close()
     }
 
@@ -238,13 +219,11 @@ struct MainView: View {
         madeId = nil
         current = .fresh
         path = NavigationPath()
-        onProjects = false
         close()
     }
 
     private func go(_ p: Place) {
         path = NavigationPath([p])
-        onProjects = p == .projects
         close()
     }
 
@@ -255,7 +234,6 @@ struct MainView: View {
         madeId = nil
         current = .fresh
         path = NavigationPath()
-        onProjects = false
     }
 
     /// Deletes the temporary chat if one was made; true when it did.
@@ -331,7 +309,10 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
     func updateUIGestureRecognizer(_ g: UIPanGestureRecognizer, context: Context) {
         // read when a swipe would start (the menu doesn't open or close while one is under way)
         context.coordinator.closing = closing
+        let moving = g.state == .began || g.state == .changed
         g.isEnabled = enabled
+        // turned off mid-swipe (a pin lifted under the finger): the chat goes back to where it was
+        if moving && !enabled && !Demo.oldPin { Task { @MainActor in ended(0, 0) } }
     }
 
     func handleUIGestureRecognizerAction(_ g: UIPanGestureRecognizer, context: Context) {
@@ -355,7 +336,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
         private var scrolls: [WeakPan] = []
 
         func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
-            guard let pan = g as? UIPanGestureRecognizer else { return false }
+            guard let pan = g as? UIPanGestureRecognizer, !(MenuSwipe.pinHeld && !Demo.oldPin) else { return false }
             let v = pan.velocity(in: nil)
             let sideways = abs(v.x) > 1.5 * abs(v.y)
             return sideways && (closing ? v.x < 0 : v.x > 0)
@@ -363,6 +344,8 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
 
         func gestureRecognizer(_ g: UIGestureRecognizer,
                                shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            // a lifted pin owns the touch: whichever starts first wins, so the menu never slides while a pin sorts
+            if other.name == MenuSwipe.pinLift && !Demo.oldPin { return false }
             if let pan = other as? UIPanGestureRecognizer, let scroll = other.view as? UIScrollView,
                scroll.panGestureRecognizer === pan {
                 scrolls.removeAll { $0.pan == nil || $0.pan === pan }
@@ -381,8 +364,67 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
         }
     }
 
+    /// the name of the pins' long press (PinLift in MenuView.swift)
+    static let pinLift = "pinLift"
+    /// a pin's long press holds the finger. PinLift sets it in UIKit's own callback, so the swipe can't start in the
+    /// gap before SwiftUI turns it off (`enabled`): on a busy phone that gap outlasted the finger's first move.
+    static var pinHeld = false
+
     struct WeakPan {
         weak var pan: UIPanGestureRecognizer?
+    }
+}
+
+/// The menu's Projects: every project in the desktop sidebar's order and folders; a tap opens its main chat with
+/// its threads (D9). Long-press to pin one to the menu.
+struct ProjectsPage: View {
+    @Environment(AppModel.self) private var model
+    let open: (String) -> Void
+    @State private var openFolders: [String: Bool] = [:]
+
+    var body: some View {
+        List {
+            if let home = model.home {
+                ForEach(ProjectLayout.rows(home.projects, layout: home.layout, open: openFolders)) { row in
+                    switch row {
+                    case .folder(let f, let count):
+                        FolderRowView(folder: f, count: count, open: openFolders[f.id] ?? !f.collapsed)
+                            .onTapGesture {
+                                withAnimation { openFolders[f.id] = !(openFolders[f.id] ?? !f.collapsed) }
+                            }
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityIdentifier("folder-\(f.name)")
+                    case .project(let p, let inFolder):
+                        ProjectRowView(project: p)
+                            .padding(.leading, inFolder ? 22 : 0)
+                            .onTapGesture { if let id = p.mainChatId { open(id) } }
+                            .accessibilityAddTraits(p.mainChatId == nil ? [] : .isButton)
+                            .contextMenu {
+                                let pinned = model.isPinned(project: p.id)
+                                Button(pinned ? "Unpin" : "Pin", systemImage: pinned ? "pin.slash" : "pin") {
+                                    Task { await model.togglePin(project: p.id) }
+                                }
+                            }
+                    }
+                }
+                if home.projects.isEmpty {
+                    Text(home.projectsError.map { "Projects can't be read right now (\($0))." } ?? "No projects yet.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.secondary)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                }
+            } else {
+                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+                    .listRowBackground(Color.clear)
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(Theme.background)
+        .refreshable { await model.refresh() }
+        .navigationTitle("Projects")
+        .navigationBarTitleDisplayMode(.large)
     }
 }
 
