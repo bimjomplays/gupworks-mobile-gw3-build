@@ -1,5 +1,6 @@
 import XCTest
 
+// ci-covers: PhotoViewer.swift MediaViews.swift
 /// a122: the photo viewer in demo mode. Chat 16 ("Paint colours for the flat") has 30 pictures in order: your one,
 /// Claude's one, your three, Claude's three, then your twelve, four and six.
 final class PhotoViewerUITests: XCTestCase {

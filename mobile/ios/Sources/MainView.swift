@@ -65,7 +65,7 @@ struct MainView: View {
     @State private var onProjects = false
 
     init() {
-        let args = ProcessInfo.processInfo.arguments
+        let args = Demo.args
         // the demo's flags for the screenshot tests
         var start = Current.fresh
         if Demo.isOn, let i = args.firstIndex(of: "-open"), i + 1 < args.count {
@@ -84,6 +84,12 @@ struct MainView: View {
         }
     }
 
+    /// the status bar's height, read from the window: inside the full-screen reader below the proxy reports no inset
+    private static var statusBarHeight: CGFloat {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).first(where: \.isKeyWindow)?.safeAreaInsets.top ?? 0
+    }
+
     var body: some View {
         GeometryReader { geo in
             let swipe = MenuDrag(width: max(geo.size.width - 91, 240))
@@ -96,6 +102,7 @@ struct MainView: View {
                          place: { p in if !swipeClock.recent { go(p) } },
                          settings: { if !swipeClock.recent { showSettings = true } },
                          lifting: { pinLifted = $0 })
+                    .padding(.top, Self.statusBarHeight)
                     .frame(width: width)
                     .offset(x: (x - width) * 0.25)
                     .opacity(menuOpen || x > 0 ? 1 : 0)
@@ -140,6 +147,9 @@ struct MainView: View {
                                    }
                                }))
         }
+        // up to the screen's top (a130): the GeometryReader sat below the status bar, so the chat stopped there and the
+        // strip around the Dynamic Island was only black; now the turns scroll under it (the menu keeps its place)
+        .ignoresSafeArea(edges: .top)
         .sensoryFeedback(.impact(weight: .light), trigger: opened)
         .sheet(isPresented: $showSettings) { SettingsView() }
         .alert("That didn't work", isPresented: Binding(get: { model.actionError != nil },
@@ -212,18 +222,11 @@ struct MainView: View {
         }
     }
 
-    /// a chat (or a project's main chat) from the menu
+    /// a chat (or a pinned project's main chat) from the menu. They all become the main screen, so a swipe right
+    /// goes back to the menu; only the Projects page puts a project's chat over itself (back goes to Projects).
     private func pick(_ c: Current) {
         _ = dropTemporary()
         temporary = false
-        if case .chat(let id, true) = c {
-            // a pinned project opens on its main chat over Projects (05), Back goes to the list
-            path = NavigationPath([Place.projects])
-            path.append(ChatRoute(id: id))
-            onProjects = true
-            close()
-            return
-        }
         if c != current {
             current = c
             madeId = nil
