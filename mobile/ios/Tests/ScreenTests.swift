@@ -553,6 +553,112 @@ final class ScreenTests: XCTestCase {
         }
     }
 
+    // MARK: a133: a mockup set, and pictures in the order the text has them
+
+    private let mockups = "00000018-1111-4222-8333-000000000018"
+
+    /// drags the chat in short steps until `e` sits between `top` and `bottom` of the screen (or, taller than that,
+    /// starts in the upper part); an element not built yet is taken to be further up
+    private func bring(_ app: App, _ e: Element, top: CGFloat = 0.12, bottom: CGFloat = 0.88) {
+        let h = app.windows.firstMatch.frame.height
+        for _ in 0..<40 {
+            let f: CGRect? = e.exists ? e.frame : nil
+            if let f, f.minY >= h * top, f.maxY <= h * bottom || f.minY <= h * 0.4 { return }
+            let up = f.map { $0.minY > h * 0.4 } ?? false     // below: move the chat up
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: up ? 0.6 : 0.35))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: up ? 0.4 : 0.55))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: Velocity(rawValue: 1500), thenHoldForDuration: 0.2)
+        }
+        XCTFail("couldn't bring \(e.identifier.isEmpty ? e.label : e.identifier) into view")
+    }
+
+    /// a ```mockups block is one set card: its name, what's the same, each option numbered with its name, how it
+    /// differs and its screens (1a, 1b ...) to swipe through, then "How they differ" as a list; a tap on a screen
+    /// opens the viewer on the set's pictures in set order, each titled in words
+    func testA133MockupSet() {
+        let app = openChat(mockups, waitFor: "Here are the three Overview screens again")
+        let set = el(app, "mockupSet")
+        bring(app, el(app, "mockupTitle"))
+        XCTAssertTrue(set.exists, "the set shows as a card")
+        XCTAssertTrue(el(app, "mockupTitle").label.contains("Phone project Overview · round 1"), el(app, "mockupTitle").label)
+        XCTAssertTrue(find(app, "Same in all: slides in from the right").exists, "what's the same in all")
+        XCTAssertFalse(find(app, "Mockup set: Phone project Overview").exists, "the older apps' copy isn't drawn")
+        XCTAssertFalse(find(app, "```mockups").exists, "no raw block")
+        let one = el(app, "mockupOption-1")
+        XCTAssertTrue(one.exists)
+        XCTAssertTrue(find(app, "the desktop's right bar group by group").exists, "option 1's difference")
+        // in words first (bare codes like "1b" were confusing); the code stays as a small tag
+        XCTAssertTrue(el(app, "mockupOptionTitle-1").label.contains("Option 1 · Sections"), el(app, "mockupOptionTitle-1").label)
+        XCTAssertEqual(el(app, "mockupShot-1b").label, "Option 1 · Sections — Overview")
+        XCTAssertTrue(el(app, "mockupShot-1a").exists && el(app, "mockupShot-1b").exists, "1a and 1b side by side")
+        onScreen(app, el(app, "mockupShot-1a"), "1a")
+        XCTAssertLessThan(el(app, "mockupShot-1a").frame.maxX, el(app, "mockupShot-1b").frame.minX, "1a before 1b")
+        idle(1)
+        shot("a133-set")
+        // sideways through option 1's screens
+        let row = el(app, "mockupScreens-1")
+        let x0 = el(app, "mockupShot-1a").frame.minX
+        for _ in 0..<2 {
+            row.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
+                .press(forDuration: 0.05, thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)))
+        }
+        let third = el(app, "mockupShot-1c")
+        settle { third.exists ? third.frame : nil }
+        XCTAssertTrue(el(app, "mockupShot-1c").exists, "swiped on to 1c")
+        XCTAssertLessThan(el(app, "mockupShot-1c").frame.minX, x0 + 300, "1c came into view")
+        idle(1)
+        shot("a133-set-swiped")
+        // option 2, then its 2b full screen
+        bring(app, el(app, "mockupShot-2b"), top: 0.15, bottom: 0.95)
+        XCTAssertTrue(find(app, "roomy; questions as swipeable cards").exists, "option 2's difference")
+        idle(1)
+        shot("a133-set-option-2")
+        el(app, "mockupShot-2b").tap()
+        XCTAssertTrue(el(app, "photoViewer").waitForExistence(timeout: 5), "the viewer opens")
+        XCTAssertTrue(poll(5) { el(app, "photoTitle").label == "Option 2 · Cards — Overview" }, el(app, "photoTitle").label)
+        XCTAssertEqual(el(app, "photoCounter").label, "8 of 20", "the set's 20 screens, 2b the 8th")
+        idle(1)
+        shot("a133-set-viewer")
+        let viewer = el(app, "photoViewer")
+        viewer.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: viewer.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)))
+        XCTAssertTrue(poll(5) { el(app, "photoTitle").label == "Option 2 · Cards — Scrolled" }, el(app, "photoTitle").label)
+        XCTAssertEqual(el(app, "photoCounter").label, "9 of 20")
+        el(app, "photoClose").tap()
+        XCTAssertTrue(el(app, "photoViewer").waitForNonExistence(timeout: 5))
+        // the table as a list
+        bring(app, el(app, "mockupDifferences"), top: 0.1, bottom: 0.95)
+        XCTAssertTrue(find(app, "HOW THEY DIFFER").exists)
+        XCTAssertTrue(find(app, "Cards you answer in place").exists, "a table cell as a line")
+        XCTAssertFalse(find(app, "|---|").exists, "no raw table")
+        idle(1)
+        shot("a133-set-differences")
+    }
+
+    /// a129's reply with four captioned pictures (1b, 2b, 3b, then 3a): each picture right under its own words,
+    /// in the text's order, none grouped into a grid
+    func testA133PicturesInTheTextsOrder() {
+        let app = openChat(mockups, waitFor: "Here are the three Overview screens again")
+        let words = ["closest to the desktop's right bar", "the roomiest", "dense and flat, with filter chips",
+                     "how it slides in from the right", "My pick is 3, because"]
+        let pictures = ["Picture 1 Sections", "Picture 2 Cards", "Picture 3 Ledger", "Picture Slide in"]
+        bring(app, find(app, words[0]))
+        idle(1)
+        shot("a133-pictures-1")
+        for i in 0..<pictures.count {
+            let above = find(app, words[i]), picture = find(app, pictures[i]), below = find(app, words[i + 1])
+            if !(above.exists && picture.exists && below.exists) { bring(app, picture) }
+            XCTAssertTrue(above.exists && picture.exists && below.exists, "\(pictures[i]) and the words around it")
+            XCTAssertLessThanOrEqual(above.frame.maxY, picture.frame.minY + 0.5, "\(pictures[i]) under its words")
+            XCTAssertLessThanOrEqual(picture.frame.maxY, below.frame.minY + 0.5, "\(pictures[i]) before the next words")
+            XCTAssertGreaterThan(picture.frame.width, app.windows.firstMatch.frame.width * 0.5,
+                                 "\(pictures[i]) on its own, not a grid tile")
+        }
+        bring(app, find(app, pictures[2]))
+        idle(1)
+        shot("a133-pictures-2")
+    }
+
     func testAttachMenu() {
         let app = openChat(gallery, waitFor: "All five pages pass")
         app.buttons["attach"].tap()
