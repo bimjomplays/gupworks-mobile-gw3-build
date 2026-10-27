@@ -138,13 +138,15 @@ struct MainView: View {
                     }
                     .offset(x: x + CGFloat(slide.chatX(p)))
                     .accessibilityHidden(p >= 1)
-                if let store = overview.store, p > 0 {
+                // kept while the main chat is up, just off the right edge when closed: its offset then animates in
+                // and out (an inserted view with a move transition kept reading off screen to accessibility)
+                if let store = overview.store {
                     OverviewLayer(host: overview, store: store)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .shadow(color: .black.opacity(0.5 * p), radius: 18, x: -4)
                         .offset(x: CGFloat(slide.overviewX(p)))
-                        // the button opens it with an animation: it comes in from the right edge, not in place
-                        .transition(.move(edge: .trailing))
+                        .allowsHitTesting(p > 0)
+                        .accessibilityHidden(p == 0)
                 }
             }
             .background(Color.black)

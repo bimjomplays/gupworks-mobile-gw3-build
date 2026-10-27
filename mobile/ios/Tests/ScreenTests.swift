@@ -953,8 +953,9 @@ final class ScreenTests: XCTestCase {
         let app = project(["-sheet"] + extra)
         let back = el(app, "overviewClose")
         XCTAssertTrue(back.waitForExistence(timeout: 10))
+        // (the slide's own animation: the frame reads off screen until it starts, so wait for it rather than for stillness)
+        XCTAssertTrue(poll(8) { back.frame.minX < 40 }, "the Overview slid all the way in (‹ at \(back.frame.minX))")
         settle { back.frame }
-        XCTAssertLessThan(back.frame.minX, 40, "the Overview slid all the way in")
         return app
     }
 
