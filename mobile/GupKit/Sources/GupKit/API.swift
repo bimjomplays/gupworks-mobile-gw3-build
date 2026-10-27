@@ -350,6 +350,8 @@ final class APIClient {
     private let quickSession = APIClient.makeSession(timeout: 4)
     /// a recording: up to 10 minutes of speech, which whisper on the CPU (no GPU) takes a while over
     private let voiceSession = APIClient.makeSession(timeout: 300)
+    /// a quick action's on/off: Away mode's lights can take a while (the PC gives it 150 s)
+    private let actionSession = APIClient.makeSession(timeout: 165)
 
     private static func makeSession(timeout: TimeInterval) -> URLSession {
         let c = URLSessionConfiguration.ephemeral
@@ -523,10 +525,11 @@ final class APIClient {
         try await request(p.baseURL, "/v1/projects/\(project)/schedules", token: p.token)
     }
 
-    /// pause | resume | stop | done | archive | unarchive, as the desktop panel's thread menu
-    func moveThread(_ p: Pairing, project: String, thread: String, _ move: String) async throws -> ProjectView {
+    /// pause | resume | stop | done | archive | unarchive | rename {title} | delete, as the desktop panel's thread menu
+    func moveThread(_ p: Pairing, project: String, thread: String, _ move: String,
+                    title: String? = nil) async throws -> ProjectView {
         try await request(p.baseURL, "/v1/projects/\(project)/threads/\(thread)/\(move)", token: p.token,
-                          method: "POST", encoding: [String: String]())
+                          method: "POST", encoding: title.map { ["title": $0] } ?? [String: String]())
     }
 
     /// Your own thread (the panel's + New thread), started with its first message.
@@ -543,6 +546,30 @@ final class APIClient {
     func archiveProject(_ p: Pairing, _ id: String, _ on: Bool) async throws -> ProjectView {
         try await request(p.baseURL, "/v1/projects/\(id)/archive", token: p.token, method: "POST",
                           encoding: ["archived": on])
+    }
+
+    // MARK: quick actions (a142)
+
+    func quick(_ p: Pairing) async throws -> QuickList {
+        try await request(p.baseURL, "/v1/quick", token: p.token)
+    }
+
+    /// Away mode or Dillon's game bot on or off; the answer is every switch read again afterwards
+    func setQuick(_ p: Pairing, _ id: String, on: Bool) async throws -> QuickList {
+        try await perform(p.baseURL, "/v1/quick/\(id)", token: p.token, method: "POST",
+                          json: try JSONEncoder().encode(["on": on]), via: actionSession)
+    }
+
+    /// Restart PC's dialog opens: a one-time confirm token for its Restart button
+    func restartConfirm(_ p: Pairing) async throws -> QuickConfirm {
+        try await request(p.baseURL, "/v1/quick/restart-pc/confirm", token: p.token, method: "POST",
+                          encoding: [String: String]())
+    }
+
+    /// Restart PC, with the token the dialog got; only after the dialog's Restart was pressed
+    func restartPC(_ p: Pairing, confirm: String) async throws -> QuickRestarted {
+        try await request(p.baseURL, "/v1/quick/restart-pc", token: p.token, method: "POST",
+                          encoding: ["confirm": confirm], slow: true)
     }
 
     // MARK: a121's project pages

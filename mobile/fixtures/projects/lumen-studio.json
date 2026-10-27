@@ -11,13 +11,13 @@
   "color": "orange",
   "goal": "A one-page site for a small photo studio",
   "counts": {
-   "threads": 4,
+   "threads": 7,
    "needs": 1,
    "working": 3,
-   "checking": 0,
+   "checking": 1,
    "schedules": 4,
    "done": 7,
-   "archived": 0,
+   "archived": 1,
    "library": 9,
    "ideas": 5
   },
@@ -33,6 +33,70 @@
    "ago": "4m",
    "chatId": "00000066-1111-4222-8333-000000000066"
   },
+  "main": {
+   "chatId": "00000066-1111-4222-8333-000000000066",
+   "title": "Lumen Studio website",
+   "model": "Haiku",
+   "effort": "low",
+   "modelLabel": "Haiku low",
+   "usage": "49K",
+   "state": "working",
+   "activity": "Checking a7's footer links",
+   "line": "Checking a7's footer links · 1 subagent",
+   "subagents": [
+    {
+     "id": "m3",
+     "title": "Review a7's footer diff",
+     "type": "general-purpose",
+     "model": "Sonnet",
+     "tokens": "42K",
+     "right": "Sonnet · 42K",
+     "running": true,
+     "interrupted": false,
+     "tools": 14,
+     "ran": "4m"
+    },
+    {
+     "id": "m2",
+     "title": "Plan the booking threads",
+     "type": "general-purpose",
+     "model": "Sonnet",
+     "tokens": "27K",
+     "right": "Sonnet · 27K",
+     "running": false,
+     "interrupted": false,
+     "tools": 9,
+     "ran": "6m"
+    },
+    {
+     "id": "m1",
+     "title": "Read the contrast report",
+     "type": "Explore",
+     "model": "Haiku",
+     "tokens": "11K",
+     "right": "Haiku · 11K",
+     "running": false,
+     "interrupted": false,
+     "tools": 3,
+     "ran": "3m"
+    }
+   ]
+  },
+  "parts": [
+   {
+    "id": "site",
+    "name": "Site"
+   }
+  ],
+  "plan": {
+   "fiveHour": 18,
+   "week": 41
+  },
+  "nextSchedule": {
+   "id": "s2",
+   "title": "Lighthouse report",
+   "when": "Tmrw 7:30"
+  },
   "quiet": [
    {
     "glyph": "needs",
@@ -41,6 +105,10 @@
    {
     "glyph": "spin",
     "text": "3 working"
+   },
+   {
+    "glyph": "review",
+    "text": "1 being checked"
    }
   ],
   "groups": [
@@ -69,12 +137,30 @@
        "pause",
        "stop",
        "done",
-       "archive"
+       "archive",
+       "rename",
+       "delete"
       ],
       "word": "needs you",
       "line": "Land the darker palette?",
       "modelLabel": "Sonnet high",
-      "ago": ""
+      "ago": "",
+      "subagents": [],
+      "facts": {
+       "outcome": "",
+       "criteria": [],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "high",
+       "from": "main"
+      }
      }
     ]
    },
@@ -93,7 +179,9 @@
       "glyph": "spin",
       "part": "Site",
       "detail": "writing script.js 2m ago",
-      "holds": [],
+      "holds": [
+       "Browser"
+      ],
       "right": "Sonnet",
       "usage": "32K",
       "expensive": false,
@@ -102,12 +190,59 @@
       "moves": [
        "pause",
        "stop",
-       "archive"
+       "archive",
+       "rename",
+       "delete"
       ],
       "word": "working",
       "line": "writing script.js 2m ago · Sonnet high",
       "modelLabel": "Sonnet high",
-      "ago": "2m"
+      "ago": "2m",
+      "subagents": [
+       {
+        "id": "ac2",
+        "title": "Check the form on a small phone",
+        "type": "general-purpose",
+        "model": "Sonnet",
+        "tokens": "18K",
+        "right": "Sonnet · 18K",
+        "running": true,
+        "interrupted": false,
+        "tools": 6,
+        "ran": "3m"
+       },
+       {
+        "id": "ac1",
+        "title": "Find the booking form examples",
+        "type": "general-purpose",
+        "model": "Haiku",
+        "tokens": "6K",
+        "right": "Haiku · 6K",
+        "running": false,
+        "interrupted": false,
+        "tools": 2,
+        "ran": "2m"
+       }
+      ],
+      "facts": {
+       "outcome": "The contact page has a booking form that sends a request to the studio and says thanks. Done when the form sends on a phone and every field has a label.",
+       "criteria": [
+        "The form sends a booking request and shows a thank-you",
+        "Every field has a label",
+        "The page passes the link and contrast checks"
+       ],
+       "checkpoint": "Form markup done; wiring the booking request",
+       "nextAction": "Send a test booking to the demo inbox",
+       "branch": "lumen/a4-contact-form",
+       "commit": "",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "high",
+       "from": "main"
+      }
      },
      {
       "id": "a5",
@@ -127,12 +262,45 @@
       "moves": [
        "pause",
        "stop",
-       "archive"
+       "archive",
+       "rename",
+       "delete"
       ],
       "word": "working",
       "line": "checking the lightbox 6m ago · Sonnet medium",
       "modelLabel": "Sonnet medium",
-      "ago": "6m"
+      "ago": "6m",
+      "subagents": [
+       {
+        "id": "al1",
+        "title": "Find why the lightbox jumps",
+        "type": "Explore",
+        "model": "Haiku",
+        "tokens": "9K",
+        "right": "Haiku · 9K",
+        "running": false,
+        "interrupted": false,
+        "tools": 3,
+        "ran": "4m"
+       }
+      ],
+      "facts": {
+       "outcome": "The lightbox opens and closes smoothly on phones",
+       "criteria": [
+        "Swipes between pictures"
+       ],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "lumen/a5-lightbox",
+       "commit": "",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "medium",
+       "from": "main"
+      }
      },
      {
       "id": "b5",
@@ -152,12 +320,194 @@
       "moves": [
        "pause",
        "stop",
-       "archive"
+       "archive",
+       "rename",
+       "delete"
       ],
       "word": "working",
       "line": "reading the visit counts 1m ago · Haiku low",
       "modelLabel": "Haiku low",
-      "ago": "1m"
+      "ago": "1m",
+      "subagents": [],
+      "facts": {
+       "outcome": "",
+       "criteria": [],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Haiku",
+       "effort": "low",
+       "from": "main"
+      }
+     }
+    ]
+   },
+   {
+    "state": "checking",
+    "label": "Being checked",
+    "count": 1,
+    "folded": false,
+    "threads": [
+     {
+      "id": "a7",
+      "title": "Footer links",
+      "chatId": "00000077-2222-4222-8333-000000000077",
+      "state": "checking",
+      "status": "submitted",
+      "glyph": "review",
+      "part": "Site",
+      "detail": "main chat is checking it",
+      "holds": [],
+      "right": "Sonnet",
+      "usage": "14K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": false,
+      "moves": [
+       "stop",
+       "archive",
+       "rename",
+       "delete"
+      ],
+      "word": "being checked",
+      "line": "main chat is checking it · Sonnet medium",
+      "modelLabel": "Sonnet medium",
+      "ago": "",
+      "subagents": [],
+      "facts": {
+       "outcome": "Every footer link goes somewhere real",
+       "criteria": [
+        "No link is #"
+       ],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "lumen/a7-footer-links",
+       "commit": "4d2b9e7",
+       "reworks": 0,
+       "evidence": [
+        {
+         "kind": "tests",
+         "summary": "link check: 14 links, all answer",
+         "revision": "4d2b9e7"
+        }
+       ],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "medium",
+       "from": "main"
+      }
+     }
+    ]
+   },
+   {
+    "state": "up-next",
+    "label": "Up next",
+    "count": 1,
+    "folded": false,
+    "threads": [
+     {
+      "id": "a8",
+      "title": "Booking confirmation email",
+      "chatId": null,
+      "state": "up-next",
+      "status": "planned",
+      "glyph": "ring",
+      "part": "Site",
+      "detail": "Up next · waits for a4",
+      "holds": [],
+      "right": "Sonnet",
+      "usage": "",
+      "expensive": false,
+      "muted": false,
+      "doneOk": false,
+      "moves": [
+       "stop",
+       "archive",
+       "rename",
+       "delete"
+      ],
+      "word": "up next",
+      "line": "Up next · waits for a4 · Sonnet medium",
+      "modelLabel": "Sonnet medium",
+      "ago": "",
+      "subagents": [],
+      "facts": {
+       "outcome": "A booking request sends the visitor a short confirmation",
+       "criteria": [
+        "Plain text"
+       ],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [
+        "a4"
+       ],
+       "model": "Sonnet",
+       "effort": "medium",
+       "from": "main"
+      }
+     }
+    ]
+   },
+   {
+    "state": "idle",
+    "label": "Idle",
+    "count": 1,
+    "folded": false,
+    "threads": [
+     {
+      "id": "a9",
+      "title": "Try a softer grey",
+      "chatId": "00000078-2222-4222-8333-000000000078",
+      "state": "idle",
+      "status": "running",
+      "glyph": "idle",
+      "part": "Site",
+      "detail": "your thread · ended its turn 40m ago",
+      "holds": [],
+      "right": "Sonnet",
+      "usage": "6K",
+      "expensive": false,
+      "muted": false,
+      "doneOk": false,
+      "moves": [
+       "pause",
+       "stop",
+       "done",
+       "archive",
+       "rename",
+       "delete"
+      ],
+      "word": "idle",
+      "line": "your thread · ended its turn 40m ago · Sonnet medium",
+      "modelLabel": "Sonnet medium",
+      "ago": "40m",
+      "subagents": [],
+      "facts": {
+       "outcome": "",
+       "criteria": [],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "medium",
+       "from": "you"
+      }
      }
     ]
    },
@@ -183,12 +533,30 @@
       "muted": false,
       "doneOk": true,
       "moves": [
-       "archive"
+       "archive",
+       "rename",
+       "delete"
       ],
       "word": "landed",
       "line": "Landed · Sonnet medium",
       "modelLabel": "Sonnet medium",
-      "ago": "1d"
+      "ago": "1d",
+      "subagents": [],
+      "facts": {
+       "outcome": "",
+       "criteria": [],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "b81c2e4",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "medium",
+       "from": "main"
+      }
      },
      {
       "id": "a2",
@@ -206,12 +574,30 @@
       "muted": false,
       "doneOk": true,
       "moves": [
-       "archive"
+       "archive",
+       "rename",
+       "delete"
       ],
       "word": "landed",
       "line": "Landed · Sonnet medium",
       "modelLabel": "Sonnet medium",
-      "ago": "1d"
+      "ago": "1d",
+      "subagents": [],
+      "facts": {
+       "outcome": "",
+       "criteria": [],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "3f0d9a1",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "medium",
+       "from": "main"
+      }
      },
      {
       "id": "a3",
@@ -229,12 +615,30 @@
       "muted": false,
       "doneOk": true,
       "moves": [
-       "archive"
+       "archive",
+       "rename",
+       "delete"
       ],
       "word": "landed",
       "line": "Landed · Sonnet medium",
       "modelLabel": "Sonnet medium",
-      "ago": "1d"
+      "ago": "1d",
+      "subagents": [],
+      "facts": {
+       "outcome": "",
+       "criteria": [],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "9e2a7c0",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "medium",
+       "from": "main"
+      }
      },
      {
       "id": "b1",
@@ -252,12 +656,30 @@
       "muted": false,
       "doneOk": true,
       "moves": [
-       "archive"
+       "archive",
+       "rename",
+       "delete"
       ],
       "word": "landed",
       "line": "Landed · Sonnet medium",
       "modelLabel": "Sonnet medium",
-      "ago": "1d"
+      "ago": "1d",
+      "subagents": [],
+      "facts": {
+       "outcome": "",
+       "criteria": [],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "6c41d83",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "medium",
+       "from": "main"
+      }
      },
      {
       "id": "b2",
@@ -275,12 +697,30 @@
       "muted": false,
       "doneOk": true,
       "moves": [
-       "archive"
+       "archive",
+       "rename",
+       "delete"
       ],
       "word": "landed",
       "line": "Landed · Sonnet medium",
       "modelLabel": "Sonnet medium",
-      "ago": "1d"
+      "ago": "1d",
+      "subagents": [],
+      "facts": {
+       "outcome": "",
+       "criteria": [],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "e07b5f2",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "medium",
+       "from": "main"
+      }
      },
      {
       "id": "b3",
@@ -298,12 +738,30 @@
       "muted": false,
       "doneOk": true,
       "moves": [
-       "archive"
+       "archive",
+       "rename",
+       "delete"
       ],
       "word": "landed",
       "line": "Landed · Sonnet medium",
       "modelLabel": "Sonnet medium",
-      "ago": "1d"
+      "ago": "1d",
+      "subagents": [],
+      "facts": {
+       "outcome": "",
+       "criteria": [],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "15ad6e9",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "medium",
+       "from": "main"
+      }
      },
      {
       "id": "b4",
@@ -321,12 +779,79 @@
       "muted": false,
       "doneOk": true,
       "moves": [
-       "archive"
+       "archive",
+       "rename",
+       "delete"
       ],
       "word": "landed",
       "line": "Landed · Sonnet medium",
       "modelLabel": "Sonnet medium",
-      "ago": "2d"
+      "ago": "2d",
+      "subagents": [],
+      "facts": {
+       "outcome": "",
+       "criteria": [],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "c9f3302",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Sonnet",
+       "effort": "medium",
+       "from": "main"
+      }
+     }
+    ]
+   },
+   {
+    "state": "archived",
+    "label": "Archived",
+    "count": 1,
+    "folded": true,
+    "threads": [
+     {
+      "id": "a0",
+      "title": "Parallax header test",
+      "chatId": null,
+      "state": "archived",
+      "status": "stopped",
+      "glyph": "cross",
+      "part": "Site",
+      "detail": "Too slow on phones; dropped",
+      "holds": [],
+      "right": "stopped",
+      "usage": "3K",
+      "expensive": false,
+      "muted": true,
+      "doneOk": false,
+      "moves": [
+       "unarchive",
+       "rename",
+       "delete"
+      ],
+      "word": "stopped",
+      "line": "Stopped · Haiku low",
+      "modelLabel": "Haiku low",
+      "ago": "7d",
+      "subagents": [],
+      "facts": {
+       "outcome": "",
+       "criteria": [],
+       "checkpoint": "",
+       "nextAction": "",
+       "branch": "",
+       "commit": "",
+       "reworks": 0,
+       "evidence": [],
+       "issue": "",
+       "waitsFor": [],
+       "model": "Haiku",
+       "effort": "low",
+       "from": "main"
+      }
      }
     ]
    }
@@ -340,9 +865,9 @@
     "expensive": false
    },
    {
-    "title": "11 threads",
-    "value": "227K",
-    "detail": "Sonnet 223K · Haiku 4K",
+    "title": "14 threads",
+    "value": "249K",
+    "detail": "Sonnet 242K · Haiku 7K",
     "chatId": null,
     "expensive": false
    },
@@ -1105,7 +1630,7 @@
   "mainLabel": "Haiku 5.5 · low",
   "threadModels": {},
   "threadLabel": "Automatic",
-  "usage": "587K tokens",
+  "usage": "626K tokens",
   "paused": false,
   "archived": false,
   "models": [
@@ -1164,6 +1689,19 @@
    {
     "id": "gpt-6.1-sol",
     "label": "GPT 6.1 Sol",
+    "provider": "OpenAI",
+    "note": "subscription",
+    "efforts": [
+     "low",
+     "medium",
+     "high",
+     "xhigh",
+     "max"
+    ]
+   },
+   {
+    "id": "gpt-6.1-terra",
+    "label": "GPT 6.1 Terra",
     "provider": "OpenAI",
     "note": "subscription",
     "efforts": [
@@ -1340,26 +1878,26 @@
   "count": 5
  },
  "usage": {
-  "total": 587100,
-  "totalText": "587K tokens",
-  "since": "since 5 Oct · main chat and 11 threads",
+  "total": 626200,
+  "totalText": "626K tokens",
+  "since": "since 5 Oct · main chat and 14 threads",
   "main": 106000,
   "mainText": "106K",
-  "threads": 481100,
-  "threadsText": "481K",
-  "threadCount": 11,
+  "threads": 520200,
+  "threadsText": "520K",
+  "threadCount": 14,
   "models": [
    {
     "name": "Sonnet 5.5",
-    "tokens": 472600,
-    "value": "473K",
-    "percent": 80
+    "tokens": 505400,
+    "value": "505K",
+    "percent": 81
    },
    {
     "name": "Haiku 5.5",
-    "tokens": 114500,
-    "value": "115K",
-    "percent": 20
+    "tokens": 120800,
+    "value": "121K",
+    "percent": 19
    }
   ],
   "biggest": [
