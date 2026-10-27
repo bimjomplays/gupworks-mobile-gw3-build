@@ -13,6 +13,8 @@ struct ChatPhoto: Equatable, Identifiable {
     /// a mockup set's picture: "2b · Cards · Overview" and how its option differs, shown under it
     var title: String? = nil
     var detail: String? = nil
+    /// a mockup screen's short code ("2b"), shown small after its title
+    var tag: String? = nil
 }
 
 /// A chat's pictures, oldest first, as the chat shows them. Ids come from where a picture sits (turn, block,
@@ -208,15 +210,27 @@ struct PhotoViewer: View {
         .padding(.top, 8)
     }
 
-    /// a mockup set's picture says which one it is: "2b · Cards · Overview" and how the option differs
+    /// a mockup set's picture says which one it is, in words ("Option 2 · Cards — Overview", its code small after
+    /// it) and how the option differs
     @ViewBuilder
     private var caption: some View {
         if photos.indices.contains(index), let title = photos[index].title {
             VStack(spacing: 3) {
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .accessibilityIdentifier("photoTitle")
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .accessibilityIdentifier("photoTitle")
+                    if let tag = photos[index].tag, !tag.isEmpty {
+                        Text(tag)
+                            .font(.system(size: 11, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(0.7))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .overlay(Capsule().stroke(.white.opacity(0.35), lineWidth: 1))
+                    }
+                }
                 if let d = photos[index].detail, !d.isEmpty {
                     Text(d)
                         .font(.system(size: 13))

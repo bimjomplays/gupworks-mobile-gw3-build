@@ -574,7 +574,7 @@ final class ScreenTests: XCTestCase {
 
     /// a ```mockups block is one set card: its name, what's the same, each option numbered with its name, how it
     /// differs and its screens (1a, 1b ...) to swipe through, then "How they differ" as a list; a tap on a screen
-    /// opens the viewer on the set's pictures in set order, each titled
+    /// opens the viewer on the set's pictures in set order, each titled in words
     func testA133MockupSet() {
         let app = openChat(mockups, waitFor: "Here are the three Overview screens again")
         let set = el(app, "mockupSet")
@@ -587,6 +587,9 @@ final class ScreenTests: XCTestCase {
         let one = el(app, "mockupOption-1")
         XCTAssertTrue(one.exists)
         XCTAssertTrue(find(app, "the desktop's right bar group by group").exists, "option 1's difference")
+        // in words first (bare codes like "1b" were confusing); the code stays as a small tag
+        XCTAssertTrue(el(app, "mockupOptionTitle-1").label.contains("Option 1 · Sections"), el(app, "mockupOptionTitle-1").label)
+        XCTAssertEqual(el(app, "mockupShot-1b").label, "Option 1 · Sections — Overview")
         XCTAssertTrue(el(app, "mockupShot-1a").exists && el(app, "mockupShot-1b").exists, "1a and 1b side by side")
         onScreen(app, el(app, "mockupShot-1a"), "1a")
         XCTAssertLessThan(el(app, "mockupShot-1a").frame.maxX, el(app, "mockupShot-1b").frame.minX, "1a before 1b")
@@ -599,7 +602,8 @@ final class ScreenTests: XCTestCase {
             row.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
                 .press(forDuration: 0.05, thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)))
         }
-        settle { el(app, "mockupShot-1c").exists ? el(app, "mockupShot-1c").frame : nil }
+        let third = el(app, "mockupShot-1c")
+        settle { third.exists ? third.frame : nil }
         XCTAssertTrue(el(app, "mockupShot-1c").exists, "swiped on to 1c")
         XCTAssertLessThan(el(app, "mockupShot-1c").frame.minX, x0 + 300, "1c came into view")
         idle(1)
@@ -611,14 +615,14 @@ final class ScreenTests: XCTestCase {
         shot("a133-set-option-2")
         el(app, "mockupShot-2b").tap()
         XCTAssertTrue(el(app, "photoViewer").waitForExistence(timeout: 5), "the viewer opens")
-        XCTAssertTrue(poll(5) { el(app, "photoTitle").label == "2b · Cards · Overview" }, el(app, "photoTitle").label)
+        XCTAssertTrue(poll(5) { el(app, "photoTitle").label == "Option 2 · Cards — Overview" }, el(app, "photoTitle").label)
         XCTAssertEqual(el(app, "photoCounter").label, "8 of 20", "the set's 20 screens, 2b the 8th")
         idle(1)
         shot("a133-set-viewer")
         let viewer = el(app, "photoViewer")
         viewer.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
             .press(forDuration: 0.05, thenDragTo: viewer.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)))
-        XCTAssertTrue(poll(5) { el(app, "photoTitle").label == "2c · Cards · Scrolled" }, el(app, "photoTitle").label)
+        XCTAssertTrue(poll(5) { el(app, "photoTitle").label == "Option 2 · Cards — Scrolled" }, el(app, "photoTitle").label)
         XCTAssertEqual(el(app, "photoCounter").label, "9 of 20")
         el(app, "photoClose").tap()
         XCTAssertTrue(el(app, "photoViewer").waitForNonExistence(timeout: 5))

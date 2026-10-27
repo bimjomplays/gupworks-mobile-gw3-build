@@ -41,7 +41,8 @@ final class MockupSetTests: XCTestCase {
     func testPhotosInSetOrderWithTitles() throws {
         let s = try XCTUnwrap(try blocks()[1].set)
         let p = s.photos(scope: "t1/b0/m1")
-        XCTAssertEqual(p.map(\.title), ["1 · Ledger", "2a · Paper · Contacts", "2b · Paper · Contact page"])
+        XCTAssertEqual(p.map(\.title), ["Option 1 · Ledger", "Option 2 · Paper — Contacts", "Option 2 · Paper — Contact page"])
+        XCTAssertEqual(p.map(\.tag), ["1", "2a", "2b"])
         XCTAssertEqual(p.map(\.link), ["u1", "u2a", "u2b"])
         XCTAssertEqual(p.map(\.id), ["t1/b0/m1/set/1", "t1/b0/m1/set/2a", "t1/b0/m1/set/2b"])
         XCTAssertEqual(p[2].detail, "Warm off-white")
@@ -50,10 +51,14 @@ final class MockupSetTests: XCTestCase {
     func testDifferencesAsAList() throws {
         let s = try XCTUnwrap(try blocks()[1].set)
         XCTAssertEqual(s.differences, [
-            MockupDifference(label: "Colours", values: [.init(key: "1", text: "Light"), .init(key: "2", text: "Warm"),
-                                                        .init(key: "3", text: "Dark")]),
-            MockupDifference(label: "Opens", values: [.init(key: "1", text: "In a panel"), .init(key: "3", text: "On a page")]),
+            MockupDifference(label: "Colours", values: [.init(key: "1", name: "Ledger", text: "Light"),
+                                                        .init(key: "2", name: "Paper", text: "Warm"),
+                                                        .init(key: "3", name: "Night desk", text: "Dark")]),
+            MockupDifference(label: "Opens", values: [.init(key: "1", name: "Ledger", text: "In a panel"),
+                                                      .init(key: "3", name: "Night desk", text: "On a page")]),
         ])
+        XCTAssertEqual(s.name("2"), "Paper", "a column with only a number takes its option's name")
+        XCTAssertEqual(s.name("Notes"), "Notes")
         XCTAssertEqual(MockupSet.key("12 Night"), "12")
         XCTAssertEqual(MockupSet.key("Night"), "Night")
         XCTAssertEqual(MockupSet(title: "x", options: []).differences, [])
@@ -66,21 +71,21 @@ final class MockupSetTests: XCTestCase {
 
         Same contacts in each.
 
-        1 Ledger: Light and plain
+        Option 1 · Ledger: Light and plain
 
-        2 Paper: Warm off-white
-        Screens: 2a Contacts, 2b Contact page
+        Option 2 · Paper: Warm off-white
+        Screens: Contacts (2a), Contact page (2b)
 
-        3 Night desk: Dark with amber
+        Option 3 · Night desk: Dark with amber
 
         How they differ
         Colours
-          1 Light
-          2 Warm
-          3 Dark
+          Ledger: Light
+          Paper: Warm
+          Night desk: Dark
         Opens
-          1 In a panel
-          3 On a page
+          Ledger: In a panel
+          Night desk: On a page
         """)
     }
 }

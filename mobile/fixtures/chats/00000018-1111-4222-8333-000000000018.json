@@ -231,17 +231,17 @@
        },
        {
         "t": "p",
-        "text": "**1 Sections**: the desktop's right bar group by group, as grouped cards\nScreens: 1a Slide in, 1b Overview, 1c Scrolled, 1d Library, 1e Ideas, 1f Scheduled\n(picture 1a missing: /work/lumen-studio/mockups/overview/sections-slide-in.png)\n(picture 1b missing: /work/lumen-studio/mockups/overview/sections-overview.png)\n(picture 1c missing: /work/lumen-studio/mockups/overview/sections-scrolled.png)\n(picture 1d missing: /work/lumen-studio/mockups/overview/sections-library.png)\n(picture 1e missing: /work/lumen-studio/mockups/overview/sections-ideas.png)\n(picture 1f missing: /work/lumen-studio/mockups/overview/sections-scheduled.png)",
+        "text": "**Option 1 · Sections**: the desktop's right bar group by group, as grouped cards\nScreens: Slide in (1a), Overview (1b), Scrolled (1c), Library (1d), Ideas (1e), Scheduled (1f)\n(picture Option 1 · Sections — Slide in missing: /work/lumen-studio/mockups/overview/sections-slide-in.png)\n(picture Option 1 · Sections — Overview missing: /work/lumen-studio/mockups/overview/sections-overview.png)\n(picture Option 1 · Sections — Scrolled missing: /work/lumen-studio/mockups/overview/sections-scrolled.png)\n(picture Option 1 · Sections — Library missing: /work/lumen-studio/mockups/overview/sections-library.png)\n(picture Option 1 · Sections — Ideas missing: /work/lumen-studio/mockups/overview/sections-ideas.png)\n(picture Option 1 · Sections — Scheduled missing: /work/lumen-studio/mockups/overview/sections-scheduled.png)",
         "fallback": true
        },
        {
         "t": "p",
-        "text": "**2 Cards**: roomy; questions as swipeable cards you answer in place, count tiles\nScreens: 2a Slide in, 2b Overview, 2c Scrolled, 2d Bottom, 2e Library, 2f Ideas, 2g Scheduled\n(picture 2a missing: /work/lumen-studio/mockups/overview/cards-slide-in.png)\n(picture 2b missing: /work/lumen-studio/mockups/overview/cards-overview.png)\n(picture 2c missing: /work/lumen-studio/mockups/overview/cards-scrolled.png)\n(picture 2d missing: /work/lumen-studio/mockups/overview/cards-bottom.png)\n(picture 2e missing: /work/lumen-studio/mockups/overview/cards-library.png)\n(picture 2f missing: /work/lumen-studio/mockups/overview/cards-ideas.png)\n(picture 2g missing: /work/lumen-studio/mockups/overview/cards-scheduled.png)",
+        "text": "**Option 2 · Cards**: roomy; questions as swipeable cards you answer in place, count tiles\nScreens: Slide in (2a), Overview (2b), Scrolled (2c), Bottom (2d), Library (2e), Ideas (2f), Scheduled (2g)\n(picture Option 2 · Cards — Slide in missing: /work/lumen-studio/mockups/overview/cards-slide-in.png)\n(picture Option 2 · Cards — Overview missing: /work/lumen-studio/mockups/overview/cards-overview.png)\n(picture Option 2 · Cards — Scrolled missing: /work/lumen-studio/mockups/overview/cards-scrolled.png)\n(picture Option 2 · Cards — Bottom missing: /work/lumen-studio/mockups/overview/cards-bottom.png)\n(picture Option 2 · Cards — Library missing: /work/lumen-studio/mockups/overview/cards-library.png)\n(picture Option 2 · Cards — Ideas missing: /work/lumen-studio/mockups/overview/cards-ideas.png)\n(picture Option 2 · Cards — Scheduled missing: /work/lumen-studio/mockups/overview/cards-scheduled.png)",
         "fallback": true
        },
        {
         "t": "p",
-        "text": "**3 Ledger**: dense and flat; filter chips, usage strip, tap a row to open it in place\nScreens: 3a Slide in, 3b Overview, 3c Scrolled, 3d Bottom, 3e Library, 3f Ideas, 3g Scheduled\n(picture 3a missing: /work/lumen-studio/mockups/overview/ledger-slide-in.png)\n(picture 3b missing: /work/lumen-studio/mockups/overview/ledger-overview.png)\n(picture 3c missing: /work/lumen-studio/mockups/overview/ledger-scrolled.png)\n(picture 3d missing: /work/lumen-studio/mockups/overview/ledger-bottom.png)\n(picture 3e missing: /work/lumen-studio/mockups/overview/ledger-library.png)\n(picture 3f missing: /work/lumen-studio/mockups/overview/ledger-ideas.png)\n(picture 3g missing: /work/lumen-studio/mockups/overview/ledger-scheduled.png)",
+        "text": "**Option 3 · Ledger**: dense and flat; filter chips, usage strip, tap a row to open it in place\nScreens: Slide in (3a), Overview (3b), Scrolled (3c), Bottom (3d), Library (3e), Ideas (3f), Scheduled (3g)\n(picture Option 3 · Ledger — Slide in missing: /work/lumen-studio/mockups/overview/ledger-slide-in.png)\n(picture Option 3 · Ledger — Overview missing: /work/lumen-studio/mockups/overview/ledger-overview.png)\n(picture Option 3 · Ledger — Scrolled missing: /work/lumen-studio/mockups/overview/ledger-scrolled.png)\n(picture Option 3 · Ledger — Bottom missing: /work/lumen-studio/mockups/overview/ledger-bottom.png)\n(picture Option 3 · Ledger — Library missing: /work/lumen-studio/mockups/overview/ledger-library.png)\n(picture Option 3 · Ledger — Ideas missing: /work/lumen-studio/mockups/overview/ledger-ideas.png)\n(picture Option 3 · Ledger — Scheduled missing: /work/lumen-studio/mockups/overview/ledger-scheduled.png)",
         "fallback": true
        },
        {
@@ -292,7 +292,7 @@
       ]
      }
     ],
-    "rev": "0e532153e061",
+    "rev": "c54df2d553cc",
     "rewind": true
    },
    {

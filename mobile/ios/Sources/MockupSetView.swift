@@ -1,9 +1,11 @@
 import SwiftUI
 
 // A ```mockups block in a reply, drawn as the desktop's Set card (design A, docs/mockup-set-mockups) made for a phone:
-// one framed card with a MOCKUP SET header, each option as a numbered row (name, how it differs, its screens with
-// their badges 1, 2a, 2b ... swiping sideways when there are several), then "How they differ" as a list. A tap on a
-// screen opens the photo viewer on this set only, in set order, each picture titled "2b · Cards · Overview".
+// one framed card with a MOCKUP SET header, each option as a row ("Option 2 · Cards", how it differs, its screens
+// named in words with their short code as a small tag, swiping sideways when there are several), then "How they
+// differ" as a list. A tap on a screen opens the photo viewer on this set only, in set order, each picture titled
+// "Option 2 · Cards — Overview". Words first: bare codes like "1b" were confusing (2026-10-26); the codes
+// stay as small tags because he answers with them ("2", "2b").
 
 struct MockupSetView: View {
     let mockup: MockupSet
@@ -73,11 +75,11 @@ struct MockupSetView: View {
     private func option(_ o: MockupOption) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
-                NumberBadge(text: "\(o.n)", size: 26)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline) {
-                        Text(Inline.text(o.name, color: Theme.title))
+                        Text(optionTitle(o))
                             .font(.system(size: 17, weight: .semibold))
+                            .accessibilityIdentifier("mockupOptionTitle-\(o.n)")
                         Spacer(minLength: 8)
                         Text(o.shots.count == 1 ? "1 screen" : "\(o.shots.count) screens")
                             .font(.system(size: 13))
@@ -126,15 +128,14 @@ struct MockupSetView: View {
         return Button { tap(s) } label: {
             VStack(alignment: .leading, spacing: 6) {
                 if !single || !label.isEmpty {
+                    // the screen in words, its code only as a small tag after it
                     HStack(spacing: 6) {
-                        Text(s.badge)
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Theme.blue)
-                            .monospacedDigit()
-                        Text(label)
-                            .font(.system(size: 13))
-                            .foregroundStyle(ChatStyle.dim)
+                        Text(label.isEmpty ? "Screen" : label)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(ChatStyle.body)
                             .lineLimit(1)
+                        Spacer(minLength: 4)
+                        CodeTag(text: s.badge)
                     }
                 }
                 picture(s, single: single)
@@ -143,7 +144,7 @@ struct MockupSetView: View {
         }
         .buttonStyle(.plain)
         .disabled(s.url == nil)
-        .accessibilityLabel("Screen \(MockupSet.title(o, s))")
+        .accessibilityLabel(MockupSet.title(o, s))
         .accessibilityIdentifier("mockupShot-\(s.badge)")
     }
 
@@ -175,12 +176,29 @@ struct MockupSetView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(ChatStyle.cardBorder, lineWidth: 1))
     }
 
+    /// "Option 2 · Cards": the words "Option 2" in blue, the name in white
+    private func optionTitle(_ o: MockupOption) -> AttributedString {
+        var number = AttributedString("Option \(o.n)")
+        number.foregroundColor = Theme.blue
+        var dot = AttributedString(" · ")
+        dot.foregroundColor = ChatStyle.faint
+        return number + dot + Inline.text(o.name, color: Theme.title)
+    }
+
+    /// "Cards  Low, roomy": the option's name in bold grey, then its answer
+    private func value(_ v: MockupDifference.Value) -> AttributedString {
+        var name = Inline.text(v.name, size: 15, color: ChatStyle.dim)
+        name.inlinePresentationIntent = .stronglyEmphasized
+        return name + AttributedString("  ") + Inline.text(v.text, size: 15)
+    }
+
     private func tap(_ s: MockupShot) {
         let all = photos
         let id = MockupSet.photoId(scope: "\(scope ?? "reply")/m\(slot)", badge: s.badge)
         guard let p = all.first(where: { $0.id == id }) else { return }
         open = MediaOpen(item: MDItem(kind: "image", url: p.link, name: p.title),
-                         photos: all.map { ChatPhoto(id: $0.id, link: $0.link, mine: false, title: $0.title, detail: $0.detail) },
+                         photos: all.map { ChatPhoto(id: $0.id, link: $0.link, mine: false, title: $0.title,
+                                                     detail: $0.detail, tag: $0.tag) },
                          start: p.id)
     }
 
@@ -196,16 +214,10 @@ struct MockupSetView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .fixedSize(horizontal: false, vertical: true)
                     ForEach(Array(d.values.enumerated()), id: \.offset) { _, v in
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            if v.key.allSatisfy(\.isNumber) {
-                                NumberBadge(text: v.key, size: 20)
-                            } else {
-                                Text(v.key).font(.system(size: 13, weight: .semibold)).foregroundStyle(ChatStyle.dim)
-                            }
-                            Text(Inline.text(v.text, size: 15))
-                                .font(.system(size: 15))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+                        // the option by name: "Cards  Low, roomy"
+                        Text(value(v))
+                            .font(.system(size: 15))
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -217,17 +229,18 @@ struct MockupSetView: View {
     }
 }
 
-/// An option's number in a blue disc, the same everywhere in the set.
-private struct NumberBadge: View {
+/// A screen's short code ("2b"), small and quiet: what you can type to answer, never the screen's name.
+struct CodeTag: View {
     let text: String
-    let size: CGFloat
 
     var body: some View {
         Text(text)
-            .font(.system(size: size * 0.5, weight: .bold))
+            .font(.system(size: 11, weight: .semibold))
             .monospacedDigit()
-            .foregroundStyle(.white)
-            .frame(minWidth: size, minHeight: size)
-            .background(Color(hex: 0x2F5FB3), in: Capsule())
+            .foregroundStyle(ChatStyle.dim)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .overlay(Capsule().stroke(ChatStyle.cardBorder, lineWidth: 1))
+            .accessibilityLabel("code \(text)")
     }
 }

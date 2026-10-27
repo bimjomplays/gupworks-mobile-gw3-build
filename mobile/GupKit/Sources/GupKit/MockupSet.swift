@@ -30,13 +30,14 @@ struct MockupShot: Codable, Equatable {
     var missing: String?
 }
 
-/// A picture of the set as the viewer shows it: in set order, titled "2b · Cards · Overview", with how its option
-/// differs under it.
+/// A picture of the set as the viewer shows it: in set order, titled in words ("Option 2 · Cards — Overview"), with
+/// how its option differs under it and its short code ("2b", what you type to answer) as a small tag.
 struct MockupPhoto: Equatable {
     var id: String
     var link: String
     var title: String
     var detail: String
+    var tag: String
 }
 
 /// One row of "How they differ": what differs, then each option's answer by number.
@@ -46,6 +47,7 @@ struct MockupDifference: Equatable {
 
     struct Value: Equatable {
         var key: String     // the option's number ("2"), or the column's name when it has none
+        var name: String    // in words: the option's name ("Cards"), else the column's name
         var text: String
     }
 }
@@ -53,36 +55,50 @@ struct MockupDifference: Equatable {
 extension MockupSet {
     var optionsLine: String { options.count == 1 ? "1 option" : "\(options.count) options" }
 
-    /// every picture in set order (1, 2a, 2b, 3 ...); missing ones are left out. Ids are `scope/badge`.
+    /// every picture in set order (1, 2a, 2b, 3 ...); missing ones are left out. Ids are `scope/set/badge`.
     func photos(scope: String) -> [MockupPhoto] {
         options.flatMap { o in
             o.shots.compactMap { s -> MockupPhoto? in
                 guard let link = s.url, !link.isEmpty else { return nil }
                 return MockupPhoto(id: Self.photoId(scope: scope, badge: s.badge), link: link,
-                                   title: Self.title(o, s), detail: o.differs ?? "")
+                                   title: Self.title(o, s), detail: o.differs ?? "", tag: s.badge)
             }
         }
     }
 
     static func photoId(scope: String, badge: String) -> String { "\(scope)/set/\(badge)" }
 
-    /// "2b · Cards · Overview"; "1 · Sections" for an option's only, unlabelled screen
+    /// "Option 2 · Cards": an option in words (bare codes like "1b" were confusing, 2026-10-26)
+    static func optionTitle(_ o: MockupOption) -> String { "Option \(o.n) · \(o.name)" }
+
+    /// a screen in words: "Option 2 · Cards — Overview"; "Option 1 · Sections" for an option's only, unlabelled one
     static func title(_ o: MockupOption, _ s: MockupShot) -> String {
-        [s.badge, o.name, s.label ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
+        let label = (s.label ?? "").trimmingCharacters(in: .whitespaces)
+        return optionTitle(o) + (label.isEmpty ? "" : " — \(label)")
     }
 
     /// "How they differ" as rows for a phone-width list; empty when the set has no table
     var differences: [MockupDifference] {
         guard let head, head.count > 1, let rows else { return [] }
-        let keys = head.dropFirst().map(Self.key)
+        let columns = head.dropFirst().map { h in (key: Self.key(h), name: name(h)) }
         return rows.compactMap { r in
             guard let label = r.first else { return nil }
-            let values = zip(keys, r.dropFirst()).compactMap { k, v -> MockupDifference.Value? in
+            let values = zip(columns, r.dropFirst()).compactMap { c, v -> MockupDifference.Value? in
                 let t = v.trimmingCharacters(in: .whitespaces)
-                return t.isEmpty ? nil : .init(key: k, text: t)
+                return t.isEmpty ? nil : .init(key: c.key, name: c.name, text: t)
             }
             return values.isEmpty ? nil : MockupDifference(label: label, values: values)
         }
+    }
+
+    /// a column in words: "2 Paper" -> "Paper" (the option's own name when the column has only its number)
+    func name(_ header: String) -> String {
+        let h = header.trimmingCharacters(in: .whitespaces)
+        let k = Self.key(h)
+        guard !k.isEmpty, k.allSatisfy(\.isNumber) else { return h }
+        let rest = h.dropFirst(k.count).trimmingCharacters(in: .whitespaces.union(CharacterSet(charactersIn: ".:·-")))
+        if !rest.isEmpty { return rest }
+        return options.first { "\($0.n)" == k }?.name ?? h
     }
 
     /// a column's option number ("2 Paper" -> "2"), else the column's own name
@@ -97,18 +113,20 @@ extension MockupSet {
         var out = ["Mockup set: \(title)"]
         if let same, !same.isEmpty { out.append(same) }
         for o in options {
-            var line = "\(o.n) \(o.name)"
+            var line = Self.optionTitle(o)
             if let d = o.differs, !d.isEmpty { line += ": \(d)" }
             if o.shots.count > 1 {
-                line += "\nScreens: " + o.shots.map { "\($0.badge) \($0.label ?? "")".trimmingCharacters(in: .whitespaces) }
-                    .joined(separator: ", ")
+                line += "\nScreens: " + o.shots.map { s in
+                    let label = (s.label ?? "").trimmingCharacters(in: .whitespaces)
+                    return label.isEmpty ? s.badge : "\(label) (\(s.badge))"
+                }.joined(separator: ", ")
             }
             out.append(line)
         }
         let diffs = differences
         if !diffs.isEmpty {
             out.append("How they differ\n" + diffs.map { d in
-                ([d.label] + d.values.map { "  \($0.key) \($0.text)" }).joined(separator: "\n")
+                ([d.label] + d.values.map { "  \($0.name): \($0.text)" }).joined(separator: "\n")
             }.joined(separator: "\n"))
         }
         return out.joined(separator: "\n\n")
