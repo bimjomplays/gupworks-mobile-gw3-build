@@ -26,8 +26,8 @@ struct NewProjectSheet: View {
 
     init(created: @escaping (NewProjectReply) -> Void) {
         self.created = created
-        _pickIcon = State(initialValue: Demo.isOn && ProcessInfo.processInfo.arguments.contains("-iconPicker"))
-        if Demo.isOn, ProcessInfo.processInfo.arguments.contains("-iconPicker") {
+        _pickIcon = State(initialValue: Demo.isOn && Demo.args.contains("-iconPicker"))
+        if Demo.isOn, Demo.args.contains("-iconPicker") {
             _icon = State(initialValue: "clapperboard")
             _color = State(initialValue: "red")
         }
@@ -287,7 +287,7 @@ struct ProjectSettingsSheet: View {
     init(projectId: String, left: (() -> Void)? = nil) {
         self.projectId = projectId
         self.left = left
-        _showUsage = State(initialValue: Demo.isOn && ProcessInfo.processInfo.arguments.contains("-usage"))
+        _showUsage = State(initialValue: Demo.isOn && Demo.args.contains("-usage"))
     }
 
     var body: some View {

@@ -461,7 +461,7 @@ struct VideoPlayerScreen: View {
     @State private var landscape = false
     @State private var preparing = false
     @State private var shareError: String?
-    private let keepControls = ProcessInfo.processInfo.arguments.contains("-keepControls")
+    private let keepControls = Demo.args.contains("-keepControls")
 
     init(item: MDItem, base: URL?) {
         self.item = item

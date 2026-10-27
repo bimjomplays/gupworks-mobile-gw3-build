@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(Security)
 import Security
+#endif
 
 /// The paired PC: its base URL, the token it gave this phone and what it said about itself. Lives only in the
 /// Keychain (this device only, readable while unlocked), never in UserDefaults or files.
@@ -13,6 +15,7 @@ struct Pairing: Codable, Equatable {
     var shortHost: String { String((baseURL.host ?? "").split(separator: ".").first ?? "") }
 }
 
+#if canImport(Security)
 enum PairingStore {
     private static let service = "app.gupworks3.phone.pairing"
     private static let account = "pc"
@@ -50,6 +53,16 @@ enum PairingStore {
         SecItemDelete(item as CFDictionary)
     }
 }
+#else
+/// Linux (GupKit's tests): no Keychain, so the pairing is kept in memory only.
+enum PairingStore {
+    private static var kept: Pairing?
+    static func load() -> Pairing? { kept }
+    @discardableResult
+    static func save(_ pairing: Pairing) -> Bool { kept = pairing; return true }
+    static func clear() { kept = nil }
+}
+#endif
 
 /// The pairing link the PC shows as a QR code (`gw3-phone pair`):
 ///     gupworks3://pair?v=1&url=<percent-encoded https://<pc>.<tailnet>.ts.net:10005>&code=<one-time code>
