@@ -2,14 +2,15 @@ import UIKit
 import XCTest
 @testable import GupWorks3
 
-/// a137: the menu's SF Symbols drawn big (PNG and vector PDF) with their metrics, so the desktop app's copies in
-/// src/Icons.cpp can be traced from the real shapes instead of by eye. Written to SHOTS_DIR as symbol-*.
+/// a137: the menu's SF Symbols drawn big with their metrics, so the desktop app's copies in src/Icons.cpp can be
+/// traced from the real shapes (tools/sf_symbol_trace.py) instead of by eye. Written to SHOTS_DIR as symbol-*. (A PDF
+/// gets the symbol only as a picture, not its outline.)
 @MainActor
 final class SymbolShotsTests: XCTestCase {
     private let names = ["folder", "clock", "bolt", "arrow.up.arrow.down"]
 
     private func write(_ data: Data, _ file: String) {
-        let a = XCTAttachment(data: data, uniformTypeIdentifier: file.hasSuffix(".pdf") ? "com.adobe.pdf" : "public.data")
+        let a = XCTAttachment(data: data, uniformTypeIdentifier: file.hasSuffix(".png") ? "public.png" : "public.data")
         a.name = file
         a.lifetime = .keepAlways
         add(a)
@@ -40,12 +41,6 @@ final class SymbolShotsTests: XCTestCase {
                 big.draw(at: .zero)
             }
             write(png, file + "-1000pt.png")
-            // the same as vectors
-            let pdf = UIGraphicsPDFRenderer(bounds: CGRect(origin: .zero, size: big.size)).pdfData { ctx in
-                ctx.beginPage()
-                big.draw(at: .zero)
-            }
-            write(pdf, file + "-1000pt.pdf")
             // real size: the menu's 19 pt at the phone's 3x
             let small = try image(name, 19)
             let fmt3 = UIGraphicsImageRendererFormat()
