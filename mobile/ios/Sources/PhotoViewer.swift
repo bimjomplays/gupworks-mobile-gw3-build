@@ -448,6 +448,12 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
         onTap?()
     }
 
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        GestureLog.add("pager touch began zoomed=\(pages[index]?.isZoomed ?? false) zs=\(pages[index]?.zoomScale ?? -1)")
+        accessibilityLabel = "Picture " + GestureLog.text
+        super.touchesBegan(touches, with: event)
+    }
+
     @objc private func doubleTapped(_ g: UITapGestureRecognizer) {
         guard let p = pages[index] else { return }
         p.toggleZoom(at: g.location(in: p.imageView))
@@ -458,7 +464,8 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
     private func mayDismiss(_ g: UIGestureRecognizer) -> Bool {
         guard let pan = g as? TravelPan, !(pages[index]?.isZoomed ?? false) else { return false }
         // the finger's travel: a quick swipe's velocity is still zero here, and the viewer stayed open (a131)
-        print("a131 mayDismiss travel=\(pan.travel) v=\(pan.velocity(in: nil)) zoomed=\(pages[index]?.isZoomed ?? false) begins=\(SwipeStart.down(pan.heading))")
+        GestureLog.add("mayDismiss travel=\(pan.travel) v=\(pan.velocity(in: nil)) zoomed=\(pages[index]?.isZoomed ?? false) begins=\(SwipeStart.down(pan.heading))")
+        accessibilityLabel = "Picture " + GestureLog.text
         return SwipeStart.down(pan.heading)
     }
 
@@ -475,6 +482,8 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
             backgroundColor = UIColor.black.withAlphaComponent(1 - progress)
         case .ended, .cancelled, .failed:
             let v = g.velocity(in: self)
+            GestureLog.add("dragged state=\(g.state.rawValue) t=\(t) v=\(v)")
+            accessibilityLabel = "Picture " + GestureLog.text
             if g.state == .ended, t.y > 110 || v.y > 900 {
                 isUserInteractionEnabled = false
                 let down = bounds.height

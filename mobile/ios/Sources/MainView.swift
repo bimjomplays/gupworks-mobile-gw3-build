@@ -93,7 +93,7 @@ struct MainView: View {
                 MenuView(current: shownId, open: menuOpen,
                          pick: { c in if !swipeClock.recent { pick(c) } },
                          newChat: { if !swipeClock.recent { newChat() } },
-                         place: { p in if !swipeClock.recent { go(p) } },
+                         place: { p in GestureLog.add("place \(p)"); if !swipeClock.recent { go(p) } },
                          settings: { if !swipeClock.recent { showSettings = true } },
                          lifting: { pinLifted = $0 })
                     .frame(width: width)
@@ -133,7 +133,7 @@ struct MainView: View {
                                ended: { dx, v in
                                    swipeClock.letGo()
                                    let open = swipe.endsOpen(open: menuOpen, dx: dx, velocity: v)
-                                   print("a131 ended dx=\(dx) v=\(v) width=\(swipe.width) open=\(open)")
+                                   GestureLog.add("ended dx=\(dx) v=\(v) width=\(swipe.width) open=\(open)")
                                    withAnimation(.snappy(duration: 0.3)) {
                                        drag = 0
                                        if open && !menuOpen { openMenu() }
@@ -273,7 +273,7 @@ final class SwipeClock {
     func letGo() {
         moving = false
         endedAt = Date()
-        print("a131 letGo \(Date().timeIntervalSince1970)")
+        GestureLog.add("letGo \(Date().timeIntervalSince1970)")
     }
     static var lastCheck = ""
 
@@ -281,7 +281,7 @@ final class SwipeClock {
     var recent: Bool {
         let r = moving || Date().timeIntervalSince(endedAt) < 0.4
         SwipeClock.lastCheck = String(format: "moving=%d since=%.3f recent=%d", moving ? 1 : 0, Date().timeIntervalSince(endedAt), r ? 1 : 0)
-        print("a131 clock \(SwipeClock.lastCheck) at \(Date().timeIntervalSince1970)")
+        GestureLog.add("clock \(SwipeClock.lastCheck) at \(Date().timeIntervalSince1970)")
         return r
     }
 }
@@ -341,7 +341,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
 
     func handleUIGestureRecognizerAction(_ g: TravelPan, context: Context) {
         let dx = g.translation(in: nil).x
-        if g.state != .changed { print("a131 pan state=\(g.state.rawValue) dx=\(dx) v=\(g.velocity(in: nil).x) at \(Date().timeIntervalSince1970)") }
+        if g.state != .changed { GestureLog.add("pan state=\(g.state.rawValue) dx=\(dx) v=\(g.velocity(in: nil).x) at \(Date().timeIntervalSince1970)") }
         switch g.state {
         case .began:
             if context.coordinator.closing { context.coordinator.stopScrolling() }
@@ -365,7 +365,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
             // the finger's own travel, not only UIKit's velocity: a fast flick's velocity is still zero here, and the
             // row under the finger then took the touch as a tap (a131)
             let d = pan.heading
-            print("a131 shouldBegin closing=\(closing) travel=\(pan.travel) v=\(pan.velocity(in: nil)) t=\(pan.translation(in: nil)) begins=\(SwipeStart.menu(closing: closing, heading: d)) at \(Date().timeIntervalSince1970)")
+            GestureLog.add("shouldBegin closing=\(closing) travel=\(pan.travel) v=\(pan.velocity(in: nil)) t=\(pan.translation(in: nil)) begins=\(SwipeStart.menu(closing: closing, heading: d)) at \(Date().timeIntervalSince1970)")
             // a wide table or code panel scrolled sideways under the finger scrolls back first
             if !closing, SwipeStart.menu(closing: false, heading: d), scrollsBack(pan) { return false }
             return SwipeStart.menu(closing: closing, heading: d)
@@ -375,7 +375,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
         private weak var touched: UIView?
 
         func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-            print("a131 touch down enabled=\(g.isEnabled) pinHeld=\(MenuSwipe.pinHeld) closing=\(closing) at \(Date().timeIntervalSince1970)")
+            GestureLog.add("touch down enabled=\(g.isEnabled) pinHeld=\(MenuSwipe.pinHeld) closing=\(closing) at \(Date().timeIntervalSince1970)")
             touched = touch.view
             return true
         }
@@ -442,7 +442,7 @@ struct ComingSoonPage: View {
             Text(place.title).font(.system(size: 20, weight: .semibold)).foregroundStyle(Theme.title)
             Text("Coming soon").font(.system(size: 16)).foregroundStyle(Theme.secondary)
                 .accessibilityIdentifier("comingSoon")
-                .accessibilityValue(SwipeClock.lastCheck)
+                .accessibilityValue(GestureLog.text)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
@@ -464,4 +464,15 @@ struct MenuIcon: View {
         case .bot: Icons.bot(size: 23)
         }
     }
+}
+
+/// a131 diagnostic (to be dropped)
+enum GestureLog {
+    static var lines: [String] = []
+    static func add(_ s: String) {
+        print("a131 " + s)
+        lines.append(String(format: "%.3f ", Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 1000)) + s)
+        if lines.count > 24 { lines.removeFirst(lines.count - 24) }
+    }
+    static var text: String { lines.joined(separator: " | ") }
 }

@@ -116,6 +116,22 @@ final class MenuSwipeUITests: XCTestCase {
         swipeCloses(0.97, to: 0.6, y: 0.75, slow: false, "a flick from the far right edge")
     }
 
+    /// a131 diagnostic (to be dropped): the first flick after a cold launch, eight times
+    func testZDiagRowFlicks() {
+        continueAfterFailure = true
+        var bad = 0
+        for i in 1...8 {
+            launchWithMenu()
+            swipe(0.3, to: 0.02, y: 0.3, slow: false)
+            let closed = menuShown.waitForNonExistence(timeout: 10)
+            let page = el("comingSoon")
+            let opened = page.waitForExistence(timeout: 2)
+            print("a131 diag flick \(i): closed=\(closed) opened=\(opened) log=\(opened ? (page.value as? String ?? "") : "")")
+            if opened || !closed { bad += 1 }
+        }
+        XCTAssertEqual(bad, 0, "flicks that opened a page or didn't close")
+    }
+
     func testShortFlickClosesAndShortDragSnapsBack() {
         launchWithMenu()
         // about a fifth of the way, slowly: it goes back open
