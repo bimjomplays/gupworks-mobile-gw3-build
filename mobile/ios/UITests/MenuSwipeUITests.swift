@@ -90,7 +90,7 @@ final class MenuSwipeUITests: XCTestCase {
     private func assertCloses(_ what: String, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(menuShown.waitForNonExistence(timeout: 10), "\(what) closes the menu", file: file, line: line)
         // and it was only a swipe: the row it started on didn't open (the old menu opened Gup Bot here)
-        XCTAssertFalse(el("comingSoon").exists, "\(what) opened a page", file: file, line: line)
+        XCTAssertFalse(el("comingSoon").exists, "\(what) opened a page (\(el("comingSoon").exists ? (el("comingSoon").value as? String ?? "?") : ""))", file: file, line: line)
         XCTAssertTrue(app.buttons["menu"].waitForExistence(timeout: 10), "\(what): back on the chat",
                       file: file, line: line)
     }

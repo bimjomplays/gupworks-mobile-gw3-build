@@ -458,6 +458,7 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
     private func mayDismiss(_ g: UIGestureRecognizer) -> Bool {
         guard let pan = g as? TravelPan, !(pages[index]?.isZoomed ?? false) else { return false }
         // the finger's travel: a quick swipe's velocity is still zero here, and the viewer stayed open (a131)
+        print("a131 mayDismiss travel=\(pan.travel) v=\(pan.velocity(in: nil)) zoomed=\(pages[index]?.isZoomed ?? false) begins=\(SwipeStart.down(pan.heading))")
         return SwipeStart.down(pan.heading)
     }
 
