@@ -31,6 +31,22 @@ final class VideoPlayerTests: XCTestCase {
         XCTAssertEqual(VideoMath.speeds.map(VideoMath.speedLabel), ["0.5×", "0.75×", "1×", "1.25×", "1.5×", "2×"])
     }
 
+    func testSpeedIsRememberedForTheNextVideo() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "VideoSpeedTests"))
+        defaults.removePersistentDomain(forName: "VideoSpeedTests")
+        let store = VideoSpeed(defaults: defaults)
+        XCTAssertEqual(store.current, 1, "normal speed until one is chosen")
+        for s in VideoMath.speeds {
+            store.current = s
+            XCTAssertEqual(store.current, s)
+        }
+        defaults.set(3.0, forKey: VideoSpeed.key)
+        XCTAssertEqual(store.current, 1, "a speed that isn't in the menu falls back to normal")
+        defaults.set("1.5", forKey: VideoSpeed.key)
+        XCTAssertEqual(store.current, 1.5, "launch arguments arrive as text")
+        defaults.removePersistentDomain(forName: "VideoSpeedTests")
+    }
+
     func testClamp() {
         XCTAssertEqual(VideoMath.clamp(-4, 30), 0)
         XCTAssertEqual(VideoMath.clamp(12, 30), 12)

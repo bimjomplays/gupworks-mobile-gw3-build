@@ -742,10 +742,16 @@ struct LocalThumb: View {
 
     static func thumb(_ url: URL, video: Bool) async -> UIImage? {
         if video {
-            let gen = AVAssetImageGenerator(asset: AVURLAsset(url: url))
+            let asset = AVURLAsset(url: url)
+            let gen = AVAssetImageGenerator(asset: asset)
             gen.appliesPreferredTrackTransform = true
             gen.maximumSize = CGSize(width: 480, height: 480)
-            guard let frame = try? await gen.image(at: .zero) else { return nil }
+            gen.requestedTimeToleranceBefore = .positiveInfinity
+            gen.requestedTimeToleranceAfter = .positiveInfinity
+            // a second in (or halfway in a shorter clip): many videos fade in from black
+            let length = (try? await asset.load(.duration).seconds) ?? 0
+            let at = CMTime(seconds: length.isFinite && length > 0 ? min(1, length / 2) : 0, preferredTimescale: 600)
+            guard let frame = try? await gen.image(at: at) else { return nil }
             return UIImage(cgImage: frame.image)
         }
         return await Task.detached(priority: .userInitiated) { () -> UIImage? in

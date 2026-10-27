@@ -18,8 +18,9 @@ struct MessageActions {
 
     /// an answer's words as text to copy: paragraphs, list items, code and table rows, one per line
     static func plain(_ blocks: [MD]) -> String {
-        blocks.compactMap { b -> String? in
+        blocks.filter { !$0.isFallback }.compactMap { b -> String? in
             switch b.t {
+            case "mockups": return b.set?.plain
             case "code": return b.code ?? b.text
             case "list":
                 return (b.items ?? []).compactMap { i in

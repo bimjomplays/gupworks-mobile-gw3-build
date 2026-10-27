@@ -17,7 +17,7 @@ final class VideoPlayerUITests: XCTestCase {
 
     private func launch(_ extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-demo"] + extra
+        app.launchArguments = ["-demo", "-videoSpeed", "1"] + extra  // 1× whatever an earlier test chose
         app.launch()
         return app
     }
