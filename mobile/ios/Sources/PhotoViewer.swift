@@ -308,7 +308,7 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
     private var spare: [PhotoPage] = []
     private var laidOut: CGSize = .zero
     private var applying = false
-    private let dismissPan = UIPanGestureRecognizer()
+    private let dismissPan = TravelPan()
     private let gate = PanGate()
 
     override init(frame: CGRect) {
@@ -456,9 +456,9 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
     // MARK: swipe down to close
 
     private func mayDismiss(_ g: UIGestureRecognizer) -> Bool {
-        guard let pan = g as? UIPanGestureRecognizer, !(pages[index]?.isZoomed ?? false) else { return false }
-        let v = pan.velocity(in: self)
-        return v.y > 0 && abs(v.y) > abs(v.x) * 1.2
+        guard let pan = g as? TravelPan, !(pages[index]?.isZoomed ?? false) else { return false }
+        // the finger's travel: a quick swipe's velocity is still zero here, and the viewer stayed open (a131)
+        return SwipeStart.down(pan.heading)
     }
 
     @objc private func dragged(_ g: UIPanGestureRecognizer) {

@@ -314,15 +314,15 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
 
     func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
 
-    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
-        let g = UIPanGestureRecognizer()
+    func makeUIGestureRecognizer(context: Context) -> TravelPan {
+        let g = TravelPan()
         g.delegate = context.coordinator
         g.cancelsTouchesInView = false
         g.maximumNumberOfTouches = 1
         return g
     }
 
-    func updateUIGestureRecognizer(_ g: UIPanGestureRecognizer, context: Context) {
+    func updateUIGestureRecognizer(_ g: TravelPan, context: Context) {
         // read when a swipe would start (the menu doesn't open or close while one is under way)
         context.coordinator.closing = closing
         let moving = g.state == .began || g.state == .changed
@@ -331,7 +331,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
         if moving && !enabled { Task { @MainActor in ended(0, 0) } }
     }
 
-    func handleUIGestureRecognizerAction(_ g: UIPanGestureRecognizer, context: Context) {
+    func handleUIGestureRecognizerAction(_ g: TravelPan, context: Context) {
         let dx = g.translation(in: nil).x
         switch g.state {
         case .began:
@@ -352,13 +352,13 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
         private var scrolls: [WeakPan] = []
 
         func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
-            guard let pan = g as? UIPanGestureRecognizer, !MenuSwipe.pinHeld else { return false }
-            let v = pan.velocity(in: nil)
-            let sideways = abs(v.x) > 1.5 * abs(v.y)
-
+            guard let pan = g as? TravelPan, !MenuSwipe.pinHeld else { return false }
+            // the finger's own travel, not only UIKit's velocity: a fast flick's velocity is still zero here, and the
+            // row under the finger then took the touch as a tap (a131)
+            let d = pan.heading
             // a wide table or code panel scrolled sideways under the finger scrolls back first
-            if !closing, sideways, v.x > 0, scrollsBack(pan) { return false }
-            return sideways && (closing ? v.x < 0 : v.x > 0)
+            if !closing, SwipeStart.menu(closing: false, heading: d), scrollsBack(pan) { return false }
+            return SwipeStart.menu(closing: closing, heading: d)
         }
 
         /// the view UIKit found under the finger when the touch began
