@@ -16,6 +16,8 @@ final class OverviewHost {
     private(set) var chatId: String?
     private var put: ((String) -> Void)?
     private(set) var open = false
+    /// its page is drawn: from the start of a slide in until a slide out has ended (closed, it isn't in the tree)
+    private(set) var shown = false
     /// how far in it is while a finger moves it (nil: nothing moves)
     var drag: Double?
     /// what is pushed inside the Overview (a folder, a note, a thread's chat, a schedule)
@@ -45,6 +47,7 @@ final class OverviewHost {
             path = NavigationPath()
             open = false
             drag = nil
+            shown = false
         }
         self.store = store
         chatId = chat
@@ -59,11 +62,13 @@ final class OverviewHost {
         put = nil
         open = false
         drag = nil
+        shown = false
         path = NavigationPath()
     }
 
     func present() {
         guard store != nil else { return }
+        shown = true
         if let s = demoSlide {
             drag = s
             return
@@ -78,7 +83,7 @@ final class OverviewHost {
         withAnimation(.snappy(duration: 0.3)) {
             open = false
             drag = nil
-        }
+        } completion: { [weak self] in self?.hideIfClosed() }
         if let then {
             Task {
                 try? await Task.sleep(nanoseconds: 330_000_000)
@@ -101,6 +106,7 @@ final class OverviewHost {
             Self.dropKeyboard()
             path = NavigationPath()
         }
+        shown = true
         drag = p
     }
 
@@ -109,7 +115,11 @@ final class OverviewHost {
         withAnimation(.snappy(duration: 0.3)) {
             open = o
             drag = nil
-        }
+        } completion: { [weak self] in self?.hideIfClosed() }
+    }
+
+    private func hideIfClosed() {
+        if !open && drag == nil { shown = false }
     }
 
     static func dropKeyboard() {

@@ -138,15 +138,19 @@ struct MainView: View {
                     }
                     .offset(x: x + CGFloat(slide.chatX(p)))
                     .accessibilityHidden(p >= 1)
-                // kept while the main chat is up, just off the right edge when closed: its offset then animates in
-                // and out (an inserted view with a move transition kept reading off screen to accessibility)
+                // a frame kept while the main chat is up, off the right edge when closed: its offset animates in
+                // and out (an inserted view with a move transition kept reading off screen to accessibility); the
+                // page itself is only in it while shown
                 if let store = overview.store {
-                    OverviewLayer(host: overview, store: store)
-                        .frame(width: geo.size.width, height: geo.size.height)
-                        .shadow(color: .black.opacity(0.5 * p), radius: 18, x: -4)
-                        .offset(x: CGFloat(slide.overviewX(p)))
-                        .allowsHitTesting(p > 0)
-                        .accessibilityHidden(p == 0)
+                    ZStack {
+                        if overview.shown {
+                            OverviewLayer(host: overview, store: store).transition(.identity)
+                        }
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .shadow(color: .black.opacity(0.5 * p), radius: 18, x: -4)
+                    .offset(x: CGFloat(slide.overviewX(p)))
+                    .allowsHitTesting(p > 0)
                 }
             }
             .background(Color.black)
