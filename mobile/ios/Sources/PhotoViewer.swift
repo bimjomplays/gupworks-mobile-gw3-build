@@ -448,7 +448,27 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
         onTap?()
     }
 
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        DiagLog.add("touch n=\(touches.count) zs=\(pages[index]?.zoomScale ?? -1) off=\(pages[index]?.contentOffset ?? .zero) pager=\(pager.contentOffset.x) idx=\(index) max=\(pages[index]?.maximumZoomScale ?? -1) img=\(pages[index]?.imageView.image != nil) pinch=\(pages[index]?.pinchGestureRecognizer?.state.rawValue ?? -1) dec=\(pager.isDecelerating) dp=\(dismissPan.state.rawValue) pp=\(pages[index]?.panGestureRecognizer.state.rawValue ?? -1) pg=\(pager.panGestureRecognizer.state.rawValue) ui=\(isUserInteractionEnabled)")
+        accessibilityLabel = "Picture " + DiagLog.text
+        super.touchesBegan(touches, with: event)
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        DiagLog.add("touch ended dp=\(dismissPan.state.rawValue) pp=\(pages[index]?.panGestureRecognizer.state.rawValue ?? -1) pg=\(pager.panGestureRecognizer.state.rawValue)")
+        accessibilityLabel = "Picture " + DiagLog.text
+        super.touchesEnded(touches, with: event)
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        DiagLog.add("touch cancelled dp=\(dismissPan.state.rawValue)")
+        accessibilityLabel = "Picture " + DiagLog.text
+        super.touchesCancelled(touches, with: event)
+    }
+
     @objc private func doubleTapped(_ g: UITapGestureRecognizer) {
+        DiagLog.add("double tap zs=\(pages[index]?.zoomScale ?? -1)")
+        accessibilityLabel = "Picture " + DiagLog.text
         guard let p = pages[index] else { return }
         p.toggleZoom(at: g.location(in: p.imageView))
     }
@@ -456,8 +476,12 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
     // MARK: swipe down to close
 
     private func mayDismiss(_ g: UIGestureRecognizer) -> Bool {
+        DiagLog.add("shouldBegin zs=\(pages[index]?.zoomScale ?? -1)")
+        accessibilityLabel = "Picture " + DiagLog.text
         guard let pan = g as? UIPanGestureRecognizer, !(pages[index]?.isZoomed ?? false) else { return false }
         let v = pan.velocity(in: self)
+        DiagLog.add("mayDismiss v=\(v) t=\(pan.translation(in: self)) n=\(pan.numberOfTouches) -> \(v.y > 0 && abs(v.y) > abs(v.x) * 1.2)")
+        accessibilityLabel = "Picture " + DiagLog.text
         return v.y > 0 && abs(v.y) > abs(v.x) * 1.2
     }
 
@@ -467,6 +491,8 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
         let progress = min(1, max(0, t.y) / max(1, bounds.height * 0.5))
         switch g.state {
         case .began:
+            DiagLog.add("dragged began t=\(t) v=\(g.velocity(in: self))")
+            accessibilityLabel = "Picture " + DiagLog.text
             onDrag?(true)
         case .changed:
             let s = 1 - 0.25 * progress
@@ -474,6 +500,8 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
             backgroundColor = UIColor.black.withAlphaComponent(1 - progress)
         case .ended, .cancelled, .failed:
             let v = g.velocity(in: self)
+            DiagLog.add("dragged state=\(g.state.rawValue) t=\(t) v=\(v)")
+            accessibilityLabel = "Picture " + DiagLog.text
             if g.state == .ended, t.y > 110 || v.y > 900 {
                 isUserInteractionEnabled = false
                 let down = bounds.height
@@ -628,8 +656,27 @@ final class PhotoPage: UIScrollView, UIScrollViewDelegate {
 
     func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
 
+    func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
+        DiagLog.add("zoom begins zs=\(zoomScale) max=\(maximumZoomScale) img=\(imageView.image != nil)")
+    }
+
+    func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+        DiagLog.add("zoom ends at \(scale) max=\(maximumZoomScale)")
+    }
+
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         contentInset = PhotoZoom.inset(content: contentSize, box: bounds.size)
         onZoom?()
     }
+}
+
+/// a131 diagnostic (to be dropped)
+enum DiagLog {
+    static var lines: [String] = []
+    static func add(_ s: String) {
+        print("a131 " + s)
+        lines.append(String(format: "%.3f ", Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 1000)) + s)
+        if lines.count > 30 { lines.removeFirst(lines.count - 30) }
+    }
+    static var text: String { lines.joined(separator: " | ") }
 }
