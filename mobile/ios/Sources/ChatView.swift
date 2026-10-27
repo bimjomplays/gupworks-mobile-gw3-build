@@ -174,10 +174,11 @@ struct ChatView: View {
                         withAnimation(.easeInOut(duration: 0.2)) { folds[t.id] = !(folds[t.id] ?? t.open) }
                     }
                 }
-                ForEach(store.queue) { q in
-                    QueuedBubble(item: q, base: store.baseURL).padding(.top, 14)
+                ForEach(store.waiting) { q in
+                    // "queued" only while Claude works: an idle chat sends it within a moment
+                    QueuedBubble(item: q, base: store.baseURL, waits: store.working).padding(.top, 14)
                 }
-                ForEach(store.outbox) { m in
+                ForEach(store.sending) { m in
                     OutgoingBubble(message: m) {
                         Task { await store.retry(m.clientId) }
                     } discard: {
@@ -221,7 +222,7 @@ struct ChatView: View {
                 position.scrollTo(edge: .bottom)
             }
         }
-        .onChange(of: store.outbox.count + store.queue.count) { old, new in
+        .onChange(of: store.outbox.count + store.waiting.count) { old, new in
             // your own message: always to the bottom
             if new > old { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
         }
@@ -236,7 +237,7 @@ struct ChatView: View {
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
         .overlay {
-            if store.isNew && store.temporary && store.outbox.isEmpty && store.queue.isEmpty {
+            if store.isNew && store.temporary && store.outbox.isEmpty && store.waiting.isEmpty {
                 TemporaryNote()
             }
         }
@@ -437,7 +438,7 @@ struct ChatView: View {
         } else if store.isNew {
             EmptyView()
         } else if store.header != nil && store.turns.isEmpty {
-            if store.queue.isEmpty && store.outbox.isEmpty {
+            if store.waiting.isEmpty && store.outbox.isEmpty {
                 Notice(icon: "bubble.left", text: "No messages yet.")
             }
         } else if store.header == nil {
