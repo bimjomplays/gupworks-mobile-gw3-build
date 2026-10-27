@@ -63,6 +63,8 @@ struct MainView: View {
     @State private var opened = 0
     /// the stack starts at Projects (its page and a project's chat open from it take the menu's swipe too)
     @State private var onProjects = false
+    /// a141: the Overview of the project whose main chat is on top, slid in from the right over it
+    @State private var overview = OverviewHost()
 
     init() {
         let args = Demo.args
@@ -95,6 +97,8 @@ struct MainView: View {
             let swipe = MenuDrag(width: max(geo.size.width - 91, 240))
             let width = swipe.width
             let x = swipe.x(open: menuOpen, dx: drag)
+            let slide = OverviewDrag(width: Double(geo.size.width))
+            let p = overview.progress
             ZStack(alignment: .topLeading) {
                 MenuView(current: shownId, open: menuOpen,
                          pick: { c in if !swiped.now { pick(c) } },
@@ -126,13 +130,35 @@ struct MainView: View {
                                 .accessibilityIdentifier("closeMenu")
                         }
                     }
-                    .offset(x: x)
+                    .overlay {
+                        // 1a: the chat dims under the Overview
+                        if p > 0 {
+                            Color.black.opacity(OverviewDrag.dim * p).ignoresSafeArea().allowsHitTesting(false)
+                        }
+                    }
+                    .offset(x: x + CGFloat(slide.chatX(p)))
+                    .accessibilityHidden(p >= 1)
+                // a frame kept while the main chat is up, off the right edge when closed: its offset animates in
+                // and out (an inserted view with a move transition kept reading off screen to accessibility); the
+                // page itself is only in it while shown
+                if let store = overview.store {
+                    ZStack {
+                        if overview.shown {
+                            OverviewLayer(host: overview, store: store).transition(.identity)
+                        }
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .shadow(color: .black.opacity(0.5 * p), radius: 18, x: -4)
+                    .offset(x: CGFloat(slide.overviewX(p)))
+                    .allowsHitTesting(p > 0)
+                }
             }
             .background(Color.black)
             // one pan over the whole screen opens and closes, so a swipe starting anywhere (the menu's rows, its
             // empty space, the chat's strip) follows the finger the same way
             .gesture(MenuSwipe(closing: menuOpen,
-                               enabled: menuOpen ? !pinLifted : path.count <= (onProjects ? 1 : 0),
+                               enabled: menuOpen ? !pinLifted
+                                   : p == 0 && path.count <= (onProjects ? 1 : 0),
                                mark: swiped,
                                changed: { dx in drag = dx },
                                ended: { dx, v in
@@ -143,10 +169,21 @@ struct MainView: View {
                                        if !open { menuOpen = false }
                                    }
                                }))
+            // a141: a swipe left in a project's main chat slides its Overview in; a swipe right takes it back
+            // (a second UIKit pan beside the menu's; each lets the other run, and they start on opposite moves)
+            .gesture(OverviewSwipe(closing: overview.open,
+                                   enabled: overview.store != nil && !menuOpen && drag == 0
+                                       && (overview.open ? overview.path.isEmpty : true),
+                                   changed: { dx in overview.moved(slide.progress(open: overview.open, dx: Double(dx))) },
+                                   ended: { dx, v in
+                                       overview.settle(open: slide.endsOpen(open: overview.open, dx: Double(dx),
+                                                                             velocity: Double(v)))
+                                   }))
         }
         // up to the screen's top (a130): the GeometryReader sat below the status bar, so the chat stopped there and the
         // strip around the Dynamic Island was only black; now the turns scroll under it (the menu keeps its place)
         .ignoresSafeArea(edges: .top)
+        .environment(overview)
         .sensoryFeedback(.impact(weight: .light), trigger: opened)
         .sheet(isPresented: $showSettings) { SettingsView() }
         .alert("That didn't work", isPresented: Binding(get: { model.actionError != nil },

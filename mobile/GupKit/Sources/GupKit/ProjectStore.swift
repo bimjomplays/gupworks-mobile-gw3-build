@@ -15,6 +15,8 @@ final class ProjectStore {
     private(set) var error: APIError?
     /// a move or new thread the PC refused or never got, for an alert
     var actionError: String?
+    /// something to tell after a move went through (a deleted thread whose branch was kept)
+    var notice: String?
     /// threads with a move on its way (their row shows a spinner)
     private(set) var busy: Set<String> = []
 
@@ -82,16 +84,21 @@ final class ProjectStore {
     // MARK: threads
 
     /// A thread menu or swipe action; the row moves at once in the demo, else when the PC's view comes back.
-    func move(_ move: String, thread: String) async {
+    func move(_ move: String, thread: String, title: String? = nil) async {
         if demo {
-            if let v = view { view = DemoProject.apply(move, to: thread, in: v) }
+            if let v = view { view = DemoProject.apply(move, to: thread, in: v, title: title) }
             return
         }
         guard let p = pairing else { return }
         busy.insert(thread)
         defer { busy.remove(thread) }
         do {
-            view = try await api.moveThread(p, project: id, thread: thread, move)
+            var v = try await api.moveThread(p, project: id, thread: thread, move, title: title)
+            if let b = v.branchKept, !b.isEmpty {
+                notice = "Its branch \(b) was kept: it has commits the main branch doesn't."
+            }
+            v.branchKept = nil
+            view = v
         } catch {
             actionError = APIError.from(error).message
         }

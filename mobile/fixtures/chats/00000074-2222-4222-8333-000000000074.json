@@ -51,7 +51,9 @@
    "glyph": "spin",
    "part": "site",
    "detail": "writing script.js 2m ago",
-   "holds": [],
+   "holds": [
+    "Browser"
+   ],
    "right": "Sonnet",
    "usage": "32K",
    "expensive": false,
@@ -60,12 +62,59 @@
    "moves": [
     "pause",
     "stop",
-    "archive"
+    "archive",
+    "rename",
+    "delete"
    ],
    "word": "working",
    "line": "writing script.js 2m ago · Sonnet high",
    "modelLabel": "Sonnet high",
    "ago": "2m",
+   "subagents": [
+    {
+     "id": "ac2",
+     "title": "Check the form on a small phone",
+     "type": "general-purpose",
+     "model": "Sonnet",
+     "tokens": "18K",
+     "right": "Sonnet · 18K",
+     "running": true,
+     "interrupted": false,
+     "tools": 6,
+     "ran": "3m"
+    },
+    {
+     "id": "ac1",
+     "title": "Find the booking form examples",
+     "type": "general-purpose",
+     "model": "Haiku",
+     "tokens": "6K",
+     "right": "Haiku · 6K",
+     "running": false,
+     "interrupted": false,
+     "tools": 2,
+     "ran": "2m"
+    }
+   ],
+   "facts": {
+    "outcome": "The contact page has a booking form that sends a request to the studio and says thanks. Done when the form sends on a phone and every field has a label.",
+    "criteria": [
+     "The form sends a booking request and shows a thank-you",
+     "Every field has a label",
+     "The page passes the link and contrast checks"
+    ],
+    "checkpoint": "Form markup done; wiring the booking request",
+    "nextAction": "Send a test booking to the demo inbox",
+    "branch": "lumen/a4-contact-form",
+    "commit": "",
+    "reworks": 0,
+    "evidence": [],
+    "issue": "",
+    "waitsFor": [],
+    "model": "Sonnet",
+    "effort": "high",
+    "from": "main"
+   },
    "outcome": "The contact page has a booking form that sends a request to the studio and says thanks. Done when the form sends on a phone and every field has a label.",
    "criteria": [
     "The form sends a booking request and shows a thank-you",

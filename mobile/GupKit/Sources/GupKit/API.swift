@@ -523,10 +523,11 @@ final class APIClient {
         try await request(p.baseURL, "/v1/projects/\(project)/schedules", token: p.token)
     }
 
-    /// pause | resume | stop | done | archive | unarchive, as the desktop panel's thread menu
-    func moveThread(_ p: Pairing, project: String, thread: String, _ move: String) async throws -> ProjectView {
+    /// pause | resume | stop | done | archive | unarchive | rename {title} | delete, as the desktop panel's thread menu
+    func moveThread(_ p: Pairing, project: String, thread: String, _ move: String,
+                    title: String? = nil) async throws -> ProjectView {
         try await request(p.baseURL, "/v1/projects/\(project)/threads/\(thread)/\(move)", token: p.token,
-                          method: "POST", encoding: [String: String]())
+                          method: "POST", encoding: title.map { ["title": $0] } ?? [String: String]())
     }
 
     /// Your own thread (the panel's + New thread), started with its first message.
