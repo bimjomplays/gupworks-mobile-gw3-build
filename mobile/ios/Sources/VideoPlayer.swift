@@ -96,6 +96,21 @@ struct VideoResume {
     }
 }
 
+/// The speed chosen last (UserDefaults): the next video starts at it, like the desktop player.
+struct VideoSpeed {
+    var defaults: UserDefaults = .standard
+    static let key = "videoSpeed"
+
+    var current: Float {
+        get {
+            guard defaults.object(forKey: Self.key) != nil, VideoMath.speeds.contains(Float(defaults.double(forKey: Self.key)))
+            else { return 1 }
+            return Float(defaults.double(forKey: Self.key))
+        }
+        nonmutating set { defaults.set(Double(newValue), forKey: Self.key) }
+    }
+}
+
 // MARK: - Orientation (the app is portrait; the player may turn)
 
 @MainActor
@@ -183,8 +198,9 @@ final class VideoPlayback {
     var inPiP = false
     var muted = false { didSet { player.isMuted = muted } }
     var volume: Float = 1 { didSet { player.volume = volume } }
-    var speed: Float = 1 {
+    var speed: Float = VideoSpeed().current {
         didSet {
+            VideoSpeed().current = speed
             player.defaultRate = speed
             if player.rate != 0 { player.rate = speed }
         }
@@ -273,6 +289,7 @@ final class VideoPlayback {
         onStream = isStream
         itemObservations.removeAll()
         let item = AVPlayerItem(asset: AVURLAsset(url: url))
+        item.audioTimePitchAlgorithm = .spectral  // faster or slower keeps the voice's pitch
         itemObservations.append(item.observe(\.status, options: [.new]) { [weak self] item, _ in
             Task { @MainActor in self?.status(of: item) }
         })

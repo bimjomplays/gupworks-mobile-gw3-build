@@ -335,6 +335,12 @@ struct Element {
         idle()
     }
 
+    func doubleTap(file: StaticString = #filePath, line: UInt = #line) {
+        guard let n = node("double-tap", file: file, line: line) else { return }
+        Finger.doubleTap(n.hitPoint)
+        idle()
+    }
+
     func press(forDuration seconds: Double, file: StaticString = #filePath, line: UInt = #line) {
         guard let n = node("press", file: file, line: line) else { return }
         Finger.press(n.hitPoint, seconds: seconds)
@@ -703,6 +709,10 @@ enum Finger {
 
     static func tap(_ p: CGPoint) {
         run("tap at \(p)") { try $0.fingerTap(at: p) }
+    }
+
+    static func doubleTap(_ p: CGPoint) {
+        run("double-tap at \(p)") { try $0.fingerDoubleTap(at: p) }
     }
 
     /// down at `p`, held `seconds`, then (if given) moved to `to` at `speed` points a second, held `hold`, up

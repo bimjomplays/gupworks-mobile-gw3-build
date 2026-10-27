@@ -553,6 +553,39 @@ final class ScreenTests: XCTestCase {
         }
     }
 
+    /// a122's photo zoom with real fingers (Hammer): double-tap zooms in and back, a two-finger pinch zooms, swipe
+    /// down closes. These steps were in PhotoViewerUITests, where XCUITest's synthesized pinch now and then left
+    /// CI's simulator not delivering the next gestures (a131); the paging swipes stay there.
+    func testPhotoZoom() {
+        let six = "Here are six photos of the living room"
+        let app = openChat(chat(16), waitFor: six)
+        let pictures = app.buttons.matching(identifier: "yourPicture")
+        XCTAssertGreaterThanOrEqual(pictures.count, 6)
+        pictures.element(boundBy: pictures.count - 5).tap()
+        let viewer = el(app, "photoViewer")
+        XCTAssertTrue(viewer.waitForExistence(timeout: 5), "the viewer opens")
+        XCTAssertTrue(poll(5) { el(app, "photoCounter").label == "26 of 30" }, el(app, "photoCounter").label)
+        let page = el(app, "photoPage")
+        func zoom(_ value: String) -> Bool { poll(5) { (page.value as? String) == value } }
+        XCTAssertTrue(zoom("fit"), page.label)
+
+        page.doubleTap()
+        XCTAssertTrue(zoom("zoomed"), "double-tap zooms in; \(page.label)")
+        idle(1)
+        shot("a122-photo-zoomed")
+        page.doubleTap()
+        XCTAssertTrue(zoom("fit"), "double-tap again: back to fit; \(page.label)")
+        let f = page.frame
+        Finger.zoom(at: CGPoint(x: f.midX, y: f.midY), distance: 200)
+        XCTAssertTrue(zoom("zoomed"), "a pinch zooms; \(page.label)")
+        page.doubleTap()
+        XCTAssertTrue(zoom("fit"), page.label)
+
+        page.swipeDown()
+        XCTAssertTrue(viewer.waitForNonExistence(timeout: 5), "swipe down closes; \(page.label)")
+        XCTAssertTrue(find(app, six).exists, "back in the chat")
+    }
+
     // MARK: a133: a mockup set, and pictures in the order the text has them
 
     private let mockups = "00000018-1111-4222-8333-000000000018"

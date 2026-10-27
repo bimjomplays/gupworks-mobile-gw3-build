@@ -75,8 +75,10 @@ final class PhotoViewerUITests: XCTestCase {
         return XCTWaiter.wait(for: [x], timeout: 6) == .completed
     }
 
-    /// Your photo opens among all the chat's photos: swipe left and right, double-tap and pinch zoom, swipe down
-    /// closes.
+    /// Your photo opens among all the chat's photos: swipe left and right, swipe down closes. The zoom steps are
+    /// ScreenTests' testPhotoZoom (real fingers): XCUITest's synthesized pinch now and then left CI's simulator not
+    /// delivering the next gestures (a131). In demo mode the page's label ends with the viewer's last gestures as
+    /// it read them, printed when a step doesn't take.
     func testSwipeZoomAndClose() {
         let six = "Here are six photos of the living room"
         let app = openChat(chat(16), waitFor: six)
@@ -95,25 +97,14 @@ final class PhotoViewerUITests: XCTestCase {
         let page = el(app, "photoPage")
         XCTAssertEqual(page.value as? String, "fit")
         page.swipeLeft()
-        XCTAssertTrue(counts(app, "27 of 30"), "swipe left: the next photo")
+        XCTAssertTrue(counts(app, "27 of 30"), "swipe left: the next photo; \(page.label)")
         page.swipeRight()
-        XCTAssertTrue(counts(app, "26 of 30"))
+        XCTAssertTrue(counts(app, "26 of 30"), page.label)
         page.swipeRight()
-        XCTAssertTrue(counts(app, "25 of 30"), "swipe right: the one before, from the message above")
-
-        page.doubleTap()
-        XCTAssertTrue(zoom(page, "zoomed"), "double-tap zooms in")
-        sleep(1)
-        shot("a122-photo-zoomed")
-        page.doubleTap()
-        XCTAssertTrue(zoom(page, "fit"), "double-tap again: back to fit")
-        page.pinch(withScale: 2.5, velocity: 2)
-        XCTAssertTrue(zoom(page, "zoomed"), "a pinch zooms")
-        page.doubleTap()
-        XCTAssertTrue(zoom(page, "fit"))
+        XCTAssertTrue(counts(app, "25 of 30"), "swipe right: the one before, from the message above; \(page.label)")
 
         page.swipeDown()
-        XCTAssertTrue(gone(viewer), "swipe down closes")
+        XCTAssertTrue(gone(viewer), "swipe down closes; \(page.label)")
         XCTAssertTrue(find(app, six).exists, "back in the chat")
     }
 
