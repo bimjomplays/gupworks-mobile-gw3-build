@@ -34,7 +34,7 @@ struct ChatView: View {
     @Environment(AppModel.self) private var model
     @Environment(OverviewHost.self) private var overview: OverviewHost?
 
-    /// `projectSheet`: a project's main chat opens with its Overview up (06)
+    /// `projectSheet`: a project's main chat opens with its Overview up (06); only the demo's `-sheet` shots set it (a149)
     init(id: String?, pairing: Pairing?, demo: Bool, projectSheet: Bool = false, shell: ChatShell? = nil) {
         self.shell = shell
         _store = State(initialValue: ChatStore(id: id ?? "", pairing: pairing, demo: demo))

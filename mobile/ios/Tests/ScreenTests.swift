@@ -297,6 +297,8 @@ final class ScreenTests: XCTestCase {
         el(app, "project-lumen-studio").tap()
         XCTAssertTrue(el(app, "projectPill").waitForExistence(timeout: 10))
         XCTAssertTrue(find(app, "NEEDS YOU").waitForExistence(timeout: 10))
+        spin(1.5)  // the Overview used to slide in after the push settled
+        XCTAssertFalse(el(app, "overviewGlance").exists, "the Projects page opens the main chat, not the Overview")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(el(app, "project-lumen-studio").waitForExistence(timeout: 5))
         // the menu also reaches it
@@ -515,6 +517,24 @@ final class ScreenTests: XCTestCase {
         shot("transfer-library")
         el(app, "tab-chat").tap()
         XCTAssertTrue(find(app, "perfect, ordering it now").waitForExistence(timeout: 10))
+    }
+
+    /// a149: a project pinned in the menu opens its main chat, with the Overview closed (it opens only by a swipe
+    /// left or its button)
+    func testProjectFromMenuOpensChat() {
+        let app = launch(["-menu"])
+        let pin = el(app, "pin-Lumen Studio website")
+        XCTAssertTrue(pin.waitForExistence(timeout: 10))
+        pin.tap()
+        XCTAssertTrue(el(app, "projectPill").waitForExistence(timeout: 20), "the project's main chat")
+        XCTAssertTrue(el(app, "overviewButton").waitForExistence(timeout: 5))
+        spin(1.5)  // the Overview used to slide in after the push settled
+        XCTAssertFalse(el(app, "overviewGlance").exists, "the Overview stays closed")
+        XCTAssertFalse(el(app, "overviewClose").exists, "no Overview page in the tree")
+        shot("a149-project-main-chat")
+        // and its button still opens it
+        el(app, "overviewButton").tap()
+        XCTAssertTrue(el(app, "overviewGlance").waitForExistence(timeout: 5), "the button opens the Overview")
     }
 
     // MARK: slice 2: chats
