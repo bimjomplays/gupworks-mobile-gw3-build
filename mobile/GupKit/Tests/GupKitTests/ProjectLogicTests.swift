@@ -161,4 +161,79 @@ final class ProjectLogicTests: XCTestCase {
         XCTAssertEqual(ask.work ?? "", "")
         XCTAssertEqual(ask.options ?? [], ["Looks good", "Show me first"])
     }
+
+    // MARK: a141, the Overview redo (option 1 Sections)
+
+    func testOverviewFixtureHasEveryGroupTheMainRowAndSubagents() throws {
+        let f: ProjectFixture = try XCTUnwrap(Demo.load("lumen-studio", in: "fixtures/projects"))
+        let v = f.view
+        XCTAssertEqual(v.groups.map(\.state), DemoProject.order, "the demo shows every group the desktop has")
+        let main = try XCTUnwrap(v.main)
+        XCTAssertEqual(main.modelLabel, "Haiku low")
+        XCTAssertEqual(main.line, "Checking a7's footer links · 1 subagent")
+        let subs = OverviewSections.split(main.subagents)
+        XCTAssertEqual(subs.running.map(\.title), ["Review a7's footer diff"])
+        XCTAssertEqual(subs.done.count, 2)
+        XCTAssertEqual(OverviewSections.doneLabel(subs.done.count), "2 done subagents")
+        XCTAssertEqual(OverviewSections.doneLabel(1), "1 done subagent")
+        let a4 = try XCTUnwrap(v.allThreads.first { $0.id == "a4" })
+        XCTAssertEqual(a4.holds, ["Browser"])
+        XCTAssertEqual(a4.subagents?.first?.right, "Sonnet · 18K")
+        XCTAssertEqual(a4.facts?.branch, "lumen/a4-contact-form")
+        XCTAssertEqual(v.allThreads.first { $0.id == "a8" }?.facts?.waitsFor, ["a4"])
+        XCTAssertEqual(OverviewSections.open(v).map(\.state), ["needs-you", "working", "checking", "up-next", "idle"])
+        XCTAssertEqual(OverviewSections.needsCount(v), 2)
+        XCTAssertEqual(OverviewSections.planLine(v.plan), "5-hour 18% · weekly 41%")
+        XCTAssertNil(OverviewSections.planLine(.init()))
+        XCTAssertEqual(OverviewSections.usage(v).heavy.map(\.title), ["Contrast pass"])
+        XCTAssertEqual(v.nextSchedule?.title, "Lighthouse report")
+    }
+
+    func testThreadMenuFollowsTheDesktopOrder() throws {
+        let f: ProjectFixture = try XCTUnwrap(Demo.load("lumen-studio", in: "fixtures/projects"))
+        let byId = Dictionary(uniqueKeysWithValues: f.view.allThreads.map { ($0.id, $0) })
+        XCTAssertEqual(ThreadMenu.actions(try XCTUnwrap(byId["a4"])), ["open", "pause", "stop", "rename", "archive", "delete"])
+        XCTAssertEqual(ThreadMenu.actions(try XCTUnwrap(byId["a6"])),
+                       ["open", "pause", "stop", "rename", "done", "archive", "delete"])
+        XCTAssertEqual(ThreadMenu.actions(try XCTUnwrap(byId["a8"])), ["stop", "archive", "delete"])
+        XCTAssertEqual(ThreadMenu.actions(try XCTUnwrap(byId["a0"])), ["unarchive", "delete"])
+        XCTAssertEqual(ThreadMenu.title("stop"), "Stop…")
+        XCTAssertTrue(ThreadMenu.destructive("delete"))
+        XCTAssertTrue(ThreadMenu.deleteText(try XCTUnwrap(byId["a4"])).contains("branch lumen/a4-contact-form"))
+        XCTAssertFalse(ThreadMenu.deleteText(try XCTUnwrap(byId["a8"])).contains("branch"))
+    }
+
+    func testOverviewDrag() {
+        let d = OverviewDrag(width: 400)
+        XCTAssertEqual(d.progress(open: false, dx: -100), 0.25)
+        XCTAssertEqual(d.progress(open: false, dx: 50), 0)
+        XCTAssertEqual(d.progress(open: true, dx: 200), 0.5)
+        XCTAssertEqual(d.progress(open: true, dx: -50), 1)
+        XCTAssertTrue(d.endsOpen(open: false, dx: -150, velocity: 0))
+        XCTAssertFalse(d.endsOpen(open: false, dx: -100, velocity: 0))
+        XCTAssertTrue(d.endsOpen(open: false, dx: -20, velocity: -800), "a flick opens it")
+        XCTAssertFalse(d.endsOpen(open: true, dx: 150, velocity: 0))
+        XCTAssertTrue(d.endsOpen(open: true, dx: 100, velocity: 0))
+        XCTAssertFalse(d.endsOpen(open: true, dx: 10, velocity: 900))
+        XCTAssertEqual(d.chatX(1), -400.0 / 3)
+        XCTAssertEqual(d.overviewX(0.25), 300)
+        XCTAssertEqual(OverviewTab.allCases.map(\.title), ["Overview", "Library", "Scheduled"])
+    }
+
+    @MainActor
+    func testDemoRenameAndDelete() async throws {
+        let s = ProjectStore(id: "lumen-studio", pairing: nil, demo: true)
+        await s.refresh()
+        await s.move("rename", thread: "a4", title: "  Booking form,\n take two ")
+        XCTAssertEqual(s.view?.allThreads.first { $0.id == "a4" }?.title, "Booking form, take two")
+        await s.move("rename", thread: "a4", title: "   ")
+        XCTAssertEqual(s.view?.allThreads.first { $0.id == "a4" }?.title, "Booking form, take two")
+        let working = try XCTUnwrap(s.view?.counts.working)
+        await s.move("delete", thread: "a4")
+        XCTAssertNil(s.view?.allThreads.first { $0.id == "a4" })
+        XCTAssertEqual(s.view?.counts.working, working - 1)
+        await s.move("pause", thread: "a5")
+        XCTAssertEqual(s.view?.allThreads.first { $0.id == "a5" }?.moves,
+                       ["resume", "stop", "done", "archive", "rename", "delete"])
+    }
 }
