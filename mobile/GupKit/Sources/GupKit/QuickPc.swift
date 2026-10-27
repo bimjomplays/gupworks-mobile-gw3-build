@@ -283,7 +283,7 @@ final class QuickPcStore {
         if demo {
             try? await Task.sleep(nanoseconds: 300_000_000)
             if Demo.args.contains("-quickError") {
-                tried["open"] = "firefox: not responding (demo)"
+                tried["open"] = "\(b.hasPrefix("chrome") ? "google-chrome-stable" : "firefox"): not responding (demo)"
                 return false
             }
             state?.browsers?.last = b

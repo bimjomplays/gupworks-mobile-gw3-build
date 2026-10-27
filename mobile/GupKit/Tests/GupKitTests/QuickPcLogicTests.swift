@@ -103,6 +103,6 @@ final class QuickPcLogicTests: XCTestCase {
         XCTAssertNil(s.discord?.inCall)
         let opened = await s.open("https://example.com")
         XCTAssertFalse(opened)
-        XCTAssertEqual(s.errorText("open"), "firefox: not responding (demo)")
+        XCTAssertEqual(s.errorText("open"), "google-chrome-stable: not responding (demo)")
     }
 }

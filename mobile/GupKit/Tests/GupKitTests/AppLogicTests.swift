@@ -264,10 +264,12 @@ final class ChatStoreTests: XCTestCase {
 
         s.handle(SSEEvent(name: "status", data: working))
         await s.send(text: "And a playlist", attachments: [])
-        XCTAssertEqual(s.queue.map(\.state), ["queued"])
+        XCTAssertEqual(s.waiting.map(\.state), ["queued"])
+        XCTAssertTrue(s.sending.isEmpty)
         await s.stop()
         XCTAssertFalse(s.working)
-        XCTAssertTrue(s.queue.isEmpty)
+        XCTAssertTrue(s.waiting.isEmpty)
+        XCTAssertTrue(s.outbox.isEmpty)
         XCTAssertEqual(s.turns.last?.prompt.text, "And a playlist")
     }
 

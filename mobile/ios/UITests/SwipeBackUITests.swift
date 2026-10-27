@@ -59,16 +59,15 @@ final class SwipeBackUITests: XCTestCase {
         { self.el(id).waitForExistence(timeout: timeout) }
     }
 
-    /// the pinned project's main chat is up and its Overview (which opens by itself) is put away
+    /// the pinned project's main chat is up, and its Overview stays closed (a149)
     private func openLumenFromPin() {
         let pin = el("pin-Lumen Studio website")
         XCTAssertTrue(pin.waitForExistence(timeout: 30))
         waitStill(pin)
         pin.tap()
         XCTAssertTrue(el("projectPill").waitForExistence(timeout: 20), "the project's main chat opened")
-        XCTAssertTrue(el("overviewGlance").waitForExistence(timeout: 15), "its Overview came up")
-        el("overviewClose").tap()
-        XCTAssertTrue(el("overviewGlance").waitForNonExistence(timeout: 10))
+        XCTAssertTrue(el("overviewButton").waitForExistence(timeout: 10))
+        XCTAssertFalse(el("overviewGlance").waitForExistence(timeout: 3), "its Overview stays closed")
     }
 
     /// from a pin: swipe right opens the side menu (pins and chats), not the Projects page
@@ -96,10 +95,7 @@ final class SwipeBackUITests: XCTestCase {
         waitStill(row)
         row.tap()
         XCTAssertTrue(el("projectPill").waitForExistence(timeout: 20), "the project's main chat opened")
-        if el("overviewGlance").waitForExistence(timeout: 3) {
-            el("overviewClose").tap()
-            XCTAssertTrue(el("overviewGlance").waitForNonExistence(timeout: 10))
-        }
+        XCTAssertFalse(el("overviewGlance").waitForExistence(timeout: 3), "its Overview stays closed")
         shot("a128-projects-chat")
         swipeUntil(0.0) { self.shown("projectList")() }
         XCTAssertTrue(el("projectList").waitForExistence(timeout: 10), "back on the Projects page")

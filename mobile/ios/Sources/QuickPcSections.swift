@@ -228,13 +228,22 @@ struct QuickPcSections: View {
                 .accessibilityIdentifier("quick-open-paste")
             }
             HStack {
-                Picker("Browser", selection: Binding(get: { store.browser ?? "" }, set: { store.picked = $0 })) {
-                    ForEach(browsers) { b in Text(b.label).tag(b.id) }
+                // a menu with its own label: one line that shortens, where a menu picker wrapped "Chrome · Work"
+                Menu {
+                    Picker("Browser", selection: Binding(get: { store.browser ?? "" }, set: { store.picked = $0 })) {
+                        ForEach(browsers) { b in Text(b.label).tag(b.id) }
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(store.browser.map { store.browsers?.label($0) ?? $0 } ?? "No browser")
+                            .lineLimit(1).truncationMode(.middle)
+                        Image(systemName: "chevron.up.chevron.down").font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(Theme.rowTitle)
                 }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .tint(Theme.rowTitle)
                 .disabled(browsers.isEmpty || busy)
+                .accessibilityLabel("Browser")
+                .accessibilityValue(store.browser.map { store.browsers?.label($0) ?? $0 } ?? "none")
                 .accessibilityIdentifier("quick-open-browser")
                 Spacer()
                 if busy { ProgressView().controlSize(.small) }
