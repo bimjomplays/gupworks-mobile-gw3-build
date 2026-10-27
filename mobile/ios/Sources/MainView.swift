@@ -96,7 +96,6 @@ struct MainView: View {
                          place: { p in if !swipeClock.recent { go(p) } },
                          settings: { if !swipeClock.recent { showSettings = true } },
                          lifting: { pinLifted = $0 })
-                    .padding(.top, geo.safeAreaInsets.top)
                     .frame(width: width)
                     .offset(x: (x - width) * 0.25)
                     .opacity(menuOpen || x > 0 ? 1 : 0)
@@ -104,6 +103,9 @@ struct MainView: View {
                     .ignoresSafeArea(.keyboard)
                 stack
                     .frame(width: geo.size.width)
+                    // up to the screen's top (a130): the GeometryReader sits below the status bar, so the chat stopped
+                    // there and the strip around the Dynamic Island was only black; now the turns scroll under it
+                    .ignoresSafeArea(edges: .top)
                     .clipShape(RoundedRectangle(cornerRadius: x > 0 ? 44 : 0, style: .continuous))
                     .overlay {
                         if x > 0 {
@@ -141,10 +143,6 @@ struct MainView: View {
                                    }
                                }))
         }
-        // the screen's top (a130): the GeometryReader sat below the status bar, so the chat and everything in it stopped
-        // there and the strip around the Dynamic Island was only the black background; now the stack reaches the top
-        // of the screen and the turns scroll under the status bar
-        .ignoresSafeArea(edges: .top)
         .sensoryFeedback(.impact(weight: .light), trigger: opened)
         .sheet(isPresented: $showSettings) { SettingsView() }
         .alert("That didn't work", isPresented: Binding(get: { model.actionError != nil },
@@ -217,18 +215,11 @@ struct MainView: View {
         }
     }
 
-    /// a chat (or a project's main chat) from the menu
+    /// a chat (or a pinned project's main chat) from the menu. They all become the main screen, so a swipe right
+    /// goes back to the menu; only the Projects page puts a project's chat over itself (back goes to Projects).
     private func pick(_ c: Current) {
         _ = dropTemporary()
         temporary = false
-        if case .chat(let id, true) = c {
-            // a pinned project opens on its main chat over Projects (05), Back goes to the list
-            path = NavigationPath([Place.projects])
-            path.append(ChatRoute(id: id))
-            onProjects = true
-            close()
-            return
-        }
         if c != current {
             current = c
             madeId = nil
