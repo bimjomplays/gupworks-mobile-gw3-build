@@ -357,6 +357,9 @@ enum MediaLink {
             let sub = dir.isEmpty ? "fixtures" : "fixtures/" + dir
             return Demo.file(name, in: sub)
         }
+        if link.hasPrefix("file://"), Demo.isOn {
+            return URL(string: link)                     // a file the demo "sent" (a144): its copy on this phone
+        }
         if link.hasPrefix("/v1/media/"), let base {
             return URL(string: link, relativeTo: base)?.absoluteURL
         }

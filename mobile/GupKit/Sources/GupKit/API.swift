@@ -685,6 +685,27 @@ final class APIClient {
                                        query: [URLQueryItem] = [], json: Data? = nil, raw: Data? = nil,
                                        contentType: String? = nil, slow: Bool = false,
                                        via: URLSession? = nil) async throws -> T {
+        let (data, status) = try await fetch(base, path, token: token, method: method, query: query, json: json, raw: raw,
+                                             contentType: contentType, slow: slow, via: via)
+        if status == 401 {
+            if token == nil, let e = try? JSONDecoder().decode([String: String].self, from: data), let text = e["error"] {
+                throw APIError.server(text)  // a wrong or expired pairing code
+            }
+            throw APIError.notPaired
+        }
+        guard status == 200 else { throw Self.failure(status, data) }
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            throw APIError.server("The PC sent something this app can't read. Update GupWorks on the PC or the app.")
+        }
+    }
+
+    /// One request by whichever way to the PC answers: the answer's body and status, whatever the status.
+    private func fetch(_ base: URL, _ path: String, token: String?, method: String = "GET",
+                       query: [URLQueryItem] = [], json: Data? = nil, raw: Data? = nil,
+                       contentType: String? = nil, slow: Bool = false,
+                       via: URLSession? = nil) async throws -> (Data, Int) {
         await routes.discover(for: base)
         let ways = routes.order(for: base)
         var answer: (Data, URLResponse)?
@@ -712,18 +733,71 @@ final class APIClient {
         }
         guard let answer else { throw APIError.unreachable(.unknown(nil)) }
         let (data, response) = answer
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if status == 401 {
-            if token == nil, let e = try? JSONDecoder().decode([String: String].self, from: data), let text = e["error"] {
-                throw APIError.server(text)  // a wrong or expired pairing code
-            }
-            throw APIError.notPaired
+        return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
+
+    // MARK: file transfer (a144)
+
+    /// a piece of a file going up over Tailscale's relay can take a while
+    private let uploadSession = APIClient.makeSession(timeout: 90)
+
+    /// the newest messages of the phone-to-PC chat, or those before `before`
+    func transferPage(_ p: Pairing, before: String? = nil) async throws -> TransferMessages {
+        var q: [URLQueryItem] = []
+        if let before { q.append(URLQueryItem(name: "before", value: before)) }
+        return try await request(p.baseURL, "/v1/transfer", token: p.token, query: q)
+    }
+
+    func transferLibrary(_ p: Pairing) async throws -> TransferLibraryList {
+        try await request(p.baseURL, "/v1/transfer/library", token: p.token)
+    }
+
+    func startUpload(_ p: Pairing, name: String, size: Int64, type: String) async throws -> UploadState {
+        try await request(p.baseURL, "/v1/transfer/uploads", token: p.token, method: "POST",
+                          encoding: UploadStart(name: name, size: size, type: type))
+    }
+
+    /// how much of an upload the PC has; TransferError.gone when it has none (cleared after a week)
+    func uploadState(_ p: Pairing, _ id: String) async throws -> UploadState {
+        let (data, status) = try await fetch(p.baseURL, "/v1/transfer/uploads/\(id)", token: p.token)
+        return try Self.uploadAnswer(status, data)
+    }
+
+    /// One piece of a file at `offset`; TransferError.behind when the PC's copy stands elsewhere (a piece lost or
+    /// sent twice: go on from there).
+    func putPiece(_ p: Pairing, _ id: String, offset: Int64, _ data: Data) async throws -> UploadState {
+        let (body, status) = try await fetch(p.baseURL, "/v1/transfer/uploads/\(id)", token: p.token, method: "PUT",
+                                             query: [URLQueryItem(name: "offset", value: String(offset))], raw: data,
+                                             via: uploadSession)
+        return try Self.uploadAnswer(status, body)
+    }
+
+    func sendTransfer(_ p: Pairing, _ m: TransferSend) async throws -> TransferMessage {
+        let (data, status) = try await fetch(p.baseURL, "/v1/transfer/messages", token: p.token, method: "POST",
+                                             json: try JSONEncoder().encode(m))
+        if status == 200, let msg = try? JSONDecoder().decode(TransferMessage.self, from: data) { return msg }
+        if status == 404 { throw TransferError.gone }
+        if status == 409, let r = try? JSONDecoder().decode(UploadState.Behind.self, from: data) {
+            throw TransferError.behind(r.received)
         }
-        guard status == 200 else { throw Self.failure(status, data) }
-        do {
-            return try JSONDecoder().decode(T.self, from: data)
-        } catch {
-            throw APIError.server("The PC sent something this app can't read. Update GupWorks on the PC or the app.")
+        if status == 401 { throw APIError.notPaired }
+        throw Self.failure(status, data)
+    }
+
+    /// an upload route's answer: its state, or why not
+    static func uploadAnswer(_ status: Int, _ data: Data) throws -> UploadState {
+        switch status {
+        case 200:
+            guard let st = try? JSONDecoder().decode(UploadState.self, from: data) else {
+                throw APIError.server("The PC sent something this app can't read. Update GupWorks on the PC or the app.")
+            }
+            return st
+        case 401: throw APIError.notPaired
+        case 404: throw TransferError.gone
+        case 409:
+            if let r = try? JSONDecoder().decode(UploadState.Behind.self, from: data) { throw TransferError.behind(r.received) }
+            throw failure(status, data)
+        default: throw failure(status, data)
         }
     }
 }

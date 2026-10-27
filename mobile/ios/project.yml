@@ -70,7 +70,8 @@ targets:
         NSLocalNetworkUsageDescription: >-
           GupWorks reaches your PC through Tailscale, by its Tailscale address when its name can't be looked up.
         NSPhotoLibraryAddUsageDescription: >-
-          GupWorks saves a chat's picture or video to your photos only when you choose Save in the share sheet.
+          GupWorks saves a picture or video to your photos only when you choose Save in the share sheet or Save to
+          Photos on a file your PC sent.
         NSSpeechRecognitionUsageDescription: >-
           When your PC can't be reached, GupWorks turns your recording into text on this iPhone instead. Nothing is
           sent anywhere else.

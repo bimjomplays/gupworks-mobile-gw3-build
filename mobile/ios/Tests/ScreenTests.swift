@@ -381,7 +381,7 @@ final class ScreenTests: XCTestCase {
 
     func testComingSoonPlaces() {
         let app = launch(["-menu"])
-        for p in ["scheduled", "quick", "transfer", "bot"] {
+        for p in ["scheduled", "quick", "bot"] {
             if !el(app, "place-\(p)").exists { openMenu(app) }
             XCTAssertTrue(el(app, "place-\(p)").waitForExistence(timeout: 20))
             el(app, "place-\(p)").tap()
@@ -390,6 +390,76 @@ final class ScreenTests: XCTestCase {
             app.navigationBars.buttons.element(boundBy: 0).tap()
             XCTAssertTrue(el(app, "comingSoon").waitForNonExistence(timeout: 5))
         }
+    }
+
+    // MARK: a144: File transfer
+
+    /// the chat with the PC: the phone's own on the right, the PC's on the left, pictures, a video and files
+    func testTransferChat() {
+        let app = launch(["-place", "transfer"])
+        XCTAssertTrue(find(app, "perfect, ordering it now").waitForExistence(timeout: 20))
+        XCTAssertTrue(el(app, "tab-chat").exists && el(app, "tab-library").exists)
+        XCTAssertFalse(el(app, "gauge").exists, "no model here")
+        let screen = app.windows.firstMatch.frame
+        let mine = find(app, "perfect, ordering it now"), pc = find(app, "got it, thanks")
+        XCTAssertGreaterThan(mine.frame.midX, screen.midX, "the phone's own on the right")
+        XCTAssertTrue(pc.exists)
+        XCTAssertLessThan(pc.frame.midX, screen.midX, "the PC's on the left")
+        XCTAssertTrue(el(app, "transferFile").exists)
+        sleep(2)
+        shot("transfer-chat")
+        // the menu button opens the menu; File transfer is a place in it
+        openMenu(app)
+        XCTAssertTrue(el(app, "place-transfer").exists)
+    }
+
+    /// a note typed here goes up and shows on the right
+    func testTransferSendText() {
+        let app = launch(["-place", "transfer"])
+        XCTAssertTrue(find(app, "perfect, ordering it now").waitForExistence(timeout: 20))
+        type(app, "leaving at six")
+        app.buttons["send"].tap()
+        // first the outbox's bubble, then (the demo PC took it) the message itself
+        let sent = app.descendants(matching: .any).matching(identifier: "transferMine")
+            .matching(NSPredicate(format: "label CONTAINS[c] %@", "leaving at six")).firstMatch
+        XCTAssertTrue(sent.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(sent.frame.midX, app.windows.firstMatch.frame.midX)
+    }
+
+    /// a big video on its way: its bar and how much is up
+    func testTransferUploading() {
+        let app = launch(["-place", "transfer", "-transferUploading"])
+        XCTAssertTrue(el(app, "transferProgress").waitForExistence(timeout: 20))
+        XCTAssertTrue(find(app, "of 94 MB").exists)
+        sleep(2)
+        shot("transfer-uploading")
+    }
+
+    /// stopped on the way: why, Retry and Discard
+    func testTransferFailed() {
+        let app = launch(["-place", "transfer", "-transferFailed"])
+        XCTAssertTrue(el(app, "transferRetry").waitForExistence(timeout: 20))
+        XCTAssertTrue(el(app, "transferDiscard").exists)
+        XCTAssertTrue(find(app, "Not sent").exists)
+        el(app, "transferDiscard").tap()
+        XCTAssertTrue(el(app, "transferRetry").waitForNonExistence(timeout: 5))
+    }
+
+    /// the Library: photos and videos as a grid, other files as a list, newest first
+    func testTransferLibrary() {
+        let app = launch(["-place", "transfer"])
+        XCTAssertTrue(el(app, "tab-library").waitForExistence(timeout: 20))
+        el(app, "tab-library").tap()
+        XCTAssertTrue(el(app, "transferLibPicture").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "transferLibVideo").exists)
+        XCTAssertTrue(find(app, "Shelf cut list.pdf").exists)
+        XCTAssertTrue(find(app, "backyard-notes.txt").exists)
+        // newest first: the notes (sent last) above the cut list
+        XCTAssertLessThan(find(app, "backyard-notes.txt").frame.minY, find(app, "Shelf cut list.pdf").frame.minY)
+        sleep(2)
+        shot("transfer-library")
+        el(app, "tab-chat").tap()
+        XCTAssertTrue(find(app, "perfect, ordering it now").waitForExistence(timeout: 10))
     }
 
     // MARK: slice 2: chats

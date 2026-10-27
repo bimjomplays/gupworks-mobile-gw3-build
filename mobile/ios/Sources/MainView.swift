@@ -22,6 +22,9 @@ enum Place: String, Hashable, CaseIterable {
         case .bot: return "Gup Bot"
         }
     }
+
+    /// a page with its own menu button instead of a back button
+    var hasMenu: Bool { self == .projects || self == .transfer }
 }
 
 /// What the main chat needs from the shell around it: the menu, a new chat, the temporary switch.
@@ -61,7 +64,8 @@ struct MainView: View {
     @State private var madeId: String?
     @State private var showSettings = false
     @State private var opened = 0
-    /// the stack starts at Projects (its page and a project's chat open from it take the menu's swipe too)
+    /// the stack starts at a page with its own menu button (Projects, File transfer): it and a project's chat opened
+    /// from it take the menu's swipe too
     @State private var onProjects = false
 
     init() {
@@ -80,7 +84,7 @@ struct MainView: View {
                 path.append(ChatRoute(id: args[j + 1], sheet: args.contains("-sheet")))
             }
             _path = State(initialValue: path)
-            _onProjects = State(initialValue: p == .projects)
+            _onProjects = State(initialValue: p.hasMenu)
         }
     }
 
@@ -170,6 +174,8 @@ struct MainView: View {
                 .navigationDestination(for: Place.self) { p in
                     if p == .projects {
                         ProjectsPage(openMenu: { withAnimation(.snappy(duration: 0.3)) { openMenu() } })
+                    } else if p == .transfer {
+                        TransferPage(openMenu: { withAnimation(.snappy(duration: 0.3)) { openMenu() } })
                     } else {
                         ComingSoonPage(place: p)
                     }
@@ -248,7 +254,7 @@ struct MainView: View {
 
     private func go(_ p: Place) {
         path = NavigationPath([p])
-        onProjects = p == .projects
+        onProjects = p.hasMenu
         close()
     }
 
