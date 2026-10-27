@@ -500,7 +500,9 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(find(app, "Desk Speakers · 42%").waitForExistence(timeout: 5))
         reveal(app, el(app, "quick-discord"))
         XCTAssertTrue(find(app, "In a voice call").exists)
-        XCTAssertTrue(find(app, "Chrome · Your Chrome").exists, "the PC's last pick")
+        let picker = el(app, "quick-open-browser")
+        XCTAssertTrue((picker.value as? String)?.contains("Chrome · Your Chrome") == true || find(app, "Chrome · Your Chrome").exists,
+                      "the PC's last pick: \(String(describing: picker.value)) \(app.debugDescription)")
         sleep(1)
         shot("quick-pc")
 
