@@ -572,6 +572,30 @@ final class APIClient {
                           encoding: ["confirm": confirm], slow: true)
     }
 
+    // MARK: quick actions round 2 (a151): health, media and volume, open on the PC, Discord
+
+    func quickPc(_ p: Pairing) async throws -> QuickPcState {
+        try await request(p.baseURL, "/v1/quick/pc", token: p.token)
+    }
+
+    /// play-pause, next or previous; the answer is the media read again
+    func quickMedia(_ p: Pairing, action: String, player: String?) async throws -> QuickMediaReply {
+        try await request(p.baseURL, "/v1/quick/media", token: p.token, method: "POST",
+                          encoding: QuickMediaBody(action: action, player: player))
+    }
+
+    /// the default output's volume (0...1) or mute; the answer is the media read again
+    func quickVolume(_ p: Pairing, level: Double?, muted: Bool?) async throws -> QuickMediaReply {
+        try await request(p.baseURL, "/v1/quick/volume", token: p.token, method: "POST",
+                          encoding: QuickVolumeBody(level: level, muted: muted))
+    }
+
+    /// opens an http(s) link in one of the PC's browsers (an id from QuickBrowsers); the PC remembers the pick
+    func quickOpen(_ p: Pairing, url: String, browser: String) async throws -> QuickOpenReply {
+        try await request(p.baseURL, "/v1/quick/open", token: p.token, method: "POST",
+                          encoding: ["url": url, "browser": browser])
+    }
+
     // MARK: a121's project pages
 
     func createProject(_ p: Pairing, _ b: NewProjectBody) async throws -> NewProjectReply {

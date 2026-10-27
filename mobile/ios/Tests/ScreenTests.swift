@@ -447,6 +447,89 @@ final class ScreenTests: XCTestCase {
         shot("quick-actions-errors")
     }
 
+    // MARK: a151: Quick actions round 2
+
+    /// drags the page in short steps until `e` shows whole between the top bar and the bottom
+    private func reveal(_ app: App, _ e: Element) {
+        let screen = app.windows.firstMatch.frame
+        for _ in 0..<20 {
+            if e.exists, e.frame.minY > screen.height * 0.12, e.frame.maxY < screen.height * 0.9 { return }
+            let above = e.exists && e.frame.minY <= screen.height * 0.12  // went past it: back a little
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.4 : 0.65))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.6 : 0.4))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: Velocity(rawValue: 1500), thenHoldForDuration: 0.2)
+        }
+    }
+
+    /// the health line on top (a tap shows the details), then media, volume, Open on the PC and the Discord call
+    func testQuickPc() {
+        let app = quickPage()
+        XCTAssertTrue(find(app, "Services all up").waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(find(app, "CPU 61°C").exists)
+        el(app, "quick-health").tap()
+        XCTAssertTrue(find(app, "Coolant").waitForExistence(timeout: 5), "a tap shows the details")
+        XCTAssertTrue(find(app, "Model routing").exists)
+        sleep(1)
+        shot("quick-pc-health")
+        el(app, "quick-health").tap()
+        XCTAssertTrue(find(app, "Coolant").waitForNonExistence(timeout: 5), "and hides them")
+
+        let media = el(app, "quick-media")
+        reveal(app, media)
+        XCTAssertTrue(find(app, "Northern Lights — Aurora Hall").exists, app.debugDescription)
+        el(app, "quick-media-play-pause").tap()
+        XCTAssertTrue(find(app, "Spotify · Paused").waitForExistence(timeout: 5), "play/pause, read back")
+        el(app, "quick-media-play-pause").tap()
+        XCTAssertTrue(find(app, "Spotify · Playing").waitForExistence(timeout: 5))
+        reveal(app, el(app, "quick-volume"))
+        el(app, "quick-volume-mute").tap()
+        XCTAssertTrue(find(app, "Desk Speakers · Muted").waitForExistence(timeout: 5), "mute")
+        el(app, "quick-volume-mute").tap()
+        XCTAssertTrue(find(app, "Desk Speakers · 42%").waitForExistence(timeout: 5))
+        reveal(app, el(app, "quick-discord"))
+        XCTAssertTrue(find(app, "In a voice call").exists)
+        XCTAssertTrue(find(app, "Chrome · Your Chrome").exists, "the PC's last pick")
+        sleep(1)
+        shot("quick-pc")
+
+        let field = app.textFields["quick-open-url"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("https://example.com/a")
+        el(app, "quick-open-button").tap()
+        XCTAssertTrue(find(app, "Opened in Chrome · Your Chrome").waitForExistence(timeout: 5), app.debugDescription)
+        field.tap()
+        field.typeText("file:///etc/passwd")
+        el(app, "quick-open-button").tap()
+        XCTAssertTrue(el(app, "quick-open-error").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Only http:// and https:// links open on the PC.").exists)
+        XCTAssertFalse(find(app, "Opened in").exists, "a refused link opened nothing")
+        reveal(app, el(app, "quick-discord"))
+        sleep(1)
+        shot("quick-pc-open")
+    }
+
+    /// every PC row with its own error: a temperature that didn't read, PipeWire down, a browser that didn't open
+    func testQuickPcErrors() {
+        let app = quickPage(["-quickError"])
+        XCTAssertTrue(el(app, "quick-health").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "nvidia-smi: couldn't talk to the driver").waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(find(app, "Projects down").exists)
+        reveal(app, el(app, "quick-discord"))
+        XCTAssertTrue(find(app, "Nothing is playing on the PC").exists)
+        XCTAssertFalse(el(app, "quick-media-play-pause").isEnabled)
+        XCTAssertTrue(find(app, "Could not connect to PipeWire").exists)
+        XCTAssertTrue(find(app, "pw-dump: can't connect to PipeWire").exists)
+        let field = app.textFields["quick-open-url"]
+        field.tap()
+        field.typeText("https://example.com")
+        el(app, "quick-open-button").tap()
+        XCTAssertTrue(find(app, "firefox: not responding (demo)").waitForExistence(timeout: 5))
+        reveal(app, el(app, "quick-discord"))
+        sleep(1)
+        shot("quick-pc-errors")
+    }
+
     // MARK: a144: File transfer
 
     /// the chat with the PC: the phone's own on the right, the PC's on the left, pictures, a video and files
