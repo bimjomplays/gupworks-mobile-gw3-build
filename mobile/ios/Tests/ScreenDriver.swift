@@ -314,6 +314,8 @@ struct Element {
     var placeholderValue: String? { resolve()?.placeholder }
     var frame: CGRect { resolve()?.frame ?? .zero }
     var isSelected: Bool { resolve()?.isSelected ?? false }
+    /// as XCUIElement's: false for a disabled button or switch
+    var isEnabled: Bool { resolve().map { !$0.traits.contains(.notEnabled) } ?? false }
     var hasKeyboardFocus: Bool { resolve()?.hasKeyboardFocus ?? false }
 
     /// on screen, above the keyboard, and the screen's touch there lands on it

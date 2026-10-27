@@ -381,7 +381,7 @@ final class ScreenTests: XCTestCase {
 
     func testComingSoonPlaces() {
         let app = launch(["-menu"])
-        for p in ["scheduled", "quick", "transfer", "bot"] {
+        for p in ["scheduled", "transfer", "bot"] {
             if !el(app, "place-\(p)").exists { openMenu(app) }
             XCTAssertTrue(el(app, "place-\(p)").waitForExistence(timeout: 20))
             el(app, "place-\(p)").tap()
@@ -390,6 +390,61 @@ final class ScreenTests: XCTestCase {
             app.navigationBars.buttons.element(boundBy: 0).tap()
             XCTAssertTrue(el(app, "comingSoon").waitForNonExistence(timeout: 5))
         }
+    }
+
+    /// a142: Quick actions from the menu: Away mode and Dillon's game bot as the PC reads them, Restart PC asks first
+    private func quickPage(_ flags: [String] = []) -> App {
+        let app = launch(["-menu"] + flags)
+        if !el(app, "place-quick").exists { openMenu(app) }
+        XCTAssertTrue(el(app, "place-quick").waitForExistence(timeout: 20))
+        el(app, "place-quick").tap()
+        XCTAssertTrue(app.switches["quick-away"].waitForExistence(timeout: 10), app.debugDescription)
+        return app
+    }
+
+    func testQuickActions() {
+        let app = quickPage()
+        XCTAssertFalse(el(app, "comingSoon").exists)
+        XCTAssertTrue(find(app, "Away mode").exists)
+        XCTAssertTrue(find(app, "Dillon's game bot").exists)
+        XCTAssertTrue(find(app, "Restart PC").exists)
+        let away = app.switches["quick-away"], bot = app.switches["quick-game-bot"]
+        XCTAssertEqual(away.value as? String, "0")
+        XCTAssertEqual(bot.value as? String, "1")
+        sleep(1)
+        shot("quick-actions")
+
+        flip(away)
+        XCTAssertTrue(waitValue(away, "1"))
+        XCTAssertTrue(app.buttons["quickRestart"].isEnabled)
+        app.buttons["quickRestart"].tap()
+        XCTAssertTrue(app.alerts["Restart the PC now?"].waitForExistence(timeout: 5))
+        sleep(1)
+        shot("quick-restart-confirm")
+        app.alerts.buttons["Cancel"].tap()
+        XCTAssertTrue(app.alerts["Restart the PC now?"].waitForNonExistence(timeout: 5))
+        XCTAssertFalse(find(app, "Restarting").exists, "Cancel restarts nothing")
+        app.buttons["quickRestart"].tap()
+        XCTAssertTrue(app.alerts["Restart the PC now?"].waitForExistence(timeout: 5))
+        app.alerts.buttons["Restart"].tap()
+        XCTAssertTrue(find(app, "Restarting").waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["quickRestart"].isEnabled)
+    }
+
+    /// the PC's errors and warnings under their switch; Restart PC off with logind's reason
+    func testQuickActionsErrors() {
+        let app = quickPage(["-quickError"])
+        XCTAssertTrue(el(app, "quick-away-warning").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "gupworks-away.service isn't running").exists)
+        XCTAssertTrue(find(app, "tmux: no server running").exists)
+        XCTAssertTrue(find(app, "logind CanReboot").exists)
+        XCTAssertFalse(app.buttons["quickRestart"].isEnabled)
+        let away = app.switches["quick-away"]
+        flip(away)
+        XCTAssertTrue(el(app, "quick-away-error").waitForExistence(timeout: 5))
+        XCTAssertTrue(waitValue(away, "0"), "the switch stays where the PC is")
+        sleep(1)
+        shot("quick-actions-errors")
     }
 
     // MARK: slice 2: chats

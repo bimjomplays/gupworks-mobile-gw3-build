@@ -170,6 +170,8 @@ struct MainView: View {
                 .navigationDestination(for: Place.self) { p in
                     if p == .projects {
                         ProjectsPage(openMenu: { withAnimation(.snappy(duration: 0.3)) { openMenu() } })
+                    } else if p == .quick {
+                        QuickActionsView(pairing: model.pairing, demo: model.demo)
                     } else {
                         ComingSoonPage(place: p)
                     }
@@ -431,7 +433,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
     }
 }
 
-/// Scheduled, Quick actions and Gup Bot: places for what comes next.
+/// Scheduled, Transfer and Gup Bot: places for what comes next.
 struct ComingSoonPage: View {
     let place: Place
 
