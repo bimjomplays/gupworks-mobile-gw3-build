@@ -321,6 +321,7 @@
        "pause",
        "stop",
        "archive",
+       "rename",
        "delete"
       ],
       "word": "working",
@@ -428,6 +429,7 @@
       "moves": [
        "stop",
        "archive",
+       "rename",
        "delete"
       ],
       "word": "up next",
@@ -532,6 +534,7 @@
       "doneOk": true,
       "moves": [
        "archive",
+       "rename",
        "delete"
       ],
       "word": "landed",
@@ -572,6 +575,7 @@
       "doneOk": true,
       "moves": [
        "archive",
+       "rename",
        "delete"
       ],
       "word": "landed",
@@ -612,6 +616,7 @@
       "doneOk": true,
       "moves": [
        "archive",
+       "rename",
        "delete"
       ],
       "word": "landed",
@@ -652,6 +657,7 @@
       "doneOk": true,
       "moves": [
        "archive",
+       "rename",
        "delete"
       ],
       "word": "landed",
@@ -692,6 +698,7 @@
       "doneOk": true,
       "moves": [
        "archive",
+       "rename",
        "delete"
       ],
       "word": "landed",
@@ -732,6 +739,7 @@
       "doneOk": true,
       "moves": [
        "archive",
+       "rename",
        "delete"
       ],
       "word": "landed",
@@ -772,6 +780,7 @@
       "doneOk": true,
       "moves": [
        "archive",
+       "rename",
        "delete"
       ],
       "word": "landed",
@@ -820,6 +829,7 @@
       "doneOk": false,
       "moves": [
        "unarchive",
+       "rename",
        "delete"
       ],
       "word": "stopped",

@@ -143,7 +143,8 @@ struct MainView: View {
                         .frame(width: geo.size.width, height: geo.size.height)
                         .shadow(color: .black.opacity(0.5 * p), radius: 18, x: -4)
                         .offset(x: CGFloat(slide.overviewX(p)))
-                        .transition(.identity)
+                        // the button opens it with an animation: it comes in from the right edge, not in place
+                        .transition(.move(edge: .trailing))
                 }
             }
             .background(Color.black)
@@ -166,17 +167,15 @@ struct MainView: View {
                                    }
                                }))
             // a141: a swipe left in a project's main chat slides its Overview in; a swipe right takes it back
-            .simultaneousGesture(OverviewSwipe(closing: overview.open,
-                                               enabled: overview.store != nil && !menuOpen && drag == 0
-                                                   && (overview.open ? overview.path.isEmpty : true),
-                                               changed: { dx in
-                                                   overview.moved(slide.progress(open: overview.open, dx: Double(dx)))
-                                               },
-                                               ended: { dx, v in
-                                                   overview.settle(open: slide.endsOpen(open: overview.open,
-                                                                                         dx: Double(dx),
-                                                                                         velocity: Double(v)))
-                                               }))
+            // (a second UIKit pan beside the menu's; each lets the other run, and they start on opposite moves)
+            .gesture(OverviewSwipe(closing: overview.open,
+                                   enabled: overview.store != nil && !menuOpen && drag == 0
+                                       && (overview.open ? overview.path.isEmpty : true),
+                                   changed: { dx in overview.moved(slide.progress(open: overview.open, dx: Double(dx))) },
+                                   ended: { dx, v in
+                                       overview.settle(open: slide.endsOpen(open: overview.open, dx: Double(dx),
+                                                                             velocity: Double(v)))
+                                   }))
         }
         // up to the screen's top (a130): the GeometryReader sat below the status bar, so the chat stopped there and the
         // strip around the Dynamic Island was only black; now the turns scroll under it (the menu keeps its place)
