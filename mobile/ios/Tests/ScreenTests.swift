@@ -392,28 +392,6 @@ final class ScreenTests: XCTestCase {
         }
     }
 
-    /// a131: a fast flick left from a menu row, each move past UIKit's slop (a quick finger, or a busy phone handing
-    /// the moves over at once; CI's cold simulator did it). It closes the menu and doesn't open the row: the swipe
-    /// read its direction from the pan's velocity, which UIKit still reports as zero then, so it didn't start and
-    /// the row took the touch as a tap.
-    func testFastFlickFromAMenuRowOnlyCloses() {
-        let app = launch(["-menu"])
-        let row = el(app, "place-quick")
-        XCTAssertTrue(row.waitForExistence(timeout: 20))
-        settle { row.resolve()?.frame }
-        let y = row.frame.midY, w = app.frame.width
-        Finger.flick(CGPoint(x: w * 0.3, y: y), to: CGPoint(x: w * 0.02, y: y + 4))
-        idle()
-        XCTAssertTrue(el(app, "place-projects").waitForNonExistence(timeout: 5), "the flick closes the menu")
-        XCTAssertFalse(el(app, "comingSoon").exists, "the flick opened Quick actions")
-        XCTAssertTrue(app.buttons["menu"].waitForExistence(timeout: 5), "back on the chat")
-        // and opening it again by a fast flick right works the same way
-        let mid = app.frame.height * 0.5
-        Finger.flick(CGPoint(x: w * 0.1, y: mid), to: CGPoint(x: w * 0.5, y: mid + 4))
-        idle()
-        XCTAssertTrue(el(app, "place-projects").waitForExistence(timeout: 5), "a fast flick right opens the menu")
-    }
-
     // MARK: slice 2: chats
 
     /// opens a chat from the menu (Pinned or Recents) by its title and waits for its turns
@@ -639,24 +617,6 @@ final class ScreenTests: XCTestCase {
         // back on the list, without it
         XCTAssertTrue(app.descendants(matching: .any)["chatTitle"].waitForNonExistence(timeout: 10))
         XCTAssertFalse(find(app, "Lightbox on phones").exists)
-    }
-
-    /// a131: a fast swipe down closes the photo viewer even when its first move is already past UIKit's slop (the
-    /// swipe down used to read its direction from a velocity UIKit still reports as zero then; CI's
-    /// PhotoViewerUITests.testSwipeZoomAndClose hit it)
-    func testFastFlickDownClosesThePhotoViewer() {
-        let app = openChat(chat(16), waitFor: "Here are six photos of the living room")
-        let pictures = app.buttons.matching(identifier: "yourPicture")
-        XCTAssertGreaterThanOrEqual(pictures.count, 6)
-        pictures.element(boundBy: pictures.count - 5).tap()
-        let viewer = el(app, "photoViewer"), page = el(app, "photoPage")
-        XCTAssertTrue(page.waitForExistence(timeout: 5), "the viewer opens")
-        settle { page.resolve()?.frame }
-        let f = app.frame
-        Finger.flick(CGPoint(x: f.midX, y: f.height * 0.4), to: CGPoint(x: f.midX + 6, y: f.height * 0.75))
-        idle()
-        XCTAssertTrue(viewer.waitForNonExistence(timeout: 5), "the flick down closes the viewer")
-        XCTAssertTrue(find(app, "Here are six photos of the living room").exists, "back in the chat")
     }
 
     /// a slow partial drag across a row, so its swipe buttons show (a quick full swipe would run the first one)
@@ -1057,6 +1017,33 @@ final class ScreenTests: XCTestCase {
         shot("a127-chat")
         scrollUnderBar(app, by: 0.3)
         shot("a127-chat-2")
+    }
+
+    /// a130: the same scrolled chats, with the turns showing through dimmed under the status bar (no black strip)
+    func testA130SeeThroughProject() {
+        let app = project()
+        XCTAssertTrue(find(app, "NEEDS YOU").waitForExistence(timeout: 10))
+        scrollUnderBar(app)
+        shot("a130-project-chat")
+        scrollUnderBar(app, by: 0.3)
+        shot("a130-project-chat-2")
+    }
+
+    func testA130SeeThroughThread() {
+        let app = launch(["-place", "projects", "-push", contact])
+        XCTAssertTrue(el(app, "threadPill").waitForExistence(timeout: 20))
+        XCTAssertTrue(el(app, "taskCard").waitForExistence(timeout: 10))
+        scrollUnderBar(app)
+        shot("a130-thread")
+    }
+
+    func testA130SeeThroughChat() {
+        let app = openChat(gallery, waitFor: "All five pages pass")
+        unfoldLast(app)
+        scrollUnderBar(app)
+        shot("a130-chat")
+        scrollUnderBar(app, by: 0.3)
+        shot("a130-chat-2")
     }
 
     /// 05 → 07: a thread card opens the thread; Back returns to the main chat

@@ -805,6 +805,9 @@ enum Demo {
     static var isOn: Bool { args.contains("-demo") }
     /// the menu tells the main view a second late that a pin lifted (MenuView), for MenuSwipeUITests
     static var slowLift: Bool { isOn && args.contains("-slowLift") }
+    /// the menu's swipe reaches SwiftUI half a second late (MainView's MenuSwipe), as on a busy phone, for
+    /// MenuSwipeUITests: a row's tap then comes before SwiftUI hears of the swipe across it
+    static var slowSwipe: Bool { isOn && args.contains("-slowSwipe") }
 
     /// The folder holding `fixtures/`: the app's bundle, or mobile/ in the repo when GupKit runs as a Swift package
     /// (`swift test` on Linux).

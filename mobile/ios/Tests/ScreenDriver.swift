@@ -719,21 +719,6 @@ enum Finger {
         }
     }
 
-    /// a fast flick from `p` to `to` in `steps` jumps a 60 Hz frame apart, each well past UIKit's 10 pt slop: what a
-    /// quick real flick sends, and what a busy phone hands over at once (a131)
-    static func flick(_ p: CGPoint, to: CGPoint, steps: Int = 4) {
-        run("flick from \(p)") { g in
-            try g.fingerDown(at: p)
-            spin(0.05)
-            for i in 1...max(1, steps) {
-                let f = CGFloat(i) / CGFloat(max(1, steps))
-                try g.fingerMove(to: CGPoint(x: p.x + (to.x - p.x) * f, y: p.y + (to.y - p.y) * f))
-                spin(1.0 / 60)
-            }
-            try g.fingerUp()
-        }
-    }
-
     /// two fingers apart (a photo zooms in)
     static func zoom(at p: CGPoint, distance: CGFloat) {
         run("zoom at \(p)") { try $0.fingerPinch(at: p, fromDistance: 40, toDistance: 40 + distance, duration: 0.5) }

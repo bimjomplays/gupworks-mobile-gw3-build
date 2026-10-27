@@ -113,32 +113,8 @@ final class PhotoViewerUITests: XCTestCase {
         XCTAssertTrue(zoom(page, "fit"))
 
         page.swipeDown()
-        if viewer.exists { print("a131 photo log: \(page.label)") }
-        XCTAssertTrue(gone(viewer), "swipe down closes \(viewer.exists ? page.label : "")")
+        XCTAssertTrue(gone(viewer), "swipe down closes")
         XCTAssertTrue(find(app, six).exists, "back in the chat")
-    }
-
-    /// a131 diagnostic (to be dropped): zoom, back to fit, swipe down, from a cold launch, five times
-    func testZDiagSwipeDowns() {
-        continueAfterFailure = true
-        var bad = 0
-        for i in 1...5 {
-            let app = openChat(chat(16), waitFor: "Here are six photos of the living room")
-            let pictures = app.buttons.matching(identifier: "yourPicture")
-            pictures.element(boundBy: pictures.count - 5).tap()
-            let viewer = el(app, "photoViewer")
-            _ = viewer.waitForExistence(timeout: 5)
-            let page = el(app, "photoPage")
-            page.pinch(withScale: 2.5, velocity: 2)
-            _ = zoom(page, "zoomed")
-            page.doubleTap()
-            _ = zoom(page, "fit")
-            page.swipeDown()
-            let ok = gone(viewer)
-            print("a131 diag swipe down \(i): closed=\(ok) log=\(ok ? "" : page.label)")
-            if !ok { bad += 1 }
-        }
-        XCTAssertEqual(bad, 0, "swipes down that left the viewer open")
     }
 
     /// Claude's picture opens in the same gallery as yours: the chat's second picture, with your first one before it.

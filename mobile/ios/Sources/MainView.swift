@@ -84,6 +84,12 @@ struct MainView: View {
         }
     }
 
+    /// the status bar's height, read from the window: inside the full-screen reader below the proxy reports no inset
+    private static var statusBarHeight: CGFloat {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).first(where: \.isKeyWindow)?.safeAreaInsets.top ?? 0
+    }
+
     var body: some View {
         GeometryReader { geo in
             let swipe = MenuDrag(width: max(geo.size.width - 91, 240))
@@ -93,9 +99,10 @@ struct MainView: View {
                 MenuView(current: shownId, open: menuOpen,
                          pick: { c in if !swipeClock.recent { pick(c) } },
                          newChat: { if !swipeClock.recent { newChat() } },
-                         place: { p in GestureLog.add("place \(p)"); if !swipeClock.recent { go(p) } },
+                         place: { p in if !swipeClock.recent { go(p) } },
                          settings: { if !swipeClock.recent { showSettings = true } },
                          lifting: { pinLifted = $0 })
+                    .padding(.top, Self.statusBarHeight)
                     .frame(width: width)
                     .offset(x: (x - width) * 0.25)
                     .opacity(menuOpen || x > 0 ? 1 : 0)
@@ -133,7 +140,6 @@ struct MainView: View {
                                ended: { dx, v in
                                    swipeClock.letGo()
                                    let open = swipe.endsOpen(open: menuOpen, dx: dx, velocity: v)
-                                   GestureLog.add("ended dx=\(dx) v=\(v) width=\(swipe.width) open=\(open)")
                                    withAnimation(.snappy(duration: 0.3)) {
                                        drag = 0
                                        if open && !menuOpen { openMenu() }
@@ -141,6 +147,9 @@ struct MainView: View {
                                    }
                                }))
         }
+        // up to the screen's top (a130): the GeometryReader sat below the status bar, so the chat stopped there and the
+        // strip around the Dynamic Island was only black; now the turns scroll under it (the menu keeps its place)
+        .ignoresSafeArea(edges: .top)
         .sensoryFeedback(.impact(weight: .light), trigger: opened)
         .sheet(isPresented: $showSettings) { SettingsView() }
         .alert("That didn't work", isPresented: Binding(get: { model.actionError != nil },
@@ -273,17 +282,10 @@ final class SwipeClock {
     func letGo() {
         moving = false
         endedAt = Date()
-        GestureLog.add("letGo \(Date().timeIntervalSince1970)")
     }
-    static var lastCheck = ""
 
     /// a swipe is under way or let go a moment ago
-    var recent: Bool {
-        let r = moving || Date().timeIntervalSince(endedAt) < 0.4
-        SwipeClock.lastCheck = String(format: "moving=%d since=%.3f recent=%d", moving ? 1 : 0, Date().timeIntervalSince(endedAt), r ? 1 : 0)
-        GestureLog.add("clock \(SwipeClock.lastCheck) at \(Date().timeIntervalSince1970)")
-        return r
-    }
+    var recent: Bool { moving || Date().timeIntervalSince(endedAt) < 0.4 }
 }
 
 /// Where the chat sits while a swipe moves it, and where it ends up when the finger lets go. Opening and closing
@@ -322,15 +324,15 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
 
     func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
 
-    func makeUIGestureRecognizer(context: Context) -> TravelPan {
-        let g = TravelPan()
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let g = UIPanGestureRecognizer()
         g.delegate = context.coordinator
         g.cancelsTouchesInView = false
         g.maximumNumberOfTouches = 1
         return g
     }
 
-    func updateUIGestureRecognizer(_ g: TravelPan, context: Context) {
+    func updateUIGestureRecognizer(_ g: UIPanGestureRecognizer, context: Context) {
         // read when a swipe would start (the menu doesn't open or close while one is under way)
         context.coordinator.closing = closing
         let moving = g.state == .began || g.state == .changed
@@ -339,20 +341,24 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
         if moving && !enabled { Task { @MainActor in ended(0, 0) } }
     }
 
-    func handleUIGestureRecognizerAction(_ g: TravelPan, context: Context) {
-        let dx = g.translation(in: nil).x
-        if g.state != .changed { GestureLog.add("pan state=\(g.state.rawValue) dx=\(dx) v=\(g.velocity(in: nil).x) at \(Date().timeIntervalSince1970)") }
-        switch g.state {
-        case .began:
-            if context.coordinator.closing { context.coordinator.stopScrolling() }
-            changed(dx)
-        case .changed:
-            if context.coordinator.closing { context.coordinator.stopScrolling() }
-            changed(dx)
-        case .ended: ended(dx, g.velocity(in: nil).x)
-        case .cancelled, .failed: ended(0, 0)
-        default: break
+    func handleUIGestureRecognizerAction(_ g: UIPanGestureRecognizer, context: Context) {
+        let dx = g.translation(in: nil).x, v = g.velocity(in: nil).x, state = g.state
+        let coordinator = context.coordinator
+        let act = {
+            switch state {
+            case .began:
+                if coordinator.closing { coordinator.stopScrolling() }
+                changed(dx)
+            case .changed:
+                if coordinator.closing { coordinator.stopScrolling() }
+                changed(dx)
+            case .ended: ended(dx, v)
+            case .cancelled, .failed: ended(0, 0)
+            default: break
+            }
         }
+        // -slowSwipe (demo, a UI test): SwiftUI hears of the swipe late, as on a busy phone
+        if Demo.slowSwipe { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: act) } else { act() }
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
@@ -361,21 +367,19 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
         private var scrolls: [WeakPan] = []
 
         func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
-            guard let pan = g as? TravelPan, !MenuSwipe.pinHeld else { return false }
-            // the finger's own travel, not only UIKit's velocity: a fast flick's velocity is still zero here, and the
-            // row under the finger then took the touch as a tap (a131)
-            let d = pan.heading
-            GestureLog.add("shouldBegin closing=\(closing) travel=\(pan.travel) v=\(pan.velocity(in: nil)) t=\(pan.translation(in: nil)) begins=\(SwipeStart.menu(closing: closing, heading: d)) at \(Date().timeIntervalSince1970)")
+            guard let pan = g as? UIPanGestureRecognizer, !MenuSwipe.pinHeld else { return false }
+            let v = pan.velocity(in: nil)
+            let sideways = abs(v.x) > 1.5 * abs(v.y)
+
             // a wide table or code panel scrolled sideways under the finger scrolls back first
-            if !closing, SwipeStart.menu(closing: false, heading: d), scrollsBack(pan) { return false }
-            return SwipeStart.menu(closing: closing, heading: d)
+            if !closing, sideways, v.x > 0, scrollsBack(pan) { return false }
+            return sideways && (closing ? v.x < 0 : v.x > 0)
         }
 
         /// the view UIKit found under the finger when the touch began
         private weak var touched: UIView?
 
         func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-            GestureLog.add("touch down enabled=\(g.isEnabled) pinHeld=\(MenuSwipe.pinHeld) closing=\(closing) at \(Date().timeIntervalSince1970)")
             touched = touch.view
             return true
         }
@@ -442,7 +446,6 @@ struct ComingSoonPage: View {
             Text(place.title).font(.system(size: 20, weight: .semibold)).foregroundStyle(Theme.title)
             Text("Coming soon").font(.system(size: 16)).foregroundStyle(Theme.secondary)
                 .accessibilityIdentifier("comingSoon")
-                .accessibilityValue(GestureLog.text)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
@@ -464,15 +467,4 @@ struct MenuIcon: View {
         case .bot: Icons.bot(size: 23)
         }
     }
-}
-
-/// a131 diagnostic (to be dropped)
-enum GestureLog {
-    static var lines: [String] = []
-    static func add(_ s: String) {
-        print("a131 " + s)
-        lines.append(String(format: "%.3f ", Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 1000)) + s)
-        if lines.count > 24 { lines.removeFirst(lines.count - 24) }
-    }
-    static var text: String { lines.joined(separator: " | ") }
 }

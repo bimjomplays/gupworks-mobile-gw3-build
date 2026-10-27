@@ -90,7 +90,7 @@ final class MenuSwipeUITests: XCTestCase {
     private func assertCloses(_ what: String, file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertTrue(menuShown.waitForNonExistence(timeout: 10), "\(what) closes the menu", file: file, line: line)
         // and it was only a swipe: the row it started on didn't open (the old menu opened Gup Bot here)
-        XCTAssertFalse(el("comingSoon").exists, "\(what) opened a page (\(el("comingSoon").exists ? (el("comingSoon").value as? String ?? "?") : ""))", file: file, line: line)
+        XCTAssertFalse(el("comingSoon").exists, "\(what) opened a page", file: file, line: line)
         XCTAssertTrue(app.buttons["menu"].waitForExistence(timeout: 10), "\(what): back on the chat",
                       file: file, line: line)
     }
@@ -114,22 +114,6 @@ final class MenuSwipeUITests: XCTestCase {
         swipeCloses(0.93, to: 0.45, y: 0.5, slow: true, "a slow drag from the chat strip on the right")
         openMenu()
         swipeCloses(0.97, to: 0.6, y: 0.75, slow: false, "a flick from the far right edge")
-    }
-
-    /// a131 diagnostic (to be dropped): the first flick after a cold launch, eight times
-    func testZDiagRowFlicks() {
-        continueAfterFailure = true
-        var bad = 0
-        for i in 1...8 {
-            launchWithMenu()
-            swipe(0.3, to: 0.02, y: 0.3, slow: false)
-            let closed = menuShown.waitForNonExistence(timeout: 10)
-            let page = el("comingSoon")
-            let opened = page.waitForExistence(timeout: 2)
-            print("a131 diag flick \(i): closed=\(closed) opened=\(opened) log=\(opened ? (page.value as? String ?? "") : "")")
-            if opened || !closed { bad += 1 }
-        }
-        XCTAssertEqual(bad, 0, "flicks that opened a page or didn't close")
     }
 
     func testShortFlickClosesAndShortDragSnapsBack() {
@@ -213,5 +197,20 @@ final class MenuSwipeUITests: XCTestCase {
         waitStill(wallpaper)
         XCTAssertLessThan(wallpaper.frame.minY, lumen.frame.minY, "Wallpaper ideas moved to the top")
         assertStaysOpen("a lifted pin moved left")
+    }
+
+    /// a busy phone: the menu's swipe reaches SwiftUI half a second late (-slowSwipe), so a flick from the Gup Bot
+    /// row has lifted, and the row's tap fired, before SwiftUI heard of the swipe. CI's cold simulator did this
+    /// now and then: the menu closed with Gup Bot opening (a131). A plain tap on the row still opens it.
+    func testRowFlickOnABusyPhone() {
+        launchWithMenu(["-slowSwipe"])
+        let bot = el("place-bot")
+        XCTAssertTrue(bot.waitForExistence(timeout: 10))
+        let win = app.windows.firstMatch.frame
+        let at = CGVector(dx: bot.frame.midX / win.width, dy: bot.frame.midY / win.height)
+        swipeCloses(at.dx, to: 0.02, y: at.dy, slow: false, "a flick from the Gup Bot row")
+        openMenu()
+        bot.tap()
+        XCTAssertTrue(el("comingSoon").waitForExistence(timeout: 10), "a tap on the Gup Bot row opens it")
     }
 }
