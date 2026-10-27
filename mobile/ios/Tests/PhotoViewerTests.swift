@@ -68,6 +68,18 @@ final class PhotoViewerTests: XCTestCase {
         XCTAssertEqual(ChatPhotos.collect(turns: t).map(\.id), ids)
     }
 
+    func testAMockupSetsOlderAppCopyIsLeftOut() throws {
+        // a133: the set card opens its own pictures; the copy sent for older apps isn't drawn, so it isn't here
+        let blocks = """
+        [{"type":"text","answer":true,"md":[
+           {"t":"mockups","set":{"title":"Look","options":[{"n":1,"name":"A","shots":[{"badge":"1","url":"/v1/media/s1.png"}]}]}},
+           {"t":"media","fallback":true,"items":[{"kind":"image","url":"/v1/media/s1.png","name":"1 · A"}]},
+           {"t":"media","items":[{"kind":"image","url":"/v1/media/after.png","name":"after"}]}]}]
+        """
+        let photos = ChatPhotos.collect(turns: try turns([turn("t1", blocks: blocks)]))
+        XCTAssertEqual(photos.map(\.link), ["/v1/media/after.png"])
+    }
+
     func testQueuedMessagesAndNoBubbleKinds() throws {
         let queued = #"[{"type":"prompt","prompt":{"text":"later","images":["/v1/media/q.jpg"]}}]"#
         let t = try turns([

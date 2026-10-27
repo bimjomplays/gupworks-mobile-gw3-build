@@ -350,6 +350,8 @@ final class APIClient {
     private let quickSession = APIClient.makeSession(timeout: 4)
     /// a recording: up to 10 minutes of speech, which whisper on the CPU (no GPU) takes a while over
     private let voiceSession = APIClient.makeSession(timeout: 300)
+    /// a quick action's on/off: Away mode's lights can take a while (the PC gives it 150 s)
+    private let actionSession = APIClient.makeSession(timeout: 165)
 
     private static func makeSession(timeout: TimeInterval) -> URLSession {
         let c = URLSessionConfiguration.ephemeral
@@ -523,10 +525,11 @@ final class APIClient {
         try await request(p.baseURL, "/v1/projects/\(project)/schedules", token: p.token)
     }
 
-    /// pause | resume | stop | done | archive | unarchive, as the desktop panel's thread menu
-    func moveThread(_ p: Pairing, project: String, thread: String, _ move: String) async throws -> ProjectView {
+    /// pause | resume | stop | done | archive | unarchive | rename {title} | delete, as the desktop panel's thread menu
+    func moveThread(_ p: Pairing, project: String, thread: String, _ move: String,
+                    title: String? = nil) async throws -> ProjectView {
         try await request(p.baseURL, "/v1/projects/\(project)/threads/\(thread)/\(move)", token: p.token,
-                          method: "POST", encoding: [String: String]())
+                          method: "POST", encoding: title.map { ["title": $0] } ?? [String: String]())
     }
 
     /// Your own thread (the panel's + New thread), started with its first message.
@@ -543,6 +546,30 @@ final class APIClient {
     func archiveProject(_ p: Pairing, _ id: String, _ on: Bool) async throws -> ProjectView {
         try await request(p.baseURL, "/v1/projects/\(id)/archive", token: p.token, method: "POST",
                           encoding: ["archived": on])
+    }
+
+    // MARK: quick actions (a142)
+
+    func quick(_ p: Pairing) async throws -> QuickList {
+        try await request(p.baseURL, "/v1/quick", token: p.token)
+    }
+
+    /// Away mode or Dillon's game bot on or off; the answer is every switch read again afterwards
+    func setQuick(_ p: Pairing, _ id: String, on: Bool) async throws -> QuickList {
+        try await perform(p.baseURL, "/v1/quick/\(id)", token: p.token, method: "POST",
+                          json: try JSONEncoder().encode(["on": on]), via: actionSession)
+    }
+
+    /// Restart PC's dialog opens: a one-time confirm token for its Restart button
+    func restartConfirm(_ p: Pairing) async throws -> QuickConfirm {
+        try await request(p.baseURL, "/v1/quick/restart-pc/confirm", token: p.token, method: "POST",
+                          encoding: [String: String]())
+    }
+
+    /// Restart PC, with the token the dialog got; only after the dialog's Restart was pressed
+    func restartPC(_ p: Pairing, confirm: String) async throws -> QuickRestarted {
+        try await request(p.baseURL, "/v1/quick/restart-pc", token: p.token, method: "POST",
+                          encoding: ["confirm": confirm], slow: true)
     }
 
     // MARK: a121's project pages
@@ -685,6 +712,27 @@ final class APIClient {
                                        query: [URLQueryItem] = [], json: Data? = nil, raw: Data? = nil,
                                        contentType: String? = nil, slow: Bool = false,
                                        via: URLSession? = nil) async throws -> T {
+        let (data, status) = try await fetch(base, path, token: token, method: method, query: query, json: json, raw: raw,
+                                             contentType: contentType, slow: slow, via: via)
+        if status == 401 {
+            if token == nil, let e = try? JSONDecoder().decode([String: String].self, from: data), let text = e["error"] {
+                throw APIError.server(text)  // a wrong or expired pairing code
+            }
+            throw APIError.notPaired
+        }
+        guard status == 200 else { throw Self.failure(status, data) }
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            throw APIError.server("The PC sent something this app can't read. Update GupWorks on the PC or the app.")
+        }
+    }
+
+    /// One request by whichever way to the PC answers: the answer's body and status, whatever the status.
+    private func fetch(_ base: URL, _ path: String, token: String?, method: String = "GET",
+                       query: [URLQueryItem] = [], json: Data? = nil, raw: Data? = nil,
+                       contentType: String? = nil, slow: Bool = false,
+                       via: URLSession? = nil) async throws -> (Data, Int) {
         await routes.discover(for: base)
         let ways = routes.order(for: base)
         var answer: (Data, URLResponse)?
@@ -712,18 +760,71 @@ final class APIClient {
         }
         guard let answer else { throw APIError.unreachable(.unknown(nil)) }
         let (data, response) = answer
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if status == 401 {
-            if token == nil, let e = try? JSONDecoder().decode([String: String].self, from: data), let text = e["error"] {
-                throw APIError.server(text)  // a wrong or expired pairing code
-            }
-            throw APIError.notPaired
+        return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
+
+    // MARK: file transfer (a144)
+
+    /// a piece of a file going up over Tailscale's relay can take a while
+    private let uploadSession = APIClient.makeSession(timeout: 90)
+
+    /// the newest messages of the phone-to-PC chat, or those before `before`
+    func transferPage(_ p: Pairing, before: String? = nil) async throws -> TransferMessages {
+        var q: [URLQueryItem] = []
+        if let before { q.append(URLQueryItem(name: "before", value: before)) }
+        return try await request(p.baseURL, "/v1/transfer", token: p.token, query: q)
+    }
+
+    func transferLibrary(_ p: Pairing) async throws -> TransferLibraryList {
+        try await request(p.baseURL, "/v1/transfer/library", token: p.token)
+    }
+
+    func startUpload(_ p: Pairing, name: String, size: Int64, type: String) async throws -> UploadState {
+        try await request(p.baseURL, "/v1/transfer/uploads", token: p.token, method: "POST",
+                          encoding: UploadStart(name: name, size: size, type: type))
+    }
+
+    /// how much of an upload the PC has; TransferError.gone when it has none (cleared after a week)
+    func uploadState(_ p: Pairing, _ id: String) async throws -> UploadState {
+        let (data, status) = try await fetch(p.baseURL, "/v1/transfer/uploads/\(id)", token: p.token)
+        return try Self.uploadAnswer(status, data)
+    }
+
+    /// One piece of a file at `offset`; TransferError.behind when the PC's copy stands elsewhere (a piece lost or
+    /// sent twice: go on from there).
+    func putPiece(_ p: Pairing, _ id: String, offset: Int64, _ data: Data) async throws -> UploadState {
+        let (body, status) = try await fetch(p.baseURL, "/v1/transfer/uploads/\(id)", token: p.token, method: "PUT",
+                                             query: [URLQueryItem(name: "offset", value: String(offset))], raw: data,
+                                             via: uploadSession)
+        return try Self.uploadAnswer(status, body)
+    }
+
+    func sendTransfer(_ p: Pairing, _ m: TransferSend) async throws -> TransferMessage {
+        let (data, status) = try await fetch(p.baseURL, "/v1/transfer/messages", token: p.token, method: "POST",
+                                             json: try JSONEncoder().encode(m))
+        if status == 200, let msg = try? JSONDecoder().decode(TransferMessage.self, from: data) { return msg }
+        if status == 404 { throw TransferError.gone }
+        if status == 409, let r = try? JSONDecoder().decode(UploadState.Behind.self, from: data) {
+            throw TransferError.behind(r.received)
         }
-        guard status == 200 else { throw Self.failure(status, data) }
-        do {
-            return try JSONDecoder().decode(T.self, from: data)
-        } catch {
-            throw APIError.server("The PC sent something this app can't read. Update GupWorks on the PC or the app.")
+        if status == 401 { throw APIError.notPaired }
+        throw Self.failure(status, data)
+    }
+
+    /// an upload route's answer: its state, or why not
+    static func uploadAnswer(_ status: Int, _ data: Data) throws -> UploadState {
+        switch status {
+        case 200:
+            guard let st = try? JSONDecoder().decode(UploadState.self, from: data) else {
+                throw APIError.server("The PC sent something this app can't read. Update GupWorks on the PC or the app.")
+            }
+            return st
+        case 401: throw APIError.notPaired
+        case 404: throw TransferError.gone
+        case 409:
+            if let r = try? JSONDecoder().decode(UploadState.Behind.self, from: data) { throw TransferError.behind(r.received) }
+            throw failure(status, data)
+        default: throw failure(status, data)
         }
     }
 }
@@ -805,6 +906,9 @@ enum Demo {
     static var isOn: Bool { args.contains("-demo") }
     /// the menu tells the main view a second late that a pin lifted (MenuView), for MenuSwipeUITests
     static var slowLift: Bool { isOn && args.contains("-slowLift") }
+    /// the menu's swipe reaches SwiftUI half a second late (MainView's MenuSwipe), as on a busy phone, for
+    /// MenuSwipeUITests: a row's tap then comes before SwiftUI hears of the swipe across it
+    static var slowSwipe: Bool { isOn && args.contains("-slowSwipe") }
 
     /// The folder holding `fixtures/`: the app's bundle, or mobile/ in the repo when GupKit runs as a Swift package
     /// (`swift test` on Linux).

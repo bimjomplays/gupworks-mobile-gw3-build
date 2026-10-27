@@ -198,4 +198,19 @@ final class MenuSwipeUITests: XCTestCase {
         XCTAssertLessThan(wallpaper.frame.minY, lumen.frame.minY, "Wallpaper ideas moved to the top")
         assertStaysOpen("a lifted pin moved left")
     }
+
+    /// a busy phone: the menu's swipe reaches SwiftUI half a second late (-slowSwipe), so a flick from the Gup Bot
+    /// row has lifted, and the row's tap fired, before SwiftUI heard of the swipe. CI's cold simulator did this
+    /// now and then: the menu closed with Gup Bot opening (a131). A plain tap on the row still opens it.
+    func testRowFlickOnABusyPhone() {
+        launchWithMenu(["-slowSwipe"])
+        let bot = el("place-bot")
+        XCTAssertTrue(bot.waitForExistence(timeout: 10))
+        let win = app.windows.firstMatch.frame
+        let at = CGVector(dx: bot.frame.midX / win.width, dy: bot.frame.midY / win.height)
+        swipeCloses(at.dx, to: 0.02, y: at.dy, slow: false, "a flick from the Gup Bot row")
+        openMenu()
+        bot.tap()
+        XCTAssertTrue(el("comingSoon").waitForExistence(timeout: 10), "a tap on the Gup Bot row opens it")
+    }
 }

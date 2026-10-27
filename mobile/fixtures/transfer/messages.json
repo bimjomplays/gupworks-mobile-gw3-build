@@ -1,0 +1,151 @@
+{
+ "messages": [
+  {
+   "id": "1789906400000-431050",
+   "ts": 1789906400000.0,
+   "from": "phone",
+   "text": "",
+   "files": [
+    {
+     "name": "IMG_2041.jpg",
+     "size": 2840000,
+     "kind": "image",
+     "exists": true,
+     "url": "demo:transfer/trail-sunset.png",
+     "thumb": "demo:transfer/trail-sunset.png"
+    }
+   ]
+  },
+  {
+   "id": "1789906460000-0af481",
+   "ts": 1789906460000.0,
+   "from": "phone",
+   "text": "sunset from the trail, for the wallpaper",
+   "files": []
+  },
+  {
+   "id": "1789910000000-074ad9",
+   "ts": 1789910000000.0,
+   "from": "pc",
+   "text": "got it, thanks",
+   "files": []
+  },
+  {
+   "id": "1789994300000-349e89",
+   "ts": 1789994300000.0,
+   "from": "pc",
+   "text": "cut list for the shelf, print at the store",
+   "files": [
+    {
+     "name": "Shelf cut list.pdf",
+     "size": 48200,
+     "kind": "file",
+     "exists": true,
+     "url": "demo:transfer/shelf-cut-list.pdf"
+    }
+   ]
+  },
+  {
+   "id": "1789996880000-474bdf",
+   "ts": 1789996880000.0,
+   "from": "phone",
+   "text": "",
+   "files": [
+    {
+     "name": "IMG_2107.jpg",
+     "size": 1920000,
+     "kind": "image",
+     "exists": true,
+     "url": "demo:transfer/garden-plan.png",
+     "thumb": "demo:transfer/garden-plan.png"
+    },
+    {
+     "name": "IMG_2108.jpg",
+     "size": 3110000,
+     "kind": "image",
+     "exists": true,
+     "url": "demo:transfer/side-yard.png",
+     "thumb": "demo:transfer/side-yard.png"
+    }
+   ]
+  },
+  {
+   "id": "1789996940000-de1c45",
+   "ts": 1789996940000.0,
+   "from": "phone",
+   "text": "garden plan + the side yard",
+   "files": []
+  },
+  {
+   "id": "1789998800000-63bd89",
+   "ts": 1789998800000.0,
+   "from": "phone",
+   "text": "",
+   "files": [
+    {
+     "name": "Clip 0412.mov",
+     "size": 41600000,
+     "kind": "video",
+     "exists": true,
+     "url": "demo:media/dusk-loop.mp4",
+     "poster": "demo:media/dusk-loop.mp4.poster.png"
+    }
+   ]
+  },
+  {
+   "id": "1789998860000-6c0dbd",
+   "ts": 1789998860000.0,
+   "from": "phone",
+   "text": "the new sprinkler going, sound on",
+   "files": []
+  },
+  {
+   "id": "1789999580000-0e5531",
+   "ts": 1789999580000.0,
+   "from": "pc",
+   "text": "",
+   "files": [
+    {
+     "name": "porch-lights.png",
+     "size": 612000,
+     "kind": "image",
+     "exists": true,
+     "url": "demo:transfer/porch-lights.png",
+     "thumb": "demo:transfer/porch-lights.png"
+    }
+   ]
+  },
+  {
+   "id": "1789999640000-80f07e",
+   "ts": 1789999640000.0,
+   "from": "pc",
+   "text": "nice. here is the one for the porch, and the hose link https://example.com/hoses/25ft",
+   "files": []
+  },
+  {
+   "id": "1789999700000-6cf179",
+   "ts": 1789999700000.0,
+   "from": "pc",
+   "text": "",
+   "files": [
+    {
+     "name": "backyard-notes.txt",
+     "size": 37,
+     "kind": "file",
+     "exists": true,
+     "url": "demo:transfer/backyard-notes.txt"
+    }
+   ]
+  },
+  {
+   "id": "1789999880000-95ffb9",
+   "ts": 1789999880000.0,
+   "from": "phone",
+   "text": "perfect, ordering it now",
+   "files": []
+  }
+ ],
+ "more": false,
+ "folder": "GupWorks Transfer",
+ "now": 1790000000000.0
+}

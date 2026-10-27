@@ -36,8 +36,12 @@ struct RootView: View {
         // in front: load the list, then follow the PC's changes until the app goes to the back
         .task(id: [model.isPaired, phase == .active]) {
             guard phase == .active else { return }
+            if model.isPaired { model.transfer.pump() }  // files left waiting go on up (a144)
             await model.refresh()
             await model.followHome()
+        }
+        .onChange(of: phase) { _, now in
+            if model.isPaired { model.transfer.active = now == .active }
         }
         .onOpenURL { url in
             // only the pairing screen takes links; once paired, unpair first in Settings

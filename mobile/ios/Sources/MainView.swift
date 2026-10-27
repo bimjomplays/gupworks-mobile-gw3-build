@@ -22,6 +22,9 @@ enum Place: String, Hashable, CaseIterable {
         case .bot: return "Gup Bot"
         }
     }
+
+    /// a page with its own menu button instead of a back button
+    var hasMenu: Bool { self == .projects || self == .transfer }
 }
 
 /// What the main chat needs from the shell around it: the menu, a new chat, the temporary switch.
@@ -52,8 +55,8 @@ struct MainView: View {
     @State private var drag: CGFloat = 0
     /// a pin is lifted for sorting: a sideways move drags the pin, not the menu
     @State private var pinLifted = false
-    /// when the menu's swipe moved and let go: the row it started on doesn't count as tapped
-    @State private var swipeClock = SwipeClock()
+    /// the touch swiped the menu: the row it started on doesn't count as tapped
+    @State private var swiped = SwipeMark()
     @State private var temporary: Bool
     /// the temporary chat once its first message made it: deleted when you leave
     @State private var temporaryId: String?
@@ -61,8 +64,11 @@ struct MainView: View {
     @State private var madeId: String?
     @State private var showSettings = false
     @State private var opened = 0
-    /// the stack starts at Projects (its page and a project's chat open from it take the menu's swipe too)
+    /// the stack starts at a page with its own menu button (Projects, File transfer): it and a project's chat opened
+    /// from it take the menu's swipe too
     @State private var onProjects = false
+    /// a141: the Overview of the project whose main chat is on top, slid in from the right over it
+    @State private var overview = OverviewHost()
 
     init() {
         let args = Demo.args
@@ -80,7 +86,7 @@ struct MainView: View {
                 path.append(ChatRoute(id: args[j + 1], sheet: args.contains("-sheet")))
             }
             _path = State(initialValue: path)
-            _onProjects = State(initialValue: p == .projects)
+            _onProjects = State(initialValue: p.hasMenu)
         }
     }
 
@@ -95,12 +101,14 @@ struct MainView: View {
             let swipe = MenuDrag(width: max(geo.size.width - 91, 240))
             let width = swipe.width
             let x = swipe.x(open: menuOpen, dx: drag)
+            let slide = OverviewDrag(width: Double(geo.size.width))
+            let p = overview.progress
             ZStack(alignment: .topLeading) {
                 MenuView(current: shownId, open: menuOpen,
-                         pick: { c in if !swipeClock.recent { pick(c) } },
-                         newChat: { if !swipeClock.recent { newChat() } },
-                         place: { p in if !swipeClock.recent { go(p) } },
-                         settings: { if !swipeClock.recent { showSettings = true } },
+                         pick: { c in if !swiped.now { pick(c) } },
+                         newChat: { if !swiped.now { newChat() } },
+                         place: { p in if !swiped.now { go(p) } },
+                         settings: { if !swiped.now { showSettings = true } },
                          lifting: { pinLifted = $0 })
                     .padding(.top, Self.statusBarHeight)
                     .frame(width: width)
@@ -126,19 +134,38 @@ struct MainView: View {
                                 .accessibilityIdentifier("closeMenu")
                         }
                     }
-                    .offset(x: x)
+                    .overlay {
+                        // 1a: the chat dims under the Overview
+                        if p > 0 {
+                            Color.black.opacity(OverviewDrag.dim * p).ignoresSafeArea().allowsHitTesting(false)
+                        }
+                    }
+                    .offset(x: x + CGFloat(slide.chatX(p)))
+                    .accessibilityHidden(p >= 1)
+                // a frame kept while the main chat is up, off the right edge when closed: its offset animates in
+                // and out (an inserted view with a move transition kept reading off screen to accessibility); the
+                // page itself is only in it while shown
+                if let store = overview.store {
+                    ZStack {
+                        if overview.shown {
+                            OverviewLayer(host: overview, store: store).transition(.identity)
+                        }
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .shadow(color: .black.opacity(0.5 * p), radius: 18, x: -4)
+                    .offset(x: CGFloat(slide.overviewX(p)))
+                    .allowsHitTesting(p > 0)
+                }
             }
             .background(Color.black)
             // one pan over the whole screen opens and closes, so a swipe starting anywhere (the menu's rows, its
             // empty space, the chat's strip) follows the finger the same way
             .gesture(MenuSwipe(closing: menuOpen,
-                               enabled: menuOpen ? !pinLifted : path.count <= (onProjects ? 1 : 0),
-                               changed: { dx in
-                                   swipeClock.moving = true
-                                   drag = dx
-                               },
+                               enabled: menuOpen ? !pinLifted
+                                   : p == 0 && path.count <= (onProjects ? 1 : 0),
+                               mark: swiped,
+                               changed: { dx in drag = dx },
                                ended: { dx, v in
-                                   swipeClock.letGo()
                                    let open = swipe.endsOpen(open: menuOpen, dx: dx, velocity: v)
                                    withAnimation(.snappy(duration: 0.3)) {
                                        drag = 0
@@ -146,10 +173,21 @@ struct MainView: View {
                                        if !open { menuOpen = false }
                                    }
                                }))
+            // a141: a swipe left in a project's main chat slides its Overview in; a swipe right takes it back
+            // (a second UIKit pan beside the menu's; each lets the other run, and they start on opposite moves)
+            .gesture(OverviewSwipe(closing: overview.open,
+                                   enabled: overview.store != nil && !menuOpen && drag == 0
+                                       && (overview.open ? overview.path.isEmpty : true),
+                                   changed: { dx in overview.moved(slide.progress(open: overview.open, dx: Double(dx))) },
+                                   ended: { dx, v in
+                                       overview.settle(open: slide.endsOpen(open: overview.open, dx: Double(dx),
+                                                                             velocity: Double(v)))
+                                   }))
         }
         // up to the screen's top (a130): the GeometryReader sat below the status bar, so the chat stopped there and the
         // strip around the Dynamic Island was only black; now the turns scroll under it (the menu keeps its place)
         .ignoresSafeArea(edges: .top)
+        .environment(overview)
         .sensoryFeedback(.impact(weight: .light), trigger: opened)
         .sheet(isPresented: $showSettings) { SettingsView() }
         .alert("That didn't work", isPresented: Binding(get: { model.actionError != nil },
@@ -170,6 +208,10 @@ struct MainView: View {
                 .navigationDestination(for: Place.self) { p in
                     if p == .projects {
                         ProjectsPage(openMenu: { withAnimation(.snappy(duration: 0.3)) { openMenu() } })
+                    } else if p == .quick {
+                        QuickActionsView(pairing: model.pairing, demo: model.demo)
+                    } else if p == .transfer {
+                        TransferPage(openMenu: { withAnimation(.snappy(duration: 0.3)) { openMenu() } })
                     } else {
                         ComingSoonPage(place: p)
                     }
@@ -248,7 +290,7 @@ struct MainView: View {
 
     private func go(_ p: Place) {
         path = NavigationPath([p])
-        onProjects = p == .projects
+        onProjects = p.hasMenu
         close()
     }
 
@@ -274,18 +316,21 @@ struct MainView: View {
 }
 
 /// A row's button fires when the finger lifts over it, even after a swipe across it (seen on the old menu: a flick
-/// to close from Gup Bot's row opened Gup Bot). The menu's actions check this first and skip what a swipe ended.
-final class SwipeClock {
-    var moving = false
-    private var endedAt = Date.distantPast
+/// to close from Gup Bot's row opened Gup Bot). The menu's actions check this first and skip a touch that swiped.
+///
+/// MenuSwipe sets it in UIKit's own callbacks: cleared when a finger touches down, set the moment UIKit lets the swipe
+/// begin. It used to be a 0.4 s clock started from the swipe's SwiftUI callbacks, and those can come after the row's
+/// tap: on a fast flick (a busy phone, CI's cold simulator) the finger lifted 40 ms after UIKit began the swipe, the
+/// row's action ran before SwiftUI had heard of the swipe, and the menu closed with the row's page opening (a131).
+final class SwipeMark {
+    /// the finger on the screen now (or the last one) swiped the menu
+    private(set) var now = false
 
-    func letGo() {
-        moving = false
-        endedAt = Date()
-    }
+    /// a new finger: whatever it does is its own
+    func touchDown() { now = false }
 
-    /// a swipe is under way or let go a moment ago
-    var recent: Bool { moving || Date().timeIntervalSince(endedAt) < 0.4 }
+    /// UIKit is beginning the swipe
+    func swipes() { now = true }
 }
 
 /// Where the chat sits while a swipe moves it, and where it ends up when the finger lets go. Opening and closing
@@ -319,6 +364,8 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
     /// the menu is open: a swipe left closes it
     var closing: Bool
     var enabled: Bool
+    /// told in UIKit's callbacks when a finger lands and when the swipe begins, so the rows can skip a swiped touch
+    var mark: SwipeMark
     var changed: (CGFloat) -> Void
     var ended: (CGFloat, CGFloat) -> Void
 
@@ -326,6 +373,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
 
     func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
         let g = UIPanGestureRecognizer()
+        context.coordinator.mark = mark
         g.delegate = context.coordinator
         g.cancelsTouchesInView = false
         g.maximumNumberOfTouches = 1
@@ -335,6 +383,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
     func updateUIGestureRecognizer(_ g: UIPanGestureRecognizer, context: Context) {
         // read when a swipe would start (the menu doesn't open or close while one is under way)
         context.coordinator.closing = closing
+        context.coordinator.mark = mark
         let moving = g.state == .began || g.state == .changed
         g.isEnabled = enabled
         // turned off mid-swipe (a pin lifted under the finger): the chat goes back to where it was
@@ -342,22 +391,28 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
     }
 
     func handleUIGestureRecognizerAction(_ g: UIPanGestureRecognizer, context: Context) {
-        let dx = g.translation(in: nil).x
-        switch g.state {
-        case .began:
-            if context.coordinator.closing { context.coordinator.stopScrolling() }
-            changed(dx)
-        case .changed:
-            if context.coordinator.closing { context.coordinator.stopScrolling() }
-            changed(dx)
-        case .ended: ended(dx, g.velocity(in: nil).x)
-        case .cancelled, .failed: ended(0, 0)
-        default: break
+        let dx = g.translation(in: nil).x, v = g.velocity(in: nil).x, state = g.state
+        let coordinator = context.coordinator
+        let act = {
+            switch state {
+            case .began:
+                if coordinator.closing { coordinator.stopScrolling() }
+                changed(dx)
+            case .changed:
+                if coordinator.closing { coordinator.stopScrolling() }
+                changed(dx)
+            case .ended: ended(dx, v)
+            case .cancelled, .failed: ended(0, 0)
+            default: break
+            }
         }
+        // -slowSwipe (demo, a UI test): SwiftUI hears of the swipe late, as on a busy phone
+        if Demo.slowSwipe { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: act) } else { act() }
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var closing = false
+        weak var mark: SwipeMark?
         /// the scroll views' pans this touch also reaches
         private var scrolls: [WeakPan] = []
 
@@ -368,13 +423,17 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
 
             // a wide table or code panel scrolled sideways under the finger scrolls back first
             if !closing, sideways, v.x > 0, scrollsBack(pan) { return false }
-            return sideways && (closing ? v.x < 0 : v.x > 0)
+            let begins = sideways && (closing ? v.x < 0 : v.x > 0)
+            if begins { mark?.swipes() }
+            return begins
         }
 
         /// the view UIKit found under the finger when the touch began
         private weak var touched: UIView?
 
         func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            // a new touch (a second finger mid-swipe doesn't clear it)
+            if g.state == .possible { mark?.touchDown() }
             touched = touch.view
             return true
         }
@@ -431,7 +490,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
     }
 }
 
-/// Scheduled, Quick actions and Gup Bot: places for what comes next.
+/// Scheduled, Transfer and Gup Bot: places for what comes next.
 struct ComingSoonPage: View {
     let place: Place
 

@@ -21,6 +21,38 @@ struct ProjectView: Codable, Equatable {
     var color: String?
     var goal: String?
     var mainNeeds: MainNeeds?
+    // a141: the Overview's main chat row, the parts, the plan's limits, the next schedule; after a Delete, the branch
+    // that was kept (it has commits the main branch lacks)
+    var main: MainRow?
+    var parts: [Part]?
+    var plan: ProjectUsage.Plan?
+    var nextSchedule: NextSchedule?
+    var branchKept: String?
+
+    /// The main chat's row (the desktop's mainItem): "Opus high", usage, what it is doing, its subagents.
+    struct MainRow: Codable, Equatable {
+        var chatId: String
+        var title: String
+        var model: String
+        var effort: String
+        var modelLabel: String
+        var usage: String
+        var state: String       // working | needs | permission | done | idle
+        var activity: String
+        var line: String
+        var subagents: [Subagent]
+    }
+
+    struct Part: Codable, Equatable, Hashable {
+        var id: String
+        var name: String
+    }
+
+    struct NextSchedule: Codable, Equatable {
+        var id: String
+        var title: String
+        var when: String        // "Tmrw 7:30"
+    }
 
     struct Counts: Codable, Equatable {
         var threads: Int        // not done or archived
@@ -100,6 +132,46 @@ struct ThreadItem: Codable, Equatable, Identifiable {
     var line: String?
     var modelLabel: String?
     var ago: String?
+    // a141: its subagents (running first) and what its long-press card shows
+    var subagents: [Subagent]?
+    var facts: WorkFacts?
+}
+
+/// A subagent under the main chat or a thread (the desktop's makeSub).
+struct Subagent: Codable, Equatable, Identifiable, Hashable {
+    var id: String
+    var title: String           // its description's first line, else its type
+    var type: String
+    var model: String           // "Sonnet"
+    var tokens: String          // "42K"
+    var right: String           // "Sonnet · 42K"
+    var running: Bool
+    var interrupted: Bool
+    var tools: Int
+    var ran: String             // "4m"
+}
+
+/// What a thread was asked for and where it is: the long-press card (and the worker's task card).
+struct WorkFacts: Codable, Equatable {
+    var outcome: String
+    var criteria: [String]
+    var checkpoint: String
+    var nextAction: String
+    var branch: String
+    var commit: String
+    var reworks: Int
+    var evidence: [Evidence]
+    var issue: String
+    var waitsFor: [String]
+    var model: String
+    var effort: String
+    var from: String            // you | main
+
+    struct Evidence: Codable, Equatable, Hashable {
+        var kind: String
+        var summary: String
+        var revision: String
+    }
 }
 
 /// GET …/library (or ?folder=): Pinned, Notes, From threads; a folder's notes.
@@ -458,27 +530,40 @@ enum DemoProject {
     static let labels = ["needs-you": "Needs you", "working": "Working", "checking": "Being checked",
                          "up-next": "Up next", "idle": "Idle", "done": "Done", "archived": "Archived"]
 
-    /// The view after `move` on thread `id`, as the PC's would read (states, glyphs, moves, counts).
-    static func apply(_ move: String, to id: String, in v: ProjectView) -> ProjectView {
+    /// The view after `move` on thread `id`, as the PC's would read (states, glyphs, moves, counts). Rename takes
+    /// the new `title`; Delete takes the thread out.
+    static func apply(_ move: String, to id: String, in v: ProjectView, title: String? = nil) -> ProjectView {
         var threads = v.allThreads
         guard let i = threads.firstIndex(where: { $0.id == id }) else { return v }
         var t = threads[i]
+        let tail = (t.chatId != nil ? ["rename"] : []) + ["delete"]
         switch move {
         case "pause":
-            (t.status, t.state, t.glyph, t.moves) = ("paused", "idle", "pause", ["resume", "stop", "done", "archive"])
+            (t.status, t.state, t.glyph, t.moves) = ("paused", "idle", "pause", ["resume", "stop", "done", "archive"] + tail)
             t.detail = "paused"
+            t.line = "paused · " + (t.modelLabel ?? "")
         case "resume":
-            (t.status, t.state, t.glyph, t.moves) = ("running", "working", "spin", ["pause", "stop", "archive"])
+            (t.status, t.state, t.glyph, t.moves) = ("running", "working", "spin", ["pause", "stop", "archive"] + tail)
             t.detail = "Picking up where it stopped"
+            t.line = "Picking up where it stopped · " + (t.modelLabel ?? "")
         case "stop":
-            (t.status, t.state, t.glyph, t.moves) = ("stopped", "idle", "idle", ["done", "archive"])
+            (t.status, t.state, t.glyph, t.moves) = ("stopped", "idle", "idle", ["done", "archive"] + tail)
+            t.line = "stopped · " + (t.modelLabel ?? "")
         case "done":
-            (t.status, t.state, t.glyph, t.moves, t.doneOk) = ("accepted", "done", "check", ["archive"], true)
+            (t.status, t.state, t.glyph, t.moves, t.doneOk) = ("accepted", "done", "check", ["archive"] + tail, true)
+            t.line = "Marked done · " + (t.modelLabel ?? "")
         case "archive":
-            (t.state, t.moves) = ("archived", ["unarchive"])
+            (t.state, t.moves) = ("archived", ["unarchive"] + tail)
         case "unarchive":
             t.state = t.status == "accepted" ? "done" : "idle"
-            t.moves = ["archive"]
+            t.moves = ["archive"] + tail
+        case "rename":
+            let name = (title ?? "").split(whereSeparator: \.isWhitespace).joined(separator: " ")
+            guard !name.isEmpty else { return v }
+            t.title = String(name.prefix(200))
+        case "delete":
+            threads.remove(at: i)
+            return regroup(v, threads)
         default:
             return v
         }
@@ -492,7 +577,7 @@ enum DemoProject {
         let title = text.split(separator: "\n").first.map { String($0.prefix(60)) } ?? "New thread"
         let t = ThreadItem(id: "d\(n)", title: title, chatId: nil, state: "working", status: "running", glyph: "spin",
                            part: "", detail: "Starting", holds: [], right: "Sonnet", usage: "", expensive: false,
-                           muted: false, doneOk: false, moves: ["pause", "stop", "archive"])
+                           muted: false, doneOk: false, moves: ["pause", "stop", "archive", "delete"])
         return regroup(v, [t] + v.allThreads)
     }
 
@@ -510,6 +595,8 @@ enum DemoProject {
         out.counts.needs = count("needs-you")
         out.counts.working = count("working")
         out.counts.checking = count("checking")
+        out.counts.done = count("done")
+        out.counts.archived = count("archived")
         out.quiet = []
         if out.counts.needs > 0 {
             out.quiet.append(.init(glyph: "needs", text: out.counts.needs == 1 ? "1 needs you"

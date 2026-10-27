@@ -22,11 +22,9 @@ struct ChatView: View {
     @State private var selecting: SelectedText?
     // a121: a project's main chat (05) has its Overview (06-10) and settings (11); a thread's chat (07) its task
     @State private var project: ProjectStore?
-    @State private var showProject = false
-    @State private var projectPath = NavigationPath()
-    @State private var pendingChat: String?
-    @State private var pendingPut: String?
     @State private var opensSheet: Bool
+    /// a141: on top of its stack (a main chat's Overview slides in over it only then)
+    @State private var shown = false
     @State private var showSettings = false
     @State private var showTask = false
     @State private var confirmStop = false
@@ -34,6 +32,7 @@ struct ChatView: View {
     @Environment(\.scenePhase) private var phase
     @Environment(\.dismiss) private var dismiss
     @Environment(AppModel.self) private var model
+    @Environment(OverviewHost.self) private var overview: OverviewHost?
 
     /// `projectSheet`: a project's main chat opens with its Overview up (06)
     init(id: String?, pairing: Pairing?, demo: Bool, projectSheet: Bool = false, shell: ChatShell? = nil) {
@@ -81,39 +80,26 @@ struct ChatView: View {
             .onChange(of: projectOf, initial: true) { _, pid in
                 guard let pid else { return }
                 if project?.id != pid { project = ProjectStore(id: pid, pairing: model.pairing, demo: model.demo) }
+                register()
                 if opensSheet && mainOf != nil {
                     opensSheet = false
-                    projectPath = NavigationPath()
-                    // after the push has settled and the sheet can see the store just made
+                    // after the push has settled
                     Task {
-                        try? await Task.sleep(nanoseconds: 600_000_000)
-                        showProject = true
+                        try? await Task.sleep(nanoseconds: 450_000_000)
+                        overview?.present()
                     }
                 }
             }
+            .onAppear {
+                shown = true
+                register()
+            }
+            .onDisappear {
+                shown = false
+                overview?.detach(store.id)
+            }
             .task(id: "\(phase == .active) \(project?.id ?? "")") {
                 if phase == .active, let project { await project.follow() }
-            }
-            .sheet(isPresented: $showProject, onDismiss: {
-                if let id = pendingChat {
-                    pendingChat = nil
-                    openChat?(id)
-                } else if let text = pendingPut {
-                    pendingPut = nil
-                    store.put(text)
-                }
-            }) {
-                if let project {
-                    ProjectOverview(store: project, path: $projectPath, open: { id in
-                        if id != store.id { pendingChat = id }
-                        showProject = false
-                    }, close: {
-                        showProject = false
-                    }, put: { text in
-                        pendingPut = text
-                        showProject = false
-                    })
-                }
             }
             .sheet(isPresented: $showSettings) {
                 if let pid = projectOf {
@@ -136,7 +122,7 @@ struct ChatView: View {
             } message: {
                 Text("Its Claude stops working on it. The thread stays in the project, so it can be picked up again.")
             }
-            .alert("That didn't work", isPresented: Binding(get: { !showProject && project?.actionError != nil },
+            .alert("That didn't work", isPresented: Binding(get: { !overviewUp && project?.actionError != nil },
                                                            set: { if !$0 { project?.actionError = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -145,24 +131,23 @@ struct ChatView: View {
             .environment(\.projectThreads, threadsById)
     }
 
-    /// The sheet closes first when something else is shown (one sheet at a time).
-    private func overSheet(_ show: @escaping () -> Void) {
-        guard showProject else { return show() }
-        showProject = false
-        Task {
-            try? await Task.sleep(nanoseconds: 450_000_000)
-            show()
-        }
+    /// a141: a project's main chat on top of its stack lends the Overview its project (MainView draws it)
+    private func register() {
+        guard shown, mainOf != nil, let project, let overview, !store.id.isEmpty else { return }
+        let chat = store
+        overview.attach(project, chat: store.id, put: { text in chat.put(text) })
     }
 
-    /// 05's Overview button: the sheet, or closed when it's already up.
+    /// this chat's Overview is in (its errors show there)
+    private var overviewUp: Bool {
+        guard let overview, overview.chatId == store.id else { return false }
+        return overview.progress > 0
+    }
+
+    /// 05's Overview button: slides the Overview in (1a)
     private func toggleOverview() {
-        if showProject {
-            showProject = false
-        } else {
-            projectPath = NavigationPath()
-            showProject = true
-        }
+        register()
+        overview?.toggle()
     }
 
     /// 07's ⋯: Pause or Resume, Mark done, Archive, Stop, as the Overview's swipes do
@@ -383,12 +368,12 @@ struct ChatView: View {
         let s = store
         // these come up as their own sheet or dialog, so the project sheet steps aside first
         let rewind: ((Turn) -> Void)? = s.working || s.rewinding ? nil : { t in
-            overSheet { Task { await s.startRewind(t) } }
+            Task { await s.startRewind(t) }
         }
         return MessageActions(
             rewind: rewind,
             btw: { text in s.put("/btw about \u{201C}\(MessageActions.quote(text))\u{201D}: ") },
-            select: { text in overSheet { selecting = SelectedText(text: text) } },
+            select: { text in selecting = SelectedText(text: text) },
             reply: { text in Task { await s.send(text: text, attachments: []) } }
         )
     }
@@ -500,7 +485,7 @@ struct ChatView: View {
         } else {
             ToolbarItem(placement: .principal) {
                 // 5e: just the title; the gauge holds the model. A tap opens the chat's details (D5).
-                Button { overSheet { showDetails = true } } label: {
+                Button { showDetails = true } label: {
                     // its own width (centred by the bar), cut at 230 pt when long
                     ViewThatFits(in: .horizontal) {
                         titleText.fixedSize()
@@ -534,7 +519,7 @@ struct ChatView: View {
     /// its task.
     private var projectPill: some View {
         Button {
-            if mainOf != nil { overSheet { showSettings = true } } else { showTask = true }
+            if mainOf != nil { showSettings = true } else { showTask = true }
         } label: {
             HStack(spacing: 10) {
                 if let w = work {

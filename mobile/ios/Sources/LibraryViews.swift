@@ -1,6 +1,6 @@
 import SwiftUI
 
-// The Library's folders and notes (08), opened inside the Overview: a note reads as Markdown and is edited as
+// The Library's folders and notes (08, 1d), opened inside the Overview: a note reads as Markdown and is edited as
 // plain text, saved over the version the phone opened.
 
 /// A folder in the Library: its notes as the Library page's cards.
@@ -22,10 +22,7 @@ struct LibraryFolderView: View {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 30).listRowBackground(Color.clear)
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(SheetStyle.background)
-        .environment(\.defaultMinListRowHeight, 50)
+        .modifier(OverviewList())
         .navigationTitle(row.title)
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await load() }

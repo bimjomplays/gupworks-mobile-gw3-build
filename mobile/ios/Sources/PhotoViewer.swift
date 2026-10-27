@@ -10,6 +10,11 @@ struct ChatPhoto: Equatable, Identifiable {
     let id: String
     let link: String
     let mine: Bool
+    /// a mockup set's picture: "2b · Cards · Overview" and how its option differs, shown under it
+    var title: String? = nil
+    var detail: String? = nil
+    /// a mockup screen's short code ("2b"), shown small after its title
+    var tag: String? = nil
 }
 
 /// A chat's pictures, oldest first, as the chat shows them. Ids come from where a picture sits (turn, block,
@@ -39,7 +44,8 @@ enum ChatPhotos {
                 let scope = blockScope(t.id, bi)
                 switch b.type {
                 case "text":
-                    for (mi, m) in (b.md ?? []).enumerated() where m.t == "media" {
+                    // a mockup set's pictures open among the set's own (MockupSetView), not the chat's
+                    for (mi, m) in (b.md ?? []).enumerated() where m.t == "media" && !m.isFallback {
                         for (k, it) in (m.items ?? []).enumerated() where isPicture(it) {
                             out.append(ChatPhoto(id: id(scope: scope, slot: mi, item: k), link: it.url ?? "", mine: false))
                         }
@@ -172,6 +178,7 @@ struct PhotoViewer: View {
                 .ignoresSafeArea()
             if chrome && !dragging {
                 bar.transition(.opacity)
+                caption.transition(.opacity)
             }
         }
         .accessibilityElement(children: .contain)
@@ -201,6 +208,45 @@ struct PhotoViewer: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
+    }
+
+    /// a mockup set's picture says which one it is, in words ("Option 2 · Cards — Overview", its code small after
+    /// it) and how the option differs
+    @ViewBuilder
+    private var caption: some View {
+        if photos.indices.contains(index), let title = photos[index].title {
+            VStack(spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .accessibilityIdentifier("photoTitle")
+                    if let tag = photos[index].tag, !tag.isEmpty {
+                        Text(tag)
+                            .font(.system(size: 11, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(0.7))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .overlay(Capsule().stroke(.white.opacity(0.35), lineWidth: 1))
+                    }
+                }
+                if let d = photos[index].detail, !d.isEmpty {
+                    Text(d)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .lineLimit(2)
+                }
+            }
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .glassEffect(in: .rect(cornerRadius: 18))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .allowsHitTesting(false)
+        }
     }
 
     private func glassButton(_ symbol: String, _ label: String, id: String, action: @escaping () -> Void) -> some View {
@@ -421,7 +467,20 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
     }
 
     private func refreshValue() {
-        accessibilityValue = (pages[index]?.isZoomed ?? false) ? "zoomed" : "fit"
+        let value = (pages[index]?.isZoomed ?? false) ? "zoomed" : "fit"
+        if value != accessibilityValue { note(value) }
+        accessibilityValue = value
+    }
+
+    /// demo mode only (the UI tests): the viewer's last few gestures as it decided them, after its accessibility
+    /// label, so a test step that didn't take prints what the viewer saw (a131)
+    private var notes: [String] = []
+
+    private func note(_ s: @autoclosure () -> String) {
+        guard Demo.isOn else { return }
+        notes.append(s())
+        if notes.count > 12 { notes.removeFirst(notes.count - 12) }
+        accessibilityLabel = "Picture; " + notes.joined(separator: " | ")
     }
 
     // MARK: paging
@@ -431,6 +490,7 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
         let i = min(max(0, Int((scrollView.contentOffset.x / pageWidth).rounded())), urls.count - 1)
         guard i != index else { return }
         index = i
+        note("page \(i + 1)")
         tile()
         refreshValue()
         onIndex?(i)
@@ -449,6 +509,7 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
     }
 
     @objc private func doubleTapped(_ g: UITapGestureRecognizer) {
+        note("double tap at zoom \(String(format: "%.2f", pages[index]?.zoomScale ?? 0))")
         guard let p = pages[index] else { return }
         p.toggleZoom(at: g.location(in: p.imageView))
     }
@@ -456,9 +517,14 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
     // MARK: swipe down to close
 
     private func mayDismiss(_ g: UIGestureRecognizer) -> Bool {
-        guard let pan = g as? UIPanGestureRecognizer, !(pages[index]?.isZoomed ?? false) else { return false }
+        guard let pan = g as? UIPanGestureRecognizer, !(pages[index]?.isZoomed ?? false) else {
+            note("drag: zoomed, pans")
+            return false
+        }
         let v = pan.velocity(in: self)
-        return v.y > 0 && abs(v.y) > abs(v.x) * 1.2
+        let down = v.y > 0 && abs(v.y) > abs(v.x) * 1.2
+        note("drag v \(Int(v.x)),\(Int(v.y)) touches \(pan.numberOfTouches): \(down ? "closing" : "not down")")
+        return down
     }
 
     @objc private func dragged(_ g: UIPanGestureRecognizer) {
@@ -474,7 +540,9 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
             backgroundColor = UIColor.black.withAlphaComponent(1 - progress)
         case .ended, .cancelled, .failed:
             let v = g.velocity(in: self)
-            if g.state == .ended, t.y > 110 || v.y > 900 {
+            let closes = g.state == .ended && (t.y > 110 || v.y > 900)
+            note("let go t \(Int(t.x)),\(Int(t.y)) v \(Int(v.x)),\(Int(v.y)): \(closes ? "closes" : "back")")
+            if closes {
                 isUserInteractionEnabled = false
                 let down = bounds.height
                 UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseIn, .beginFromCurrentState], animations: {

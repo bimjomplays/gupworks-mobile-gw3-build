@@ -205,6 +205,10 @@ struct MD: Codable, Equatable {
     var head: [String]?
     var rows: [[String]]?
     var align: [String]?
+    /// a `mockups` block's set (MockupSet.swift)
+    var set: MockupSet?
+    /// sent for apps from before the set card; this app skips it
+    var fallback: Bool?
 }
 
 /// A list item (level, text, n, done) or a picture/video (kind, url, name, poster).
@@ -356,6 +360,9 @@ enum MediaLink {
             let dir = (rel as NSString).deletingLastPathComponent
             let sub = dir.isEmpty ? "fixtures" : "fixtures/" + dir
             return Demo.file(name, in: sub)
+        }
+        if link.hasPrefix("file://"), Demo.isOn {
+            return URL(string: link)                     // a file the demo "sent" (a144): its copy on this phone
         }
         if link.hasPrefix("/v1/media/"), let base {
             return URL(string: link, relativeTo: base)?.absoluteURL

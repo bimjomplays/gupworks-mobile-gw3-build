@@ -10,7 +10,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.9.7"
+    MARKETING_VERSION: "0.9.8"
     CURRENT_PROJECT_VERSION: "1"
 # Hammer: real touches (taps, drags, long presses, pinches) inside the unit-test process, for the screen tests
 # (Tests/ScreenDriver.swift); XCTest's own event synthesizer only works from a UI-test bundle
@@ -70,7 +70,8 @@ targets:
         NSLocalNetworkUsageDescription: >-
           GupWorks reaches your PC through Tailscale, by its Tailscale address when its name can't be looked up.
         NSPhotoLibraryAddUsageDescription: >-
-          GupWorks saves a chat's picture or video to your photos only when you choose Save in the share sheet.
+          GupWorks saves a picture or video to your photos only when you choose Save in the share sheet or Save to
+          Photos on a file your PC sent.
         NSSpeechRecognitionUsageDescription: >-
           When your PC can't be reached, GupWorks turns your recording into text on this iPhone instead. Nothing is
           sent anywhere else.

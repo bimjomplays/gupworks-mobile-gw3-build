@@ -37,6 +37,8 @@ final class ImageCache {
 struct PhotoGrid: Layout {
     var tile: CGFloat = 96
     var spacing: CGFloat = 6
+    /// rows hug the left edge instead (the PC's side of the file transfer chat)
+    var leading = false
 
     struct Shape: Equatable {
         var columns: Int
@@ -71,9 +73,9 @@ struct PhotoGrid: Layout {
         for (i, view) in subviews.enumerated() {
             let row = i / s.columns, col = i % s.columns
             let inRow = min(s.columns, subviews.count - row * s.columns)
-            // each row hugs the right edge, like the bubble under it
+            // each row hugs the right edge, like the bubble under it (the left one when `leading`)
             let rowWidth = CGFloat(inRow) * s.side + CGFloat(inRow - 1) * spacing
-            let x = bounds.maxX - rowWidth + CGFloat(col) * (s.side + spacing)
+            let x = (leading ? bounds.minX : bounds.maxX - rowWidth) + CGFloat(col) * (s.side + spacing)
             let y = bounds.minY + CGFloat(row) * (s.side + spacing)
             view.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: size)
         }

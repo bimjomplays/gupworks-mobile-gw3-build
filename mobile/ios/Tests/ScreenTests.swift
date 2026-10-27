@@ -381,7 +381,7 @@ final class ScreenTests: XCTestCase {
 
     func testComingSoonPlaces() {
         let app = launch(["-menu"])
-        for p in ["scheduled", "quick", "transfer", "bot"] {
+        for p in ["scheduled", "bot"] {
             if !el(app, "place-\(p)").exists { openMenu(app) }
             XCTAssertTrue(el(app, "place-\(p)").waitForExistence(timeout: 20))
             el(app, "place-\(p)").tap()
@@ -390,6 +390,131 @@ final class ScreenTests: XCTestCase {
             app.navigationBars.buttons.element(boundBy: 0).tap()
             XCTAssertTrue(el(app, "comingSoon").waitForNonExistence(timeout: 5))
         }
+    }
+
+    /// a142: Quick actions from the menu: Away mode and Dillon's game bot as the PC reads them, Restart PC asks first
+    private func quickPage(_ flags: [String] = []) -> App {
+        let app = launch(["-menu"] + flags)
+        if !el(app, "place-quick").exists { openMenu(app) }
+        XCTAssertTrue(el(app, "place-quick").waitForExistence(timeout: 20))
+        el(app, "place-quick").tap()
+        XCTAssertTrue(app.switches["quick-away"].waitForExistence(timeout: 10), app.debugDescription)
+        return app
+    }
+
+    func testQuickActions() {
+        let app = quickPage()
+        XCTAssertFalse(el(app, "comingSoon").exists)
+        XCTAssertTrue(find(app, "Away mode").exists)
+        XCTAssertTrue(find(app, "Dillon's game bot").exists)
+        XCTAssertTrue(find(app, "Restart PC").exists)
+        let away = app.switches["quick-away"], bot = app.switches["quick-game-bot"]
+        XCTAssertEqual(away.value as? String, "0")
+        XCTAssertEqual(bot.value as? String, "1")
+        sleep(1)
+        shot("quick-actions")
+
+        flip(away)
+        XCTAssertTrue(waitValue(away, "1"))
+        XCTAssertTrue(app.buttons["quickRestart"].isEnabled)
+        app.buttons["quickRestart"].tap()
+        XCTAssertTrue(app.alerts["Restart the PC now?"].waitForExistence(timeout: 5))
+        sleep(1)
+        shot("quick-restart-confirm")
+        app.alerts.buttons["Cancel"].tap()
+        XCTAssertTrue(app.alerts["Restart the PC now?"].waitForNonExistence(timeout: 5))
+        XCTAssertFalse(find(app, "Restarting").exists, "Cancel restarts nothing")
+        app.buttons["quickRestart"].tap()
+        XCTAssertTrue(app.alerts["Restart the PC now?"].waitForExistence(timeout: 5))
+        app.alerts.buttons["Restart"].tap()
+        XCTAssertTrue(find(app, "Restarting").waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["quickRestart"].isEnabled)
+    }
+
+    /// the PC's errors and warnings under their switch; Restart PC off with logind's reason
+    func testQuickActionsErrors() {
+        let app = quickPage(["-quickError"])
+        XCTAssertTrue(el(app, "quick-away-warning").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "gupworks-away.service isn't running").exists)
+        XCTAssertTrue(find(app, "tmux: no server running").exists)
+        XCTAssertTrue(find(app, "logind CanReboot").exists)
+        XCTAssertFalse(app.buttons["quickRestart"].isEnabled)
+        let away = app.switches["quick-away"]
+        flip(away)
+        XCTAssertTrue(el(app, "quick-away-error").waitForExistence(timeout: 5))
+        XCTAssertTrue(waitValue(away, "0"), "the switch stays where the PC is")
+        sleep(1)
+        shot("quick-actions-errors")
+    }
+
+    // MARK: a144: File transfer
+
+    /// the chat with the PC: the phone's own on the right, the PC's on the left, pictures, a video and files
+    func testTransferChat() {
+        let app = launch(["-place", "transfer"])
+        XCTAssertTrue(find(app, "perfect, ordering it now").waitForExistence(timeout: 20))
+        XCTAssertTrue(el(app, "tab-chat").exists && el(app, "tab-library").exists)
+        XCTAssertFalse(el(app, "gauge").exists, "no model here")
+        let screen = app.windows.firstMatch.frame
+        let mine = find(app, "perfect, ordering it now"), pc = find(app, "got it, thanks")
+        XCTAssertGreaterThan(mine.frame.midX, screen.midX, "the phone's own on the right")
+        XCTAssertTrue(pc.exists)
+        XCTAssertLessThan(pc.frame.midX, screen.midX, "the PC's on the left")
+        XCTAssertTrue(el(app, "transferFile").exists)
+        sleep(2)
+        shot("transfer-chat")
+        // the menu button opens the menu; File transfer is a place in it
+        openMenu(app)
+        XCTAssertTrue(el(app, "place-transfer").exists)
+    }
+
+    /// a note typed here goes up and shows on the right
+    func testTransferSendText() {
+        let app = launch(["-place", "transfer"])
+        XCTAssertTrue(find(app, "perfect, ordering it now").waitForExistence(timeout: 20))
+        type(app, "leaving at six")
+        app.buttons["send"].tap()
+        // first the outbox's bubble, then (the demo PC took it) the message itself
+        let sent = app.descendants(matching: .any).matching(identifier: "transferMine")
+            .matching(NSPredicate(format: "label CONTAINS[c] %@", "leaving at six")).firstMatch
+        XCTAssertTrue(sent.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(sent.frame.midX, app.windows.firstMatch.frame.midX)
+    }
+
+    /// a big video on its way: its bar and how much is up
+    func testTransferUploading() {
+        let app = launch(["-place", "transfer", "-transferUploading"])
+        XCTAssertTrue(el(app, "transferProgress").waitForExistence(timeout: 20))
+        XCTAssertTrue(find(app, "of 94 MB").exists)
+        sleep(2)
+        shot("transfer-uploading")
+    }
+
+    /// stopped on the way: why, Retry and Discard
+    func testTransferFailed() {
+        let app = launch(["-place", "transfer", "-transferFailed"])
+        XCTAssertTrue(el(app, "transferRetry").waitForExistence(timeout: 20))
+        XCTAssertTrue(el(app, "transferDiscard").exists)
+        XCTAssertTrue(find(app, "Not sent").exists)
+        el(app, "transferDiscard").tap()
+        XCTAssertTrue(el(app, "transferRetry").waitForNonExistence(timeout: 5))
+    }
+
+    /// the Library: photos and videos as a grid, other files as a list, newest first
+    func testTransferLibrary() {
+        let app = launch(["-place", "transfer"])
+        XCTAssertTrue(el(app, "tab-library").waitForExistence(timeout: 20))
+        el(app, "tab-library").tap()
+        XCTAssertTrue(el(app, "transferLibPicture").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "transferLibVideo").exists)
+        XCTAssertTrue(find(app, "Shelf cut list.pdf").exists)
+        XCTAssertTrue(find(app, "backyard-notes.txt").exists)
+        // newest first: the notes (sent last) above the cut list
+        XCTAssertLessThan(find(app, "backyard-notes.txt").frame.minY, find(app, "Shelf cut list.pdf").frame.minY)
+        sleep(2)
+        shot("transfer-library")
+        el(app, "tab-chat").tap()
+        XCTAssertTrue(find(app, "perfect, ordering it now").waitForExistence(timeout: 10))
     }
 
     // MARK: slice 2: chats
@@ -551,6 +676,145 @@ final class ScreenTests: XCTestCase {
             // held at the end: no fling, so each step moves the chat by about the drag
             from.press(forDuration: 0.05, thenDragTo: to, withVelocity: Velocity(rawValue: 1500), thenHoldForDuration: 0.2)
         }
+    }
+
+    /// a122's photo zoom with real fingers (Hammer): double-tap zooms in and back, a two-finger pinch zooms, swipe
+    /// down closes. These steps were in PhotoViewerUITests, where XCUITest's synthesized pinch now and then left
+    /// CI's simulator not delivering the next gestures (a131); the paging swipes stay there.
+    func testPhotoZoom() {
+        let six = "Here are six photos of the living room"
+        let app = openChat(chat(16), waitFor: six)
+        let pictures = app.buttons.matching(identifier: "yourPicture")
+        XCTAssertGreaterThanOrEqual(pictures.count, 6)
+        pictures.element(boundBy: pictures.count - 5).tap()
+        let viewer = el(app, "photoViewer")
+        XCTAssertTrue(viewer.waitForExistence(timeout: 5), "the viewer opens")
+        XCTAssertTrue(poll(5) { el(app, "photoCounter").label == "26 of 30" }, el(app, "photoCounter").label)
+        let page = el(app, "photoPage")
+        func zoom(_ value: String) -> Bool { poll(5) { (page.value as? String) == value } }
+        XCTAssertTrue(zoom("fit"), page.label)
+
+        page.doubleTap()
+        XCTAssertTrue(zoom("zoomed"), "double-tap zooms in; \(page.label)")
+        idle(1)
+        shot("a122-photo-zoomed")
+        page.doubleTap()
+        XCTAssertTrue(zoom("fit"), "double-tap again: back to fit; \(page.label)")
+        let f = page.frame
+        Finger.zoom(at: CGPoint(x: f.midX, y: f.midY), distance: 200)
+        XCTAssertTrue(zoom("zoomed"), "a pinch zooms; \(page.label)")
+        page.doubleTap()
+        XCTAssertTrue(zoom("fit"), page.label)
+
+        page.swipeDown()
+        XCTAssertTrue(viewer.waitForNonExistence(timeout: 5), "swipe down closes; \(page.label)")
+        XCTAssertTrue(find(app, six).exists, "back in the chat")
+    }
+
+    // MARK: a133: a mockup set, and pictures in the order the text has them
+
+    private let mockups = "00000018-1111-4222-8333-000000000018"
+
+    /// drags the chat in short steps until `e` sits between `top` and `bottom` of the screen (or, taller than that,
+    /// starts in the upper part); an element not built yet is taken to be further up
+    private func bring(_ app: App, _ e: Element, top: CGFloat = 0.12, bottom: CGFloat = 0.88) {
+        let h = app.windows.firstMatch.frame.height
+        for _ in 0..<40 {
+            let f: CGRect? = e.exists ? e.frame : nil
+            if let f, f.minY >= h * top, f.maxY <= h * bottom || f.minY <= h * 0.4 { return }
+            let up = f.map { $0.minY > h * 0.4 } ?? false     // below: move the chat up
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: up ? 0.6 : 0.35))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: up ? 0.4 : 0.55))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: Velocity(rawValue: 1500), thenHoldForDuration: 0.2)
+        }
+        XCTFail("couldn't bring \(e.identifier.isEmpty ? e.label : e.identifier) into view")
+    }
+
+    /// a ```mockups block is one set card: its name, what's the same, each option numbered with its name, how it
+    /// differs and its screens (1a, 1b ...) to swipe through, then "How they differ" as a list; a tap on a screen
+    /// opens the viewer on the set's pictures in set order, each titled in words
+    func testA133MockupSet() {
+        let app = openChat(mockups, waitFor: "Here are the three Overview screens again")
+        let set = el(app, "mockupSet")
+        bring(app, el(app, "mockupTitle"))
+        XCTAssertTrue(set.exists, "the set shows as a card")
+        XCTAssertTrue(el(app, "mockupTitle").label.contains("Phone project Overview · round 1"), el(app, "mockupTitle").label)
+        XCTAssertTrue(find(app, "Same in all: slides in from the right").exists, "what's the same in all")
+        XCTAssertFalse(find(app, "Mockup set: Phone project Overview").exists, "the older apps' copy isn't drawn")
+        XCTAssertFalse(find(app, "```mockups").exists, "no raw block")
+        let one = el(app, "mockupOption-1")
+        XCTAssertTrue(one.exists)
+        XCTAssertTrue(find(app, "the desktop's right bar group by group").exists, "option 1's difference")
+        // in words first (bare codes like "1b" were confusing); the code stays as a small tag
+        XCTAssertTrue(el(app, "mockupOptionTitle-1").label.contains("Option 1 · Sections"), el(app, "mockupOptionTitle-1").label)
+        XCTAssertEqual(el(app, "mockupShot-1b").label, "Option 1 · Sections — Overview")
+        XCTAssertTrue(el(app, "mockupShot-1a").exists && el(app, "mockupShot-1b").exists, "1a and 1b side by side")
+        onScreen(app, el(app, "mockupShot-1a"), "1a")
+        XCTAssertLessThan(el(app, "mockupShot-1a").frame.maxX, el(app, "mockupShot-1b").frame.minX, "1a before 1b")
+        idle(1)
+        shot("a133-set")
+        // sideways through option 1's screens
+        let row = el(app, "mockupScreens-1")
+        let x0 = el(app, "mockupShot-1a").frame.minX
+        for _ in 0..<2 {
+            row.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
+                .press(forDuration: 0.05, thenDragTo: row.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)))
+        }
+        let third = el(app, "mockupShot-1c")
+        settle { third.exists ? third.frame : nil }
+        XCTAssertTrue(el(app, "mockupShot-1c").exists, "swiped on to 1c")
+        XCTAssertLessThan(el(app, "mockupShot-1c").frame.minX, x0 + 300, "1c came into view")
+        idle(1)
+        shot("a133-set-swiped")
+        // option 2, then its 2b full screen
+        bring(app, el(app, "mockupShot-2b"), top: 0.15, bottom: 0.95)
+        XCTAssertTrue(find(app, "roomy; questions as swipeable cards").exists, "option 2's difference")
+        idle(1)
+        shot("a133-set-option-2")
+        el(app, "mockupShot-2b").tap()
+        XCTAssertTrue(el(app, "photoViewer").waitForExistence(timeout: 5), "the viewer opens")
+        XCTAssertTrue(poll(5) { el(app, "photoTitle").label == "Option 2 · Cards — Overview" }, el(app, "photoTitle").label)
+        XCTAssertEqual(el(app, "photoCounter").label, "8 of 20", "the set's 20 screens, 2b the 8th")
+        idle(1)
+        shot("a133-set-viewer")
+        let viewer = el(app, "photoViewer")
+        viewer.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: viewer.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5)))
+        XCTAssertTrue(poll(5) { el(app, "photoTitle").label == "Option 2 · Cards — Scrolled" }, el(app, "photoTitle").label)
+        XCTAssertEqual(el(app, "photoCounter").label, "9 of 20")
+        el(app, "photoClose").tap()
+        XCTAssertTrue(el(app, "photoViewer").waitForNonExistence(timeout: 5))
+        // the table as a list
+        bring(app, el(app, "mockupDifferences"), top: 0.1, bottom: 0.95)
+        XCTAssertTrue(find(app, "HOW THEY DIFFER").exists)
+        XCTAssertTrue(find(app, "Cards you answer in place").exists, "a table cell as a line")
+        XCTAssertFalse(find(app, "|---|").exists, "no raw table")
+        idle(1)
+        shot("a133-set-differences")
+    }
+
+    /// a129's reply with four captioned pictures (1b, 2b, 3b, then 3a): each picture right under its own words,
+    /// in the text's order, none grouped into a grid
+    func testA133PicturesInTheTextsOrder() {
+        let app = openChat(mockups, waitFor: "Here are the three Overview screens again")
+        let words = ["closest to the desktop's right bar", "the roomiest", "dense and flat, with filter chips",
+                     "how it slides in from the right", "My pick is 3, because"]
+        let pictures = ["Picture 1 Sections", "Picture 2 Cards", "Picture 3 Ledger", "Picture Slide in"]
+        bring(app, find(app, words[0]))
+        idle(1)
+        shot("a133-pictures-1")
+        for i in 0..<pictures.count {
+            let above = find(app, words[i]), picture = find(app, pictures[i]), below = find(app, words[i + 1])
+            if !(above.exists && picture.exists && below.exists) { bring(app, picture) }
+            XCTAssertTrue(above.exists && picture.exists && below.exists, "\(pictures[i]) and the words around it")
+            XCTAssertLessThanOrEqual(above.frame.maxY, picture.frame.minY + 0.5, "\(pictures[i]) under its words")
+            XCTAssertLessThanOrEqual(picture.frame.maxY, below.frame.minY + 0.5, "\(pictures[i]) before the next words")
+            XCTAssertGreaterThan(picture.frame.width, app.windows.firstMatch.frame.width * 0.5,
+                                 "\(pictures[i]) on its own, not a grid tile")
+        }
+        bring(app, find(app, pictures[2]))
+        idle(1)
+        shot("a133-pictures-2")
     }
 
     func testAttachMenu() {
@@ -948,21 +1212,40 @@ final class ScreenTests: XCTestCase {
         return app
     }
 
+    /// the Overview up and still (its slide in has ended), on whichever tab -tab picked
     private func overview(_ extra: [String] = []) -> App {
         let app = project(["-sheet"] + extra)
-        XCTAssertTrue(el(app, "overviewGlance").waitForExistence(timeout: 10))
+        let back = el(app, "overviewClose")
+        XCTAssertTrue(back.waitForExistence(timeout: 10))
+        // (the slide's own animation: the frame reads off screen until it starts, so wait for it rather than for stillness)
+        XCTAssertTrue(poll(8) { back.frame.minX < 40 }, "the Overview slid all the way in (‹ at \(back.frame.minX))")
+        settle { back.frame }
         return app
     }
 
-    /// Library, Ideas or Scheduled at the foot of the Overview: scrolled to, then tapped
-    private func place(_ app: App, _ id: String) {
-        let row = el(app, "overview-\(id)")
-        var n = 0
-        while !(row.exists && row.isHittable) && n < 5 {
-            app.collectionViews.firstMatch.swipeUp()
-            n += 1
+    /// a141: a tab of the glass pill (Overview, Library, Scheduled)
+    private func place(_ app: App, _ tab: String) {
+        let t = el(app, "overviewTab-\(tab)")
+        XCTAssertTrue(t.waitForExistence(timeout: 5))
+        t.tap()
+    }
+
+    /// scrolls the page (half a screen at a time, no fling) until `id` is fully between the glass top and the
+    /// bottom edge (a List only makes the rows it shows)
+    @discardableResult
+    private func reveal(_ app: App, _ id: String) -> Element {
+        let e = el(app, id)
+        let h = app.frame.height, top: CGFloat = 190, x = app.frame.midX
+        for _ in 0..<12 {
+            if e.exists && e.isHittable && e.frame.minY >= top && e.frame.maxY <= h - 50 { break }
+            let down = e.exists && e.frame.minY < top
+            let a = CGPoint(x: x, y: down ? h * 0.35 : h * 0.75), b = CGPoint(x: x, y: down ? h * 0.75 : h * 0.35)
+            settle()
+            Finger.press(a, seconds: 0, thenDragTo: b, speed: 700, hold: 0.25)
+            idle(0.4)
         }
-        row.tap()
+        XCTAssertTrue(e.exists, id)
+        return e
     }
 
     /// 05: the main chat with live thread cards and its own question
@@ -1057,19 +1340,64 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(el(app, "projectPill").waitForExistence(timeout: 5))
     }
 
-    /// 06: the Overview: glance, Needs you, Working, Done, Library / Ideas / Scheduled
+    /// a141 1a: the Overview slides in from the right over the main chat, which moves left and dims
+    func testP06Slide() {
+        let app = project(["-sheet", "-slide", "0.55"])
+        XCTAssertTrue(el(app, "overviewGlance").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "overviewTab-overview").exists)
+        sleep(1)
+        shot("06-slide")
+    }
+
+    /// a141 1b/1c: the glass top (‹, name, +, three tabs), the main chat row with its subagents, every group,
+    /// thread rows with their subagents, Done and Archived, usage by model and the plan
     func testP06Overview() {
         let app = overview()
+        XCTAssertTrue(el(app, "overviewGlance").waitForExistence(timeout: 5))
+        XCTAssertTrue(el(app, "overviewClose").exists)
+        XCTAssertTrue(el(app, "overviewName").exists)
+        XCTAssertTrue(el(app, "newThread").exists)
+        for t in ["overview", "library", "scheduled"] { XCTAssertTrue(el(app, "overviewTab-\(t)").exists, t) }
+        XCTAssertFalse(el(app, "overviewTab-ideas").exists, "ideas live in the Library tab")
+        XCTAssertTrue(el(app, "mainChat").exists)
+        XCTAssertTrue(find(app, "Review a7").exists, "the main chat's running subagent")
         XCTAssertTrue(el(app, "needsMain").exists)
         XCTAssertTrue(el(app, "thread-a6").exists)
         XCTAssertTrue(el(app, "thread-a4").exists)
-        XCTAssertTrue(el(app, "overviewGlance").exists)
+        XCTAssertTrue(find(app, "Check the form on a small phone").exists, "a4's running subagent")
         sleep(1)
         shot("06-overview")
+        reveal(app, "usagePlan")
+        XCTAssertTrue(el(app, "doneThreads").exists)
+        XCTAssertTrue(el(app, "archivedThreads").exists)
+        XCTAssertTrue(find(app, "weekly 41%").exists)
+        sleep(1)
+        shot("06-overview-scrolled")
+    }
+
+    /// a thread's row opens its chat inside the Overview; Back returns to the Overview
+    func testP06OpenThread() {
+        let app = overview()
         el(app, "thread-a4").tap()
-        // the Overview goes and the thread's chat is pushed over the main chat
         XCTAssertTrue(el(app, "taskCard").waitForExistence(timeout: 10))
-        XCTAssertFalse(el(app, "overviewGlance").exists)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(el(app, "overviewGlance").waitForExistence(timeout: 5), "back on the Overview")
+    }
+
+    /// the main chat's row and ‹ both go back to the main chat
+    func testP06BackToChat() {
+        let app = overview()
+        el(app, "overviewClose").tap()
+        XCTAssertTrue(el(app, "overviewGlance").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(el(app, "projectPill").exists)
+    }
+
+    /// Done opens every done thread
+    func testP06Done() {
+        let app = overview()
+        reveal(app, "doneThreads").tap()
+        XCTAssertTrue(el(app, "thread-a1").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Home page hero").exists)
     }
 
     func testP06NewThread() {
@@ -1104,21 +1432,23 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(app.buttons["Stop\u{2026}"].exists)
     }
 
-    /// 08: Library: pinned, notes, from threads; filter, folders, notes open to read and edit
+    /// 08 (a141 1d): Library: the Ideas on top, then the filter, pinned, notes, from threads; notes open to read
+    /// and edit
     func testP08Library() {
         let app = overview()
         place(app, "library")
-        XCTAssertTrue(el(app, "lib-Ideas").waitForExistence(timeout: 5))
-        XCTAssertTrue(find(app, "From threads").exists)
-        XCTAssertTrue(el(app, "lib-gallery-tour.mp4").exists)
+        XCTAssertTrue(el(app, "ideasTitle").waitForExistence(timeout: 5))
+        XCTAssertTrue(el(app, "ideaText").exists)
+        XCTAssertTrue(find(app, "Booking straight from the gallery").exists)
+        XCTAssertTrue(el(app, "libraryAdd").exists)
+        XCTAssertFalse(el(app, "lib-Ideas").exists, "the Ideas note isn't a row of its own")
         sleep(2)
         shot("08-library")
-        el(app, "libraryKind-images").tap()
-        XCTAssertTrue(el(app, "lib-contact-form.png").waitForExistence(timeout: 5))
+        reveal(app, "libraryKind-images").tap()
+        XCTAssertTrue(reveal(app, "lib-contact-form.png").exists)
         XCTAssertFalse(el(app, "lib-Palette").exists)
-        el(app, "libraryKind-all").tap()
-        XCTAssertTrue(el(app, "lib-Palette").waitForExistence(timeout: 5))
-        el(app, "lib-Palette").tap()
+        reveal(app, "libraryKind-all").tap()
+        reveal(app, "lib-Palette").tap()
         XCTAssertTrue(el(app, "noteText").waitForExistence(timeout: 5))
         app.buttons["noteEdit"].tap()
         let editor = app.textViews["noteEditor"]
@@ -1129,24 +1459,30 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(find(app, "Sand for the footer").exists)
     }
 
+    func testP08LibraryScrolled() {
+        let app = overview(["-tab", "library"])
+        XCTAssertTrue(el(app, "ideasTitle").waitForExistence(timeout: 5))
+        reveal(app, "lib-gallery-tour.mp4")
+        XCTAssertTrue(find(app, "From threads").exists)
+        sleep(1)
+        shot("08-library-scrolled")
+    }
+
     func testP08FolderAndPicture() {
         let app = overview()
         place(app, "library")
-        XCTAssertTrue(el(app, "lib-Memory").waitForExistence(timeout: 5))
-        el(app, "lib-Memory").tap()
+        reveal(app, "lib-Memory").tap()
         XCTAssertTrue(el(app, "lib-MEMORY").waitForExistence(timeout: 5))
         let app2 = overview()
         place(app2, "library")
-        XCTAssertTrue(el(app2, "lib-contact-form.png").waitForExistence(timeout: 5))
-        el(app2, "lib-contact-form.png").tap()
+        reveal(app2, "lib-contact-form.png").tap()
         XCTAssertTrue(el(app2, "libraryPicture").waitForExistence(timeout: 5))
     }
 
     func testP08NoteConflict() {
         let app = overview(["-noteConflict"])
         place(app, "library")
-        XCTAssertTrue(el(app, "lib-Palette").waitForExistence(timeout: 5))
-        el(app, "lib-Palette").tap()
+        reveal(app, "lib-Palette").tap()
         app.buttons["noteEdit"].tap()
         let editor = app.textViews["noteEditor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
@@ -1157,35 +1493,45 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(el(app, "noteSaved").waitForExistence(timeout: 5))
     }
 
-    /// 09: Ideas: sections, AI badges, add at the bottom
+    /// 09 (a141 1e): Ideas at the top of the Library: sections, AI suggestions, add one
     func testP09Ideas() {
-        let app = overview()
-        place(app, "ideas")
+        let app = overview(["-tab", "library"])
         XCTAssertTrue(el(app, "ideasTitle").waitForExistence(timeout: 5))
         XCTAssertTrue(find(app, "Booking straight from the gallery").exists)
-        XCTAssertTrue(find(app, "AI suggestions").exists)
-        sleep(1)
-        shot("09-ideas")
-        let field = el(app, "ideaText")
+        XCTAssertTrue(reveal(app, "idea-Lazy-load the gallery pictures").exists, "an AI suggestion")
+        let field = reveal(app, "ideaText")
         field.tap()
         field.typeText("Gift cards for portrait sessions")
         el(app, "ideaAdd").tap()
         XCTAssertTrue(el(app, "idea-Gift cards for portrait sessions").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("09-ideas")
     }
 
-    /// 10: Scheduled: next runs, a skipped one, one running now, paused, past runs
+    /// 10 (a141 1f): Scheduled: next runs, a skipped one, one running now, paused, past runs
     func testP10Scheduled() {
         let app = overview()
         place(app, "scheduled")
         XCTAssertTrue(el(app, "schedule-s1").waitForExistence(timeout: 5))
-        XCTAssertTrue(find(app, "Skipped, PC was off").exists)
+        XCTAssertTrue(el(app, "newSchedule").exists)
+        XCTAssertTrue(find(app, "PC was off").exists)
         XCTAssertTrue(find(app, "Running as b5").exists)
-        XCTAssertTrue(find(app, "Past runs").exists)
         sleep(1)
         shot("10-scheduled")
         el(app, "schedule-s1").tap()
         XCTAssertTrue(el(app, "scheduleRun").waitForExistence(timeout: 5))
         XCTAssertTrue(el(app, "schedulePause").exists)
+    }
+
+    func testP10ScheduledPast() {
+        let app = overview(["-tab", "scheduled"])
+        XCTAssertTrue(el(app, "schedule-s1").waitForExistence(timeout: 5))
+        var n = 0
+        while !find(app, "Past runs").exists && n < 6 {
+            app.swipeUp()
+            n += 1
+        }
+        XCTAssertTrue(find(app, "Past runs").exists)
     }
 
     /// 11: the project pill opens its settings

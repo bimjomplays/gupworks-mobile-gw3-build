@@ -1,0 +1,7 @@
+{
+  "switches": [
+    {"id": "away", "label": "Away mode", "kind": "toggle", "on": false, "detail": "", "warning": "", "error": ""},
+    {"id": "game-bot", "label": "Dillon's game bot", "kind": "toggle", "on": true, "detail": "", "warning": "", "error": ""},
+    {"id": "restart-pc", "label": "Restart PC", "kind": "button", "allowed": true, "reason": "", "error": ""}
+  ]
+}

@@ -35,6 +35,17 @@ final class AppModel {
 
     var isPaired: Bool { pairing != nil }
 
+    /// File transfer (a144): one store for the paired PC, kept while the app runs so files go on up after you leave
+    /// the page
+    @ObservationIgnored private var transferCache: (key: String?, store: TransferStore)?
+    var transfer: TransferStore {
+        let key = pairing.map { $0.baseURL.absoluteString + " " + $0.token }
+        if let c = transferCache, c.key == key { return c.store }
+        let s = TransferStore(pairing: pairing, demo: demo)
+        transferCache = (key, s)
+        return s
+    }
+
     func pair(with link: PairLink) async throws {
         #if canImport(UIKit)
         let device = UIDevice.current.name
