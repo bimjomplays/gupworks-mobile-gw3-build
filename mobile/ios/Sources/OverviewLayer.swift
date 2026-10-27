@@ -18,6 +18,8 @@ final class OverviewHost {
     private(set) var open = false
     /// its page is drawn: from the start of a slide in until a slide out has ended (closed, it isn't in the tree)
     private(set) var shown = false
+    /// counts slide outs, so only the latest one takes the page out
+    @ObservationIgnored private var outs = 0
     /// how far in it is while a finger moves it (nil: nothing moves)
     var drag: Double?
     /// what is pushed inside the Overview (a folder, a note, a thread's chat, a schedule)
@@ -83,7 +85,8 @@ final class OverviewHost {
         withAnimation(.snappy(duration: 0.3)) {
             open = false
             drag = nil
-        } completion: { [weak self] in self?.hideIfClosed() }
+        }
+        hideWhenOut()
         if let then {
             Task {
                 try? await Task.sleep(nanoseconds: 330_000_000)
@@ -115,11 +118,21 @@ final class OverviewHost {
         withAnimation(.snappy(duration: 0.3)) {
             open = o
             drag = nil
-        } completion: { [weak self] in self?.hideIfClosed() }
+        }
+        if !o { hideWhenOut() }
     }
 
-    private func hideIfClosed() {
-        if !open && drag == nil { shown = false }
+    /// takes the page out once the slide out has ended, unless it came back in meanwhile. A timer, not the
+    /// animation's completion: after a fast swipe that completion sometimes never came, and the closed page
+    /// stayed in the accessibility tree.
+    private func hideWhenOut() {
+        outs += 1
+        let n = outs
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard let self, n == self.outs, !self.open, self.drag == nil else { return }
+            self.shown = false
+        }
     }
 
     static func dropKeyboard() {
