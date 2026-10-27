@@ -28,7 +28,7 @@ struct QuickActionsView: View {
                         .accessibilityIdentifier("quickError")
                 }
             }
-            QuickHealthSection(store: pc)
+            PcHealthSection(store: pc)
             Section {
                 ForEach(store.switches) { s in
                     if s.isToggle { toggleRow(s) } else { restartRow(s) }

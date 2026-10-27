@@ -2,7 +2,7 @@ import SwiftUI
 
 /// a151: the health line at the top of Quick actions. One row (CPU, GPU, free space, services); a tap shows the
 /// details under it.
-struct QuickHealthSection: View {
+struct PcHealthSection: View {
     let store: QuickPcStore
     @State private var open = false
 
