@@ -232,6 +232,7 @@ struct QuickPcSections: View {
                     ForEach(browsers) { b in Text(b.label).tag(b.id) }
                 }
                 .pickerStyle(.menu)
+                .labelsHidden()
                 .tint(Theme.rowTitle)
                 .disabled(browsers.isEmpty || busy)
                 .accessibilityIdentifier("quick-open-browser")

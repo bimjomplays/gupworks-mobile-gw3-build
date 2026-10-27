@@ -447,16 +447,19 @@ final class ScreenTests: XCTestCase {
         shot("quick-actions-errors")
     }
 
-    // MARK: a151: Quick actions round 2
+    // MARK: a151: the PC part of Quick actions
 
-    /// drags the page in short steps until `e` shows whole between the top bar and the bottom
-    private func reveal(_ app: App, _ e: Element) {
+    /// drags the page in short steps until `e` shows whole between the top bar and the bottom; `tappable`: and
+    /// above the keyboard, where a tap lands on it
+    private func reveal(_ app: App, _ e: Element, tappable: Bool = false) {
         let screen = app.windows.firstMatch.frame
         for _ in 0..<20 {
-            if e.exists, e.frame.minY > screen.height * 0.12, e.frame.maxY < screen.height * 0.9 { return }
+            if e.exists, e.frame.minY > screen.height * 0.12, e.frame.maxY < screen.height * 0.9,
+               !tappable || e.isHittable { return }
             let above = e.exists && e.frame.minY <= screen.height * 0.12  // went past it: back a little
-            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.4 : 0.65))
-            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.6 : 0.4))
+            let low = tappable ? 0.5 : 0.65  // with the keyboard up, start the drag above it
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.4 : low))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.6 : low - 0.25))
             from.press(forDuration: 0.05, thenDragTo: to, withVelocity: Velocity(rawValue: 1500), thenHoldForDuration: 0.2)
         }
     }
@@ -496,10 +499,12 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
         field.typeText("https://example.com/a")
+        reveal(app, el(app, "quick-open-button"), tappable: true)
         el(app, "quick-open-button").tap()
         XCTAssertTrue(find(app, "Opened in Chrome · Your Chrome").waitForExistence(timeout: 5), app.debugDescription)
         field.tap()
         field.typeText("file:///etc/passwd")
+        reveal(app, el(app, "quick-open-button"), tappable: true)
         el(app, "quick-open-button").tap()
         XCTAssertTrue(el(app, "quick-open-error").waitForExistence(timeout: 5))
         XCTAssertTrue(find(app, "Only http:// and https:// links open on the PC.").exists)
@@ -523,6 +528,7 @@ final class ScreenTests: XCTestCase {
         let field = app.textFields["quick-open-url"]
         field.tap()
         field.typeText("https://example.com")
+        reveal(app, el(app, "quick-open-button"), tappable: true)
         el(app, "quick-open-button").tap()
         XCTAssertTrue(find(app, "firefox: not responding (demo)").waitForExistence(timeout: 5))
         reveal(app, el(app, "quick-discord"))

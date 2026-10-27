@@ -572,7 +572,7 @@ final class APIClient {
                           encoding: ["confirm": confirm], slow: true)
     }
 
-    // MARK: quick actions round 2 (a151): health, media and volume, open on the PC, Discord
+    // MARK: the PC part of Quick actions (a151): health, media, volume, links, Discord
 
     func quickPc(_ p: Pairing) async throws -> QuickPcState {
         try await request(p.baseURL, "/v1/quick/pc", token: p.token)

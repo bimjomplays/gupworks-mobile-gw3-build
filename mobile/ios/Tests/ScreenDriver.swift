@@ -286,9 +286,16 @@ struct Query {
     private func inside(_ kind: Kind) -> Query {
         let r = resolve
         return Query {
-            let boxes = r().map(\.frame)
+            let found = r()
+            let boxes = found.map(\.frame)
+            // an alert's buttons are its own views: the page's buttons under the alert don't count
+            let alertViews = found.filter { $0.name != nil }.compactMap { $0.obj as? UIView }
             return Tree.nodes(kind).filter { n in
-                boxes.contains { $0.insetBy(dx: -1, dy: -1).contains(CGPoint(x: n.frame.midX, y: n.frame.midY)) && $0 != n.frame }
+                guard boxes.contains(where: { $0.insetBy(dx: -1, dy: -1).contains(CGPoint(x: n.frame.midX, y: n.frame.midY)) && $0 != n.frame })
+                else { return false }
+                if alertViews.isEmpty { return true }
+                guard let v = (n.obj as? UIView) ?? Tree.container(of: n.obj) else { return true }
+                return alertViews.contains { v.isDescendant(of: $0) }
             }
         }
     }

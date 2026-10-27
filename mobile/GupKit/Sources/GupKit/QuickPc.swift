@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-// a151: Quick actions round 2, as gw3-phone's /v1/quick/pc, media, volume and open answer (tools/gw3_pc.py, the
+// a151: the PC part of Quick actions, as gw3-phone's /v1/quick/pc, media, volume and open answer (tools/gw3_pc.py, the
 // desktop's page reads the same module). A part that broke on the PC comes back as {"error": ...} alone, so every
 // field here is optional and shown as it is, never guessed.
 

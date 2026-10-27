@@ -6,7 +6,7 @@ import XCTest
 @testable import GupWorks3
 #endif
 
-/// a151: Quick actions round 2 (health, media and volume, Open on the PC, Discord) as gw3-phone's /v1/quick/pc answers.
+/// a151: the PC part of Quick actions (health, media and volume, Open on the PC, Discord) as gw3-phone's /v1/quick/pc answers.
 final class QuickPcLogicTests: XCTestCase {
     override func tearDown() { Demo.args = ProcessInfo.processInfo.arguments }
 
