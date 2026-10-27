@@ -729,15 +729,24 @@ struct LocalThumb: View {
     let url: URL
     let video: Bool
     @State private var image: UIImage?
+    @State private var failed = false
 
     var body: some View {
         ZStack {
             Rectangle().fill(ChatStyle.cardBG)
             if let image {
                 Image(uiImage: image).resizable().scaledToFill()
+            } else if failed && !video {
+                // a picture this phone can't draw small (a video keeps its play mark on the grey)
+                Image(systemName: "photo")
+                    .font(.system(size: 26))
+                    .foregroundStyle(ChatStyle.faint)
             }
         }
-        .task(id: url) { image = await Self.thumb(url, video: video) }
+        .task(id: url) {
+            image = await Self.thumb(url, video: video)
+            failed = image == nil
+        }
     }
 
     static func thumb(_ url: URL, video: Bool) async -> UIImage? {
