@@ -143,10 +143,16 @@ final class ScreenshotTests: XCTestCase {
         sleep(1)
         shot("06-swipe")
         app.buttons["Pause"].tap()
-        drag(app, el(app, "thread-a6"), from: 0.9, to: 0.4)
+        // paused, it moves down to the Idle group
+        let a6 = el(app, "thread-a6")
+        for _ in 0..<5 where !(a6.exists && a6.isHittable) { app.swipeUp() }
+        drag(app, a6, from: 0.9, to: 0.4)
         XCTAssertTrue(app.buttons["Resume"].waitForExistence(timeout: 5))
         app.buttons["Resume"].tap()
-        el(app, "thread-a4").press(forDuration: 1.2)
+        let a4 = el(app, "thread-a4")
+        for _ in 0..<3 { app.swipeDown() } // back to the top, where a4 is under Working
+        XCTAssertTrue(a4.waitForExistence(timeout: 5))
+        a4.press(forDuration: 1.2)
         XCTAssertTrue(app.buttons["Stop\u{2026}"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Open"].exists)
         XCTAssertTrue(app.buttons["Rename\u{2026}"].exists)

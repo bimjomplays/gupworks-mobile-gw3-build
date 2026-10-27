@@ -195,8 +195,8 @@ final class ProjectLogicTests: XCTestCase {
         XCTAssertEqual(ThreadMenu.actions(try XCTUnwrap(byId["a4"])), ["open", "pause", "stop", "rename", "archive", "delete"])
         XCTAssertEqual(ThreadMenu.actions(try XCTUnwrap(byId["a6"])),
                        ["open", "pause", "stop", "rename", "done", "archive", "delete"])
-        XCTAssertEqual(ThreadMenu.actions(try XCTUnwrap(byId["a8"])), ["stop", "archive", "delete"])
-        XCTAssertEqual(ThreadMenu.actions(try XCTUnwrap(byId["a0"])), ["unarchive", "delete"])
+        XCTAssertEqual(ThreadMenu.actions(try XCTUnwrap(byId["a8"])), ["stop", "rename", "archive", "delete"])
+        XCTAssertEqual(ThreadMenu.actions(try XCTUnwrap(byId["a0"])), ["rename", "unarchive", "delete"])
         XCTAssertEqual(ThreadMenu.title("stop"), "Stop…")
         XCTAssertTrue(ThreadMenu.destructive("delete"))
         XCTAssertTrue(ThreadMenu.deleteText(try XCTUnwrap(byId["a4"])).contains("branch lumen/a4-contact-form"))

@@ -724,58 +724,22 @@ struct LibraryTab: View {
     @State private var query = ""
     @State private var searching = false
     @State private var kind = "all"
+    /// both the ideas and the Library are in: until then a spinner, so the ideas don't arrive above rows already
+    /// shown (the list would keep its place on those and open scrolled past the ideas)
+    @State private var ready: Bool
+
+    init(host: OverviewHost, store: ProjectStore, adding: Bool) {
+        self.host = host
+        self.store = store
+        self.adding = adding
+        _ready = State(initialValue: store.ideas != nil && store.library != nil)
+    }
 
     private static let kinds = [("all", "All"), ("notes", "Notes"), ("images", "Images"), ("files", "Files")]
 
     var body: some View {
         List {
-            IdeasSections(host: host, store: store)
-            Section {
-                VStack(spacing: 12) {
-                    HStack(spacing: 8) {
-                        ForEach(Self.kinds, id: \.0) { k in chip(k.0, k.1) }
-                        Spacer(minLength: 0)
-                        Button {
-                            withAnimation(.snappy(duration: 0.2)) {
-                                searching.toggle()
-                                if !searching { query = "" }
-                            }
-                        } label: {
-                            Image(systemName: searching ? "xmark" : "magnifyingglass")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(Color(hex: 0xC8C8CC))
-                                .frame(width: 38, height: 38)
-                                .background(OverviewStyle.card, in: Circle())
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel(searching ? "Close search" : "Search the Library")
-                        .accessibilityIdentifier("librarySearchButton")
-                    }
-                    if searching {
-                        SheetSearchField(text: $query, prompt: "Search notes and files\u{2026}")
-                            .accessibilityIdentifier("librarySearch")
-                    }
-                }
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 0, trailing: 0))
-            if adding {
-                Section {
-                    HStack(spacing: 10) {
-                        ProgressView()
-                        Text("Copying to the PC\u{2026}").foregroundStyle(SheetStyle.label)
-                    }
-                }
-                .listRowBackground(OverviewStyle.card)
-            }
-            if let lib = store.library {
-                let groups = filtered(lib.groups)
-                LibraryCards(groups: groups, store: store, path: Binding(get: { host.path }, set: { host.path = $0 }))
-                if groups.isEmpty {
-                    OverviewNotice(icon: "magnifyingglass",
-                                   text: lib.groups.allSatisfy { $0.items.isEmpty } ? "No notes yet." : "Nothing matches.")
-                }
-            } else {
+            if ready { content } else {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 30).listRowBackground(Color.clear)
             }
         }
@@ -788,6 +752,59 @@ struct LibraryTab: View {
         .task {
             await store.loadIdeas()
             await store.loadLibrary()
+            ready = true
+        }
+    }
+
+    @ViewBuilder private var content: some View {
+        IdeasSections(host: host, store: store)
+        Section {
+            VStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    ForEach(Self.kinds, id: \.0) { k in chip(k.0, k.1) }
+                    Spacer(minLength: 0)
+                    Button {
+                        withAnimation(.snappy(duration: 0.2)) {
+                            searching.toggle()
+                            if !searching { query = "" }
+                        }
+                    } label: {
+                        Image(systemName: searching ? "xmark" : "magnifyingglass")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Color(hex: 0xC8C8CC))
+                            .frame(width: 38, height: 38)
+                            .background(OverviewStyle.card, in: Circle())
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel(searching ? "Close search" : "Search the Library")
+                    .accessibilityIdentifier("librarySearchButton")
+                }
+                if searching {
+                    SheetSearchField(text: $query, prompt: "Search notes and files\u{2026}")
+                        .accessibilityIdentifier("librarySearch")
+                }
+            }
+        }
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 0, trailing: 0))
+        if adding {
+            Section {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Copying to the PC\u{2026}").foregroundStyle(SheetStyle.label)
+                }
+            }
+            .listRowBackground(OverviewStyle.card)
+        }
+        if let lib = store.library {
+            let groups = filtered(lib.groups)
+            LibraryCards(groups: groups, store: store, path: Binding(get: { host.path }, set: { host.path = $0 }))
+            if groups.isEmpty {
+                OverviewNotice(icon: "magnifyingglass",
+                               text: lib.groups.allSatisfy { $0.items.isEmpty } ? "No notes yet." : "Nothing matches.")
+            }
+        } else {
+            ProgressView().frame(maxWidth: .infinity).padding(.vertical, 30).listRowBackground(Color.clear)
         }
     }
 

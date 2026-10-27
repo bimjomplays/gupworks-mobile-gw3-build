@@ -948,9 +948,13 @@ final class ScreenTests: XCTestCase {
         return app
     }
 
+    /// the Overview up and still (its slide in has ended), on whichever tab -tab picked
     private func overview(_ extra: [String] = []) -> App {
         let app = project(["-sheet"] + extra)
-        XCTAssertTrue(el(app, "overviewGlance").waitForExistence(timeout: 10))
+        let back = el(app, "overviewClose")
+        XCTAssertTrue(back.waitForExistence(timeout: 10))
+        settle { back.frame }
+        XCTAssertLessThan(back.frame.minX, 40, "the Overview slid all the way in")
         return app
     }
 
@@ -961,14 +965,19 @@ final class ScreenTests: XCTestCase {
         t.tap()
     }
 
-    /// scrolls the page up until `id` is on screen (a List only makes the rows it shows)
+    /// scrolls the page (half a screen at a time, no fling) until `id` is fully between the glass top and the
+    /// bottom edge (a List only makes the rows it shows)
     @discardableResult
     private func reveal(_ app: App, _ id: String) -> Element {
         let e = el(app, id)
-        var n = 0
-        while !(e.exists && e.isHittable) && n < 8 {
-            app.swipeUp()
-            n += 1
+        let h = app.frame.height, top: CGFloat = 190, x = app.frame.midX
+        for _ in 0..<12 {
+            if e.exists && e.isHittable && e.frame.minY >= top && e.frame.maxY <= h - 50 { break }
+            let down = e.exists && e.frame.minY < top
+            let a = CGPoint(x: x, y: down ? h * 0.35 : h * 0.75), b = CGPoint(x: x, y: down ? h * 0.75 : h * 0.35)
+            settle()
+            Finger.press(a, seconds: 0, thenDragTo: b, speed: 700, hold: 0.25)
+            idle(0.4)
         }
         XCTAssertTrue(e.exists, id)
         return e
@@ -1079,6 +1088,7 @@ final class ScreenTests: XCTestCase {
     /// thread rows with their subagents, Done and Archived, usage by model and the plan
     func testP06Overview() {
         let app = overview()
+        XCTAssertTrue(el(app, "overviewGlance").waitForExistence(timeout: 5))
         XCTAssertTrue(el(app, "overviewClose").exists)
         XCTAssertTrue(el(app, "overviewName").exists)
         XCTAssertTrue(el(app, "newThread").exists)
@@ -1106,7 +1116,7 @@ final class ScreenTests: XCTestCase {
         el(app, "thread-a4").tap()
         XCTAssertTrue(el(app, "taskCard").waitForExistence(timeout: 10))
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(el(app, "overviewGlance").waitForExistence(timeout: 5))
+        XCTAssertTrue(el(app, "overviewGlance").waitForExistence(timeout: 5), "back on the Overview")
     }
 
     /// the main chat's row and ‹ both go back to the main chat
