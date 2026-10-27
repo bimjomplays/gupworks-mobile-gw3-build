@@ -52,8 +52,8 @@ struct MainView: View {
     @State private var drag: CGFloat = 0
     /// a pin is lifted for sorting: a sideways move drags the pin, not the menu
     @State private var pinLifted = false
-    /// when the menu's swipe moved and let go: the row it started on doesn't count as tapped
-    @State private var swipeClock = SwipeClock()
+    /// the touch swiped the menu: the row it started on doesn't count as tapped
+    @State private var swiped = SwipeMark()
     @State private var temporary: Bool
     /// the temporary chat once its first message made it: deleted when you leave
     @State private var temporaryId: String?
@@ -97,10 +97,10 @@ struct MainView: View {
             let x = swipe.x(open: menuOpen, dx: drag)
             ZStack(alignment: .topLeading) {
                 MenuView(current: shownId, open: menuOpen,
-                         pick: { c in if !swipeClock.recent { pick(c) } },
-                         newChat: { if !swipeClock.recent { newChat() } },
-                         place: { p in if !swipeClock.recent { go(p) } },
-                         settings: { if !swipeClock.recent { showSettings = true } },
+                         pick: { c in if !swiped.now { pick(c) } },
+                         newChat: { if !swiped.now { newChat() } },
+                         place: { p in if !swiped.now { go(p) } },
+                         settings: { if !swiped.now { showSettings = true } },
                          lifting: { pinLifted = $0 })
                     .padding(.top, Self.statusBarHeight)
                     .frame(width: width)
@@ -133,12 +133,9 @@ struct MainView: View {
             // empty space, the chat's strip) follows the finger the same way
             .gesture(MenuSwipe(closing: menuOpen,
                                enabled: menuOpen ? !pinLifted : path.count <= (onProjects ? 1 : 0),
-                               changed: { dx in
-                                   swipeClock.moving = true
-                                   drag = dx
-                               },
+                               mark: swiped,
+                               changed: { dx in drag = dx },
                                ended: { dx, v in
-                                   swipeClock.letGo()
                                    let open = swipe.endsOpen(open: menuOpen, dx: dx, velocity: v)
                                    withAnimation(.snappy(duration: 0.3)) {
                                        drag = 0
@@ -274,18 +271,21 @@ struct MainView: View {
 }
 
 /// A row's button fires when the finger lifts over it, even after a swipe across it (seen on the old menu: a flick
-/// to close from Gup Bot's row opened Gup Bot). The menu's actions check this first and skip what a swipe ended.
-final class SwipeClock {
-    var moving = false
-    private var endedAt = Date.distantPast
+/// to close from Gup Bot's row opened Gup Bot). The menu's actions check this first and skip a touch that swiped.
+///
+/// MenuSwipe sets it in UIKit's own callbacks: cleared when a finger touches down, set the moment UIKit lets the swipe
+/// begin. It used to be a 0.4 s clock started from the swipe's SwiftUI callbacks, and those can come after the row's
+/// tap: on a fast flick (a busy phone, CI's cold simulator) the finger lifted 40 ms after UIKit began the swipe, the
+/// row's action ran before SwiftUI had heard of the swipe, and the menu closed with the row's page opening (a131).
+final class SwipeMark {
+    /// the finger on the screen now (or the last one) swiped the menu
+    private(set) var now = false
 
-    func letGo() {
-        moving = false
-        endedAt = Date()
-    }
+    /// a new finger: whatever it does is its own
+    func touchDown() { now = false }
 
-    /// a swipe is under way or let go a moment ago
-    var recent: Bool { moving || Date().timeIntervalSince(endedAt) < 0.4 }
+    /// UIKit is beginning the swipe
+    func swipes() { now = true }
 }
 
 /// Where the chat sits while a swipe moves it, and where it ends up when the finger lets go. Opening and closing
@@ -319,6 +319,8 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
     /// the menu is open: a swipe left closes it
     var closing: Bool
     var enabled: Bool
+    /// told in UIKit's callbacks when a finger lands and when the swipe begins, so the rows can skip a swiped touch
+    var mark: SwipeMark
     var changed: (CGFloat) -> Void
     var ended: (CGFloat, CGFloat) -> Void
 
@@ -326,6 +328,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
 
     func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
         let g = UIPanGestureRecognizer()
+        context.coordinator.mark = mark
         g.delegate = context.coordinator
         g.cancelsTouchesInView = false
         g.maximumNumberOfTouches = 1
@@ -335,6 +338,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
     func updateUIGestureRecognizer(_ g: UIPanGestureRecognizer, context: Context) {
         // read when a swipe would start (the menu doesn't open or close while one is under way)
         context.coordinator.closing = closing
+        context.coordinator.mark = mark
         let moving = g.state == .began || g.state == .changed
         g.isEnabled = enabled
         // turned off mid-swipe (a pin lifted under the finger): the chat goes back to where it was
@@ -363,6 +367,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var closing = false
+        weak var mark: SwipeMark?
         /// the scroll views' pans this touch also reaches
         private var scrolls: [WeakPan] = []
 
@@ -373,13 +378,17 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
 
             // a wide table or code panel scrolled sideways under the finger scrolls back first
             if !closing, sideways, v.x > 0, scrollsBack(pan) { return false }
-            return sideways && (closing ? v.x < 0 : v.x > 0)
+            let begins = sideways && (closing ? v.x < 0 : v.x > 0)
+            if begins { mark?.swipes() }
+            return begins
         }
 
         /// the view UIKit found under the finger when the touch began
         private weak var touched: UIView?
 
         func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            // a new touch (a second finger mid-swipe doesn't clear it)
+            if g.state == .possible { mark?.touchDown() }
             touched = touch.view
             return true
         }
