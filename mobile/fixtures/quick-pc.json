@@ -1,0 +1,161 @@
+{
+ "browsers": {
+  "browsers": [
+   {
+    "id": "chrome:Default",
+    "label": "Chrome · Your Chrome"
+   },
+   {
+    "id": "chrome:Profile 1",
+    "label": "Chrome · Work"
+   },
+   {
+    "id": "chrome:Profile 4",
+    "label": "Chrome · Studio site"
+   },
+   {
+    "id": "firefox",
+    "label": "Firefox"
+   }
+  ],
+  "last": "chrome:Default",
+  "error": ""
+ },
+ "discord": {
+  "running": true,
+  "inCall": true,
+  "mic": true,
+  "detail": "In a voice call",
+  "how": "PipeWire: Discord opens a voice stream (WEBRTC VoiceEngine) only while it is in a voice channel. No channel or server name: Discord's local RPC needs an app it approved and a sign-in.",
+  "error": ""
+ },
+ "health": {
+  "line": [
+   {
+    "id": "cpu",
+    "label": "CPU",
+    "value": "61°C",
+    "level": "ok"
+   },
+   {
+    "id": "gpu",
+    "label": "GPU",
+    "value": "41°C",
+    "level": "ok"
+   },
+   {
+    "id": "disk",
+    "label": "Free",
+    "value": "920 GB / 480 GB",
+    "level": "ok"
+   },
+   {
+    "id": "services",
+    "label": "Services",
+    "value": "all up",
+    "level": "ok"
+   }
+  ],
+  "errors": [],
+  "sections": [
+   {
+    "title": "Temperatures",
+    "rows": [
+     {
+      "label": "CPU",
+      "value": "61.2°C",
+      "level": "ok"
+     },
+     {
+      "label": "GPU (RTX 4090)",
+      "value": "41°C",
+      "level": "ok"
+     },
+     {
+      "label": "CPU die 1",
+      "value": "58.0°C",
+      "level": "ok"
+     },
+     {
+      "label": "RAM 1",
+      "value": "30.5°C",
+      "level": "ok"
+     },
+     {
+      "label": "RAM 2",
+      "value": "31.0°C",
+      "level": "ok"
+     },
+     {
+      "label": "Coolant",
+      "value": "29.9°C",
+      "level": "ok"
+     }
+    ]
+   },
+   {
+    "title": "Drives",
+    "rows": [
+     {
+      "label": "System (/)",
+      "value": "920 GB free of 1,800 GB",
+      "level": "ok"
+     },
+     {
+      "label": "windows (/mnt/windows)",
+      "value": "480 GB free of 1,900 GB",
+      "level": "ok"
+     }
+    ]
+   },
+   {
+    "title": "GupWorks services",
+    "rows": [
+     {
+      "label": "Model routing",
+      "value": "up",
+      "level": "ok",
+      "unit": "gw3-routing.service"
+     },
+     {
+      "label": "Phone service",
+      "value": "up",
+      "level": "ok",
+      "unit": "gw3-phone.service"
+     },
+     {
+      "label": "Projects",
+      "value": "up",
+      "level": "ok",
+      "unit": "gw3-projects.service"
+     },
+     {
+      "label": "Local models",
+      "value": "up",
+      "level": "ok",
+      "unit": "gw3-local-models.service"
+     }
+    ]
+   }
+  ]
+ },
+ "media": {
+  "player": {
+   "id": "org.mpris.MediaPlayer2.spotify",
+   "app": "Spotify",
+   "status": "Playing",
+   "title": "Northern Lights",
+   "artist": "Aurora Hall",
+   "canNext": true,
+   "canPrevious": true,
+   "canControl": true
+  },
+  "players": 1,
+  "volume": {
+   "level": 0.42,
+   "muted": false,
+   "device": "Desk Speakers"
+  },
+  "errors": {}
+ }
+}

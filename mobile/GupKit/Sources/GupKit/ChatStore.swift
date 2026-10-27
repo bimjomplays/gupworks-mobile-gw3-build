@@ -20,15 +20,18 @@ struct Attachment: Identifiable, Equatable {
     static func == (a: Attachment, b: Attachment) -> Bool { a.id == b.id && a.uploaded == b.uploaded }
 }
 
-/// A message from this phone the PC hasn't listed yet: being uploaded or sent, or one that couldn't be sent.
+/// A message from this phone the PC's stream hasn't listed yet: being uploaded or sent, or one that couldn't be sent.
 struct Outgoing: Identifiable, Equatable {
     let clientId: String
     var text: String
     var attachments: [Attachment]
     var failed: String?
-    /// the PC took it: it goes once its queue lists it or its turn shows (turns seen before it was taken don't count)
+    /// the PC took it: it goes once the stream's queue lists it or its turn shows (turns seen before it was sent
+    /// don't count)
     var accepted = false
     var turnsBefore: Set<String> = []
+    /// how the send's answer listed it (queued or sent): drawn as that until the stream says more
+    var listed: QueueItem?
 
     var id: String { clientId }
 }
@@ -48,10 +51,22 @@ final class ChatStore {
     private(set) var loadingOlder = false
     /// bumps whenever a turn arrives from the stream, so the view can follow the bottom
     private(set) var liveTick = 0
-    /// the phone's messages the PC has queued or just sent (from the `queue` event and each send's answer)
+    /// the phone's messages the PC has queued or just sent, as its stream's `queue` event lists them (only the
+    /// stream: a send's answer can be older than what the stream already said)
     private(set) var queue: [QueueItem] = []
     /// the phone's messages on their way (not yet in `queue`)
     private(set) var outbox: [Outgoing] = []
+
+    /// The phone's messages to draw after the turns, each once: the stream's queue without the sent ones whose turn
+    /// already shows, then the ones the PC took that the stream hasn't listed yet.
+    var waiting: [QueueItem] {
+        queue.filter { !hasTurn($0) } + outbox.compactMap { $0.accepted ? $0.listed : nil }
+    }
+
+    /// the phone's messages still being sent, or not sent (Retry)
+    var sending: [Outgoing] {
+        outbox.filter { !($0.accepted && $0.listed != nil) }
+    }
     private(set) var stopping = false
     /// a send, stop or edit that didn't work, for an alert
     var actionError: String?
@@ -304,8 +319,7 @@ final class ChatStore {
             } else {
                 let before = Set(turns.map(\.id))
                 let reply = try await api.send(p, chat: id, body)
-                update(clientId) { $0.accepted = true; $0.turnsBefore = before }
-                setQueue(reply.queue)
+                took(clientId, before: before, queue: reply.queue)
             }
         } catch let e as APIError {
             fail(clientId, e.message)
@@ -595,20 +609,46 @@ final class ChatStore {
         liveTick += 1
     }
 
+    /// The PC took a message: its answer lists the queue as it was then. Only this message's own entry is kept, on
+    /// the outbox copy, which goes as soon as the stream lists it or its turn shows (that may already be so: the
+    /// answer can come back after the stream showed the turn). The answer never replaces the stream's queue.
+    func took(_ clientId: String, before: Set<String>, queue items: [QueueItem]) {
+        update(clientId) {
+            $0.accepted = true
+            $0.failed = nil
+            $0.turnsBefore = before
+            $0.listed = items.first { $0.clientId == clientId }
+        }
+        settleOutbox()
+    }
+
+    /// the stream's queue (each stream starts with an empty one)
     func setQueue(_ items: [QueueItem]) {
         if items != queue { queue = items }
         settleOutbox()
     }
 
-    /// Drops the messages the PC has taken once they show in its queue or as a turn.
+    /// Drops the outbox's messages the stream lists (it has them, even when the send's answer was lost) and the
+    /// taken ones whose turn shows.
     func settleOutbox() {
         let listed = Set(queue.map(\.clientId))
         let left = outbox.filter { m in
-            guard m.accepted else { return true }
             if listed.contains(m.clientId) { return false }
+            guard m.accepted else { return true }
             return !turns.contains { $0.kind == "prompt" && !m.turnsBefore.contains($0.id) }
         }
         if left != outbox { outbox = left }
+    }
+
+    /// A sent message whose turn the stream already showed (a prompt with its words that started after the PC
+    /// got it; the PC drops it a moment later, or not at all when its words came out different).
+    private func hasTurn(_ q: QueueItem) -> Bool {
+        let words = q.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard q.state == "sent", !words.isEmpty else { return false }
+        return turns.contains { t in
+            t.kind == "prompt" && t.start >= q.ts
+                && (t.prompt.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix(words)
+        }
     }
 
     // MARK: demo
@@ -619,10 +659,17 @@ final class ChatStore {
         showDialog(nil)
     }
 
-    /// The demo has no PC: a message waits as *queued* while the chat works, else it shows as a turn with a short
-    /// made-up answer. Nothing leaves the phone.
+    /// The demo has no PC: a message waits as *queued* while the chat works (taken as a PC's answer lists it), else it
+    /// shows as a turn with a short made-up answer. Nothing leaves the phone.
     private func demoDeliver(_ clientId: String) {
         guard let m = outbox.first(where: { $0.clientId == clientId }) else { return }
+        if working {
+            took(clientId, before: Set(turns.map(\.id)),
+                 queue: [QueueItem(clientId: clientId, text: m.text, ts: Date().timeIntervalSince1970 * 1000,
+                                   state: "queued", error: nil, images: nil, files: nil)])
+            liveTick += 1
+            return
+        }
         outbox.removeAll { $0.clientId == clientId }
         if isNew {
             let m0 = currentModel, effort = currentEffort ?? "medium"
@@ -636,12 +683,7 @@ final class ChatStore {
             status = ChatStatus(state: "idle", ts: Date().timeIntervalSince1970 * 1000, live: true, running: true)
             onMade?(id)
         }
-        if working {
-            queue.append(QueueItem(clientId: clientId, text: m.text, ts: Date().timeIntervalSince1970 * 1000,
-                                   state: "queued", error: nil, images: nil, files: nil))
-        } else {
-            demoTurn(m.text)
-        }
+        demoTurn(m.text)
         liveTick += 1
     }
 
@@ -667,9 +709,10 @@ final class ChatStore {
             }
         }
         // what waited goes now
-        let waiting = queue
+        let waited = waiting
         queue = []
-        for q in waiting { demoTurn(q.text) }
+        outbox.removeAll { $0.accepted }
+        for q in waited { demoTurn(q.text) }
         liveTick += 1
     }
 

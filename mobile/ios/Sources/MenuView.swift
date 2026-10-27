@@ -264,7 +264,7 @@ struct MenuView: View {
     private func open(_ item: PinItem) {
         switch item {
         case .chat(let c): pick(.chat(c.id, sheet: false))
-        case .project(let p): if let id = p.mainChatId { pick(.chat(id, sheet: true)) }
+        case .project(let p): if let id = p.mainChatId { pick(.chat(id, sheet: false)) }
         }
     }
 

@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 @testable import GupWorks3
 
 /// The app's screens in demo mode (bundled invented fixtures, no PC needed), driven inside the unit-test process
@@ -297,6 +298,8 @@ final class ScreenTests: XCTestCase {
         el(app, "project-lumen-studio").tap()
         XCTAssertTrue(el(app, "projectPill").waitForExistence(timeout: 10))
         XCTAssertTrue(find(app, "NEEDS YOU").waitForExistence(timeout: 10))
+        spin(1.5)  // the Overview used to slide in after the push settled
+        XCTAssertFalse(el(app, "overviewGlance").exists, "the Projects page opens the main chat, not the Overview")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(el(app, "project-lumen-studio").waitForExistence(timeout: 5))
         // the menu also reaches it
@@ -447,6 +450,100 @@ final class ScreenTests: XCTestCase {
         shot("quick-actions-errors")
     }
 
+    // MARK: a151: the PC part of Quick actions
+
+    /// drags the page in short steps until `e` shows whole between the top bar and the bottom
+    private func reveal(_ app: App, _ e: Element) {
+        let screen = app.windows.firstMatch.frame
+        for _ in 0..<20 {
+            if e.exists, e.frame.minY > screen.height * 0.12, e.frame.maxY < screen.height * 0.9 { return }
+            let above = e.exists && e.frame.minY <= screen.height * 0.12  // went past it: back a little
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.4 : 0.65))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: above ? 0.6 : 0.4))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: Velocity(rawValue: 1500), thenHoldForDuration: 0.2)
+        }
+    }
+
+    /// puts the keyboard away (it covers the Open button at the end of the page) and taps Open
+    private func tapOpen(_ app: App) {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "the keyboard went away")
+        reveal(app, el(app, "quick-open-button"))
+        XCTAssertTrue(el(app, "quick-open-button").isHittable, app.debugDescription)
+        el(app, "quick-open-button").tap()
+    }
+
+    /// the health line on top (a tap shows the details), then media, volume, Open on the PC and the Discord call
+    func testQuickPc() {
+        let app = quickPage()
+        XCTAssertTrue(find(app, "Services all up").waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(find(app, "CPU 61°C").exists)
+        el(app, "quick-health").tap()
+        XCTAssertTrue(find(app, "Coolant").waitForExistence(timeout: 5), "a tap shows the details")
+        XCTAssertTrue(find(app, "Model routing").exists)
+        sleep(1)
+        shot("quick-pc-health")
+        el(app, "quick-health").tap()
+        XCTAssertTrue(find(app, "Coolant").waitForNonExistence(timeout: 5), "and hides them")
+
+        let media = el(app, "quick-media")
+        reveal(app, media)
+        XCTAssertTrue(find(app, "Northern Lights — Aurora Hall").exists, app.debugDescription)
+        el(app, "quick-media-play-pause").tap()
+        XCTAssertTrue(find(app, "Spotify · Paused").waitForExistence(timeout: 5), "play/pause, read back")
+        el(app, "quick-media-play-pause").tap()
+        XCTAssertTrue(find(app, "Spotify · Playing").waitForExistence(timeout: 5))
+        reveal(app, el(app, "quick-volume"))
+        el(app, "quick-volume-mute").tap()
+        XCTAssertTrue(find(app, "Desk Speakers · Muted").waitForExistence(timeout: 5), "mute")
+        el(app, "quick-volume-mute").tap()
+        XCTAssertTrue(find(app, "Desk Speakers · 42%").waitForExistence(timeout: 5))
+        reveal(app, el(app, "quick-discord"))
+        XCTAssertTrue(find(app, "In a voice call").exists)
+        let picker = el(app, "quick-open-browser")
+        XCTAssertTrue((picker.value as? String)?.contains("Chrome · Your Chrome") == true || find(app, "Chrome · Your Chrome").exists,
+                      "the PC's last pick: \(String(describing: picker.value)) \(app.debugDescription)")
+        sleep(1)
+        shot("quick-pc")
+
+        let field = app.textFields["quick-open-url"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("https://example.com/a")
+        tapOpen(app)
+        XCTAssertTrue(find(app, "Opened in Chrome · Your Chrome").waitForExistence(timeout: 5), app.debugDescription)
+        field.tap()
+        field.typeText("file:///etc/passwd")
+        tapOpen(app)
+        XCTAssertTrue(el(app, "quick-open-error").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Only http:// and https:// links open on the PC.").exists)
+        XCTAssertFalse(find(app, "Opened in").exists, "a refused link opened nothing")
+        reveal(app, el(app, "quick-discord"))
+        sleep(1)
+        shot("quick-pc-open")
+    }
+
+    /// every PC row with its own error: a temperature that didn't read, PipeWire down, a browser that didn't open
+    func testQuickPcErrors() {
+        let app = quickPage(["-quickError"])
+        XCTAssertTrue(el(app, "quick-health").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "nvidia-smi: couldn't talk to the driver").waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(find(app, "Projects down").exists)
+        reveal(app, el(app, "quick-discord"))
+        XCTAssertTrue(find(app, "Nothing is playing on the PC").exists)
+        XCTAssertFalse(el(app, "quick-media-play-pause").isEnabled)
+        XCTAssertTrue(find(app, "Could not connect to PipeWire").exists)
+        XCTAssertTrue(find(app, "pw-dump: can't connect to PipeWire").exists)
+        let field = app.textFields["quick-open-url"]
+        field.tap()
+        field.typeText("https://example.com")
+        tapOpen(app)
+        XCTAssertTrue(find(app, "google-chrome-stable: not responding (demo)").waitForExistence(timeout: 5))
+        reveal(app, el(app, "quick-discord"))
+        sleep(1)
+        shot("quick-pc-errors")
+    }
+
     // MARK: a144: File transfer
 
     /// the chat with the PC: the phone's own on the right, the PC's on the left, pictures, a video and files
@@ -515,6 +612,24 @@ final class ScreenTests: XCTestCase {
         shot("transfer-library")
         el(app, "tab-chat").tap()
         XCTAssertTrue(find(app, "perfect, ordering it now").waitForExistence(timeout: 10))
+    }
+
+    /// a149: a project pinned in the menu opens its main chat, with the Overview closed (it opens only by a swipe
+    /// left or its button)
+    func testProjectFromMenuOpensChat() {
+        let app = launch(["-menu"])
+        let pin = el(app, "pin-Lumen Studio website")
+        XCTAssertTrue(pin.waitForExistence(timeout: 10))
+        pin.tap()
+        XCTAssertTrue(el(app, "projectPill").waitForExistence(timeout: 20), "the project's main chat")
+        XCTAssertTrue(el(app, "overviewButton").waitForExistence(timeout: 5))
+        spin(1.5)  // the Overview used to slide in after the push settled
+        XCTAssertFalse(el(app, "overviewGlance").exists, "the Overview stays closed")
+        XCTAssertFalse(el(app, "overviewClose").exists, "no Overview page in the tree")
+        shot("a149-project-main-chat")
+        // and its button still opens it
+        el(app, "overviewButton").tap()
+        XCTAssertTrue(el(app, "overviewGlance").waitForExistence(timeout: 5), "the button opens the Overview")
     }
 
     // MARK: slice 2: chats
@@ -837,10 +952,17 @@ final class ScreenTests: XCTestCase {
         app.buttons["send"].tap()
         XCTAssertTrue(find(app, "queued").waitForExistence(timeout: 5))
         sleep(1)
+        // a150: once, as queued (no second "Sending…" copy of it)
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "queued").count, 1)
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "sending").count, 0)
         shot("queued")
         app.buttons["stop"].tap()
         XCTAssertTrue(find(app, "This is the demo").waitForExistence(timeout: 5))
         XCTAssertFalse(find(app, "queued · sends").exists)
+        // it went: now its own turn, still once
+        let copies = app.descendants(matching: .staticText)
+            .matching(NSPredicate(format: "label == %@", "Then make a lock screen version too"))
+        XCTAssertEqual(copies.count, 1, "the message shows once")
         XCTAssertFalse(app.buttons["stop"].exists)
         sleep(1)
         shot("stopped")

@@ -573,10 +573,13 @@ struct CameraPicker: UIViewControllerRepresentable {
 struct QueuedBubble: View {
     let item: QueueItem
     let base: URL?
+    /// Claude is on a turn, so a queued message really waits for it
+    var waits = true
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            Bubble(prompt: Prompt(text: item.text, images: item.images), base: base, queued: item.state == "queued")
+            Bubble(prompt: Prompt(text: item.text, images: item.images), base: base,
+                   queued: item.state == "queued" && waits)
             if let files = item.files, !files.isEmpty {
                 FileLine(names: files)
             }

@@ -2,16 +2,19 @@ import SwiftUI
 
 /// a142: Quick actions. Away mode and Dillon's game bot are switches that only move when the PC says they did; Restart
 /// PC is a button that asks "Restart the PC now?" first. Every state is read again after each action and whenever the
-/// page or the app comes back; errors show in red under their switch.
+/// page or the app comes back; errors show in red under their switch. a151 adds the PC's health line on top and Media,
+/// Volume, Open on the PC and Discord call under the switches (QuickPcSections.swift).
 struct QuickActionsView: View {
     @Environment(\.scenePhase) private var phase
     @State private var store: QuickStore
+    @State private var pc: QuickPcStore
     /// the dialog's one-time token from the PC (gw3-phone /v1/quick/restart-pc/confirm): the dialog shows while set
     @State private var confirm: QuickConfirm?
     @State private var asking = false
 
     init(pairing: Pairing?, demo: Bool) {
         _store = State(initialValue: QuickStore(pairing: pairing, demo: demo))
+        _pc = State(initialValue: QuickPcStore(pairing: pairing, demo: demo))
         if demo && Demo.args.contains("-restartAsk") {
             _confirm = State(initialValue: QuickConfirm(confirm: "demo", question: "Restart the PC now?", seconds: 60))
         }
@@ -25,6 +28,7 @@ struct QuickActionsView: View {
                         .accessibilityIdentifier("quickError")
                 }
             }
+            PcHealthSection(store: pc)
             Section {
                 ForEach(store.switches) { s in
                     if s.isToggle { toggleRow(s) } else { restartRow(s) }
@@ -35,18 +39,20 @@ struct QuickActionsView: View {
             } footer: {
                 Text("Read from the PC each time you come back to this page.")
             }
+            QuickPcSections(store: pc)
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)
         .navigationTitle("Quick actions")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await store.refresh() }
+        .refreshable { await readAll() }
         .task {
             store.forgetTries()
-            await store.refresh()
+            pc.forgetTries()
+            await readAll()
         }
         .onChange(of: phase) { _, p in
-            if p == .active { Task { await store.refresh() } }
+            if p == .active { Task { await readAll() } }
         }
         .alert(confirm?.question ?? "Restart the PC now?",
                isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }),
@@ -60,6 +66,13 @@ struct QuickActionsView: View {
         } message: { _ in
             Text("Everything open on the PC closes and it starts again.")
         }
+    }
+
+    /// the switches and the PC part, side by side
+    private func readAll() async {
+        async let switches: Void = store.refresh()
+        async let rest: Void = pc.refresh()
+        _ = await (switches, rest)
     }
 
     private func toggleRow(_ s: QuickSwitch) -> some View {
