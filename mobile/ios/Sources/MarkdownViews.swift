@@ -71,7 +71,8 @@ struct MarkdownView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ForEach(Array(blocks.enumerated()), id: \.offset) { i, b in
+            // `i` stays the block's place in the whole reply: picture ids (ChatPhotos) count every block
+            ForEach(Array(blocks.enumerated()).filter { !$0.element.isFallback }, id: \.offset) { i, b in
                 block(b, at: i)
             }
         }
@@ -111,6 +112,8 @@ struct MarkdownView: View {
             Rectangle().fill(ChatStyle.line).frame(height: 1).padding(.vertical, 4)
         case "media":
             MediaGroup(items: b.items ?? [], base: base, slot: i)
+        case "mockups":
+            if let ms = b.set { MockupSetView(mockup: ms, base: base, slot: i) }
         default:
             if let t = b.text { Text(t).font(.system(size: 17)).foregroundStyle(ChatStyle.body) }
         }

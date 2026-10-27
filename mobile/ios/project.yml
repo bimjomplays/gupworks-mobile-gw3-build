@@ -10,7 +10,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.9.8"
+    MARKETING_VERSION: "0.9.9"
     CURRENT_PROJECT_VERSION: "1"
 # Hammer: real touches (taps, drags, long presses, pinches) inside the unit-test process, for the screen tests
 # (Tests/ScreenDriver.swift); XCTest's own event synthesizer only works from a UI-test bundle

@@ -117,46 +117,6 @@ final class PhotoViewerUITests: XCTestCase {
         XCTAssertTrue(find(app, six).exists, "back in the chat")
     }
 
-    /// a131 diagnostic (to be dropped): the whole of testSwipeZoomAndClose from a cold launch, ten times; each step
-    /// that doesn't show its result prints the viewer's gesture log
-    func testZDiagFullSequence() {
-        continueAfterFailure = true
-        var bad: [String] = []
-        for i in 1...10 {
-            let app = openChat(chat(16), waitFor: "Here are six photos of the living room")
-            let pictures = app.buttons.matching(identifier: "yourPicture")
-            pictures.element(boundBy: pictures.count - 5).tap()
-            let viewer = el(app, "photoViewer")
-            _ = viewer.waitForExistence(timeout: 5)
-            let page = el(app, "photoPage")
-            func step(_ name: String, _ ok: Bool) {
-                let line = "a131 diag \(i) \(name): \(ok ? "ok" : "FAILED") value=\(page.value as? String ?? "?") counter=\(el(app, "photoCounter").label) log=\(page.label)"
-                print(line)
-                if !ok { bad.append(line) }
-            }
-            page.swipeLeft()
-            step("swipe left", counts(app, "27 of 30"))
-            page.swipeRight()
-            step("swipe right", counts(app, "26 of 30"))
-            page.swipeRight()
-            step("swipe right 2", counts(app, "25 of 30"))
-            page.doubleTap()
-            step("double tap", zoom(page, "zoomed"))
-            sleep(1)
-            page.doubleTap()
-            step("double tap out", zoom(page, "fit"))
-            page.pinch(withScale: 2.5, velocity: 2)
-            step("pinch", zoom(page, "zoomed"))
-            page.doubleTap()
-            step("double tap out 2", zoom(page, "fit"))
-            page.swipeDown()
-            let ok = gone(viewer)
-            print("a131 diag \(i) swipe down: \(ok ? "ok" : "FAILED") log=\(ok ? "" : page.label)")
-            if !ok { bad.append("\(i) swipe down: \(page.label)") }
-        }
-        XCTAssertEqual(bad, [], "steps that didn't show their result")
-    }
-
     /// Claude's picture opens in the same gallery as yours: the chat's second picture, with your first one before it.
     func testClaudesPictureInTheSameGallery() {
         let app = openChat(chat(16), waitFor: "Here are six photos of the living room")

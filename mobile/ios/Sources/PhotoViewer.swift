@@ -10,6 +10,11 @@ struct ChatPhoto: Equatable, Identifiable {
     let id: String
     let link: String
     let mine: Bool
+    /// a mockup set's picture: "2b · Cards · Overview" and how its option differs, shown under it
+    var title: String? = nil
+    var detail: String? = nil
+    /// a mockup screen's short code ("2b"), shown small after its title
+    var tag: String? = nil
 }
 
 /// A chat's pictures, oldest first, as the chat shows them. Ids come from where a picture sits (turn, block,
@@ -39,7 +44,8 @@ enum ChatPhotos {
                 let scope = blockScope(t.id, bi)
                 switch b.type {
                 case "text":
-                    for (mi, m) in (b.md ?? []).enumerated() where m.t == "media" {
+                    // a mockup set's pictures open among the set's own (MockupSetView), not the chat's
+                    for (mi, m) in (b.md ?? []).enumerated() where m.t == "media" && !m.isFallback {
                         for (k, it) in (m.items ?? []).enumerated() where isPicture(it) {
                             out.append(ChatPhoto(id: id(scope: scope, slot: mi, item: k), link: it.url ?? "", mine: false))
                         }
@@ -172,6 +178,7 @@ struct PhotoViewer: View {
                 .ignoresSafeArea()
             if chrome && !dragging {
                 bar.transition(.opacity)
+                caption.transition(.opacity)
             }
         }
         .accessibilityElement(children: .contain)
@@ -201,6 +208,45 @@ struct PhotoViewer: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
+    }
+
+    /// a mockup set's picture says which one it is, in words ("Option 2 · Cards — Overview", its code small after
+    /// it) and how the option differs
+    @ViewBuilder
+    private var caption: some View {
+        if photos.indices.contains(index), let title = photos[index].title {
+            VStack(spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .accessibilityIdentifier("photoTitle")
+                    if let tag = photos[index].tag, !tag.isEmpty {
+                        Text(tag)
+                            .font(.system(size: 11, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(0.7))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .overlay(Capsule().stroke(.white.opacity(0.35), lineWidth: 1))
+                    }
+                }
+                if let d = photos[index].detail, !d.isEmpty {
+                    Text(d)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .lineLimit(2)
+                }
+            }
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .glassEffect(in: .rect(cornerRadius: 18))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .allowsHitTesting(false)
+        }
     }
 
     private func glassButton(_ symbol: String, _ label: String, id: String, action: @escaping () -> Void) -> some View {
@@ -448,27 +494,7 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
         onTap?()
     }
 
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        DiagLog.add("touch n=\(touches.count) zs=\(pages[index]?.zoomScale ?? -1) off=\(pages[index]?.contentOffset ?? .zero) pager=\(pager.contentOffset.x) idx=\(index) max=\(pages[index]?.maximumZoomScale ?? -1) img=\(pages[index]?.imageView.image != nil) pinch=\(pages[index]?.pinchGestureRecognizer?.state.rawValue ?? -1) dec=\(pager.isDecelerating) dp=\(dismissPan.state.rawValue) pp=\(pages[index]?.panGestureRecognizer.state.rawValue ?? -1) pg=\(pager.panGestureRecognizer.state.rawValue) ui=\(isUserInteractionEnabled)")
-        accessibilityLabel = "Picture " + DiagLog.text
-        super.touchesBegan(touches, with: event)
-    }
-
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        DiagLog.add("touch ended dp=\(dismissPan.state.rawValue) pp=\(pages[index]?.panGestureRecognizer.state.rawValue ?? -1) pg=\(pager.panGestureRecognizer.state.rawValue)")
-        accessibilityLabel = "Picture " + DiagLog.text
-        super.touchesEnded(touches, with: event)
-    }
-
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        DiagLog.add("touch cancelled dp=\(dismissPan.state.rawValue)")
-        accessibilityLabel = "Picture " + DiagLog.text
-        super.touchesCancelled(touches, with: event)
-    }
-
     @objc private func doubleTapped(_ g: UITapGestureRecognizer) {
-        DiagLog.add("double tap zs=\(pages[index]?.zoomScale ?? -1)")
-        accessibilityLabel = "Picture " + DiagLog.text
         guard let p = pages[index] else { return }
         p.toggleZoom(at: g.location(in: p.imageView))
     }
@@ -476,12 +502,8 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
     // MARK: swipe down to close
 
     private func mayDismiss(_ g: UIGestureRecognizer) -> Bool {
-        DiagLog.add("shouldBegin zs=\(pages[index]?.zoomScale ?? -1)")
-        accessibilityLabel = "Picture " + DiagLog.text
         guard let pan = g as? UIPanGestureRecognizer, !(pages[index]?.isZoomed ?? false) else { return false }
         let v = pan.velocity(in: self)
-        DiagLog.add("mayDismiss v=\(v) t=\(pan.translation(in: self)) n=\(pan.numberOfTouches) -> \(v.y > 0 && abs(v.y) > abs(v.x) * 1.2)")
-        accessibilityLabel = "Picture " + DiagLog.text
         return v.y > 0 && abs(v.y) > abs(v.x) * 1.2
     }
 
@@ -491,8 +513,6 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
         let progress = min(1, max(0, t.y) / max(1, bounds.height * 0.5))
         switch g.state {
         case .began:
-            DiagLog.add("dragged began t=\(t) v=\(g.velocity(in: self))")
-            accessibilityLabel = "Picture " + DiagLog.text
             onDrag?(true)
         case .changed:
             let s = 1 - 0.25 * progress
@@ -500,8 +520,6 @@ final class PhotoPagerView: UIView, UIScrollViewDelegate {
             backgroundColor = UIColor.black.withAlphaComponent(1 - progress)
         case .ended, .cancelled, .failed:
             let v = g.velocity(in: self)
-            DiagLog.add("dragged state=\(g.state.rawValue) t=\(t) v=\(v)")
-            accessibilityLabel = "Picture " + DiagLog.text
             if g.state == .ended, t.y > 110 || v.y > 900 {
                 isUserInteractionEnabled = false
                 let down = bounds.height
@@ -656,27 +674,8 @@ final class PhotoPage: UIScrollView, UIScrollViewDelegate {
 
     func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
 
-    func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
-        DiagLog.add("zoom begins zs=\(zoomScale) max=\(maximumZoomScale) img=\(imageView.image != nil)")
-    }
-
-    func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
-        DiagLog.add("zoom ends at \(scale) max=\(maximumZoomScale)")
-    }
-
     func scrollViewDidZoom(_ scrollView: UIScrollView) {
         contentInset = PhotoZoom.inset(content: contentSize, box: bounds.size)
         onZoom?()
     }
-}
-
-/// a131 diagnostic (to be dropped)
-enum DiagLog {
-    static var lines: [String] = []
-    static func add(_ s: String) {
-        print("a131 " + s)
-        lines.append(String(format: "%.3f ", Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 1000)) + s)
-        if lines.count > 30 { lines.removeFirst(lines.count - 30) }
-    }
-    static var text: String { lines.joined(separator: " | ") }
 }
