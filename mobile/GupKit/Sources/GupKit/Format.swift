@@ -36,6 +36,27 @@ extension Format {
         return String(Int(n))
     }
 
+    /// A meter's name: "Context", "5-hour", "Week"; a GPT chat's limits say they are ChatGPT's.
+    static func meterName(_ m: Meter) -> String {
+        let name: String
+        switch m.label {
+        case "ctx": return "Context"
+        case "5h": name = "5-hour"
+        case "wk": name = "Week"
+        default: name = m.label
+        }
+        return m.plan == "openai" ? "ChatGPT \(name.prefix(1).lowercased() + name.dropFirst())" : name
+    }
+
+    /// A chat's rings: its own meters; the account's Claude limits (from home) fill a new or Claude chat's
+    /// gaps, never a GPT chat's (its plan is ChatGPT's, and one ChatGPT doesn't report stays empty).
+    static func chatMeters(_ chat: ChatHeader?, home: [Meter]) -> [Meter] {
+        var u = chat?.usage ?? []
+        if chat?.modelId?.hasPrefix("gpt-") == true || u.contains(where: { $0.plan == "openai" }) { return u }
+        for m in home where !u.contains(where: { $0.label == m.label }) { u.append(m) }
+        return u
+    }
+
     /// D5's right side of a meter: "51K of 150K · 34%", "5% · resets in 3h 15m", "36%"
     static func meterLine(_ m: Meter, now: Date) -> String {
         let pct = m.percent.map { "\(Int($0.rounded()))%" } ?? "\u{2013}"

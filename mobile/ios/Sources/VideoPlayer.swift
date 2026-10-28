@@ -235,6 +235,7 @@ final class VideoPlayback {
         guard !started else { return }
         started = true
         screenGone = false
+        AudioPlayback.shared.pause()  // one sound at a time: an audio card stops for the video
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
         try? AVAudioSession.sharedInstance().setActive(true)
         player.automaticallyWaitsToMinimizeStalling = true

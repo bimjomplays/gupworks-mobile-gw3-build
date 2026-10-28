@@ -417,7 +417,7 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
         private var scrolls: [WeakPan] = []
 
         func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
-            guard let pan = g as? UIPanGestureRecognizer, !MenuSwipe.pinHeld else { return false }
+            guard let pan = g as? UIPanGestureRecognizer, !MenuSwipe.pinHeld, !startedOwn else { return false }
             let v = pan.velocity(in: nil)
             let sideways = abs(v.x) > 1.5 * abs(v.y)
 
@@ -430,11 +430,14 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
 
         /// the view UIKit found under the finger when the touch began
         private weak var touched: UIView?
+        /// the touch began on a view that drags sideways itself (MenuSwipe.ownDrag)
+        private var startedOwn = false
 
         func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
             // a new touch (a second finger mid-swipe doesn't clear it)
             if g.state == .possible { mark?.touchDown() }
             touched = touch.view
+            startedOwn = MenuSwipe.ownsDrag(touch.location(in: nil))
             return true
         }
 
@@ -484,6 +487,14 @@ struct MenuSwipe: UIGestureRecognizerRepresentable {
     /// a pin's long press holds the finger. PinLift sets it in UIKit's own callback, so the swipe can't start in the
     /// gap before SwiftUI turns it off (`enabled`): on a busy phone that gap outlasted the finger's first move.
     static var pinHeld = false
+
+    /// places where a sideways drag belongs to the view under the finger (an audio card's waveform scrubs), by the
+    /// view's id, in window points: neither the menu's swipe nor the Overview's starts on a touch that lands in one
+    static var ownDrag: [UUID: CGRect] = [:]
+
+    static func ownsDrag(_ p: CGPoint) -> Bool {
+        ownDrag.values.contains { $0.insetBy(dx: -4, dy: -6).contains(p) }
+    }
 
     struct WeakPan {
         weak var pan: UIPanGestureRecognizer?

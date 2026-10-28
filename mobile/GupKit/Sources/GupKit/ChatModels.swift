@@ -70,6 +70,7 @@ struct Meter: Codable, Equatable {
     var switchAt: Double?
     var auto: Bool?
     var resets: String?
+    var plan: String?           // "openai": a GPT chat, its limits are the ChatGPT plan's
 }
 
 struct ChatStatus: Codable, Equatable {
@@ -148,6 +149,8 @@ struct Prompt: Codable, Equatable {
     var notice: String?
     var items: [NoticeItem]?
     var status: String?
+    /// audio files you sent, played in your bubble (a157)
+    var audio: [MDItem]?
 }
 
 struct NoticeItem: Codable, Equatable {
@@ -211,7 +214,8 @@ struct MD: Codable, Equatable {
     var fallback: Bool?
 }
 
-/// A list item (level, text, n, done) or a picture/video (kind, url, name, poster).
+/// A list item (level, text, n, done) or a picture/video/audio file (kind, url, name, poster; audio: duration,
+/// peaks, error).
 struct MDItem: Codable, Equatable {
     var level: Int?
     var text: String?
@@ -221,6 +225,10 @@ struct MDItem: Codable, Equatable {
     var url: String?
     var name: String?
     var poster: String?
+    /// audio (a157): its length in seconds and 96 loudness values 0-100 across it, or why it can't play
+    var duration: Double?
+    var peaks: [Int]?
+    var error: String?
 }
 
 /// What a turn keeps outside its fold: threads it started, helpers, changed files, a thread's question.

@@ -14,20 +14,17 @@
   "usage": [
    {
     "label": "ctx",
-    "percent": 9,
-    "tokens": 18000,
-    "switchAt": 200000,
-    "auto": true
-   },
-   {
-    "label": "5h",
-    "percent": 0,
-    "resets": "2026-10-14T20:58:40.000Z"
+    "percent": 7,
+    "tokens": 18400,
+    "switchAt": 150000,
+    "auto": true,
+    "plan": "openai"
    },
    {
     "label": "wk",
-    "percent": 0,
-    "resets": "2026-10-17T17:46:40.000Z"
+    "percent": 3,
+    "resets": "2026-10-19T17:46:40.000Z",
+    "plan": "openai"
    }
   ],
   "branch": "",

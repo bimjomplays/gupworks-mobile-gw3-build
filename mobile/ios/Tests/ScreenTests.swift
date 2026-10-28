@@ -207,6 +207,19 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(el(app, "usageCard").waitForNonExistence(timeout: 5))
     }
 
+    /// a155: a GPT chat's card shows the ChatGPT plan's limits (the weekly one; ChatGPT reports no 5-hour one)
+    func test5gUsageOnAGPTChat() {
+        let app = openChat(chat(8), waitFor: "The backup didn")
+        app.buttons["usage"].tap()
+        XCTAssertTrue(el(app, "usageCard").waitForExistence(timeout: 5))
+        XCTAssertTrue(el(app, "usage-ctx").label.contains("18K"), el(app, "usage-ctx").label)
+        XCTAssertTrue(el(app, "usage-wk").label.contains("ChatGPT weekly limit"), el(app, "usage-wk").label)
+        XCTAssertTrue(el(app, "usage-wk").label.contains("3%"), el(app, "usage-wk").label)
+        XCTAssertTrue(el(app, "usage-5h").label.contains("Not reported by ChatGPT"), el(app, "usage-5h").label)
+        sleep(1)
+        shot("a155-gpt-usage")
+    }
+
     /// a118: on home (no chat yet) the rings draw empty and the button does nothing; the first message wakes it
     func test5gUsageIsOffOnHome() {
         let app = launch()
@@ -824,6 +837,59 @@ final class ScreenTests: XCTestCase {
         page.swipeDown()
         XCTAssertTrue(viewer.waitForNonExistence(timeout: 5), "swipe down closes; \(page.label)")
         XCTAssertTrue(find(app, six).exists, "back in the chat")
+    }
+
+    // MARK: a157: audio plays in the chat
+
+    /// the waveform cards top to bottom: your voice memo, then Claude's two synth lines
+    private func audioWaves(_ app: App) -> [Element] {
+        let q = app.descendants(matching: .any).matching(identifier: "audio-wave")
+        return (0..<q.count).map { q.element(boundBy: $0) }.sorted { $0.frame.minY < $1.frame.minY }
+    }
+
+    /// Claude's audio sits in its reply as waveform cards as wide as the column (a path with spaces too); the voice
+    /// memo you sent sits on the right, above your words. A tap on the waveform before playing moves the place; play
+    /// plays from there and the time moves; one sound at a time.
+    func testA157AudioInAChat() {
+        let app = openChat(AudioDemo.chat, waitFor: "Turn this hum into a synth line")
+        let plays = app.buttons.matching(identifier: "audio-play")
+        XCTAssertTrue(poll(10) { plays.count >= 3 }, "your memo and Claude's two sounds: \(plays.count)")
+        let mine = app.buttons["Play hum-idea.m4a"], synth = app.buttons["Play Synth line"]
+        XCTAssertTrue(mine.exists, "your memo has a player")
+        XCTAssertTrue(synth.exists, "Claude's sound has a player")
+        XCTAssertTrue(app.buttons["Play Synth line, slow"].exists, "the path with spaces plays too")
+        XCTAssertFalse(find(app, "synth line slow.m4a>").exists, "no raw link")
+        let words = find(app, "Turn this hum into a synth line")
+        let waves = audioWaves(app)
+        XCTAssertEqual(waves.count, 3)
+        let width = app.windows.firstMatch.frame.width
+        XCTAssertLessThan(waves[0].frame.maxY, words.frame.minY, "your memo above your words")
+        XCTAssertGreaterThan(waves[0].frame.minX, width * 0.2, "yours sits on the right")
+        XCTAssertGreaterThan(waves[1].frame.width, waves[0].frame.width, "Claude's as wide as the column")
+        for w in waves { onScreen(app, w, "a waveform") }
+        XCTAssertEqual(el(app, "audio-speed").value as? String, "1×")
+        idle(1)
+        shot("a157-audio")
+
+        // a tap halfway along the synth line's waveform, before it plays: it starts from there
+        let line = MediaLink.url("demo:media/synth-line.m4a", base: nil)
+        waves[1].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(poll(3) { abs(AudioPlayback.shared.place(of: line) - 4) < 0.6 },
+                      "moved to the middle: \(AudioPlayback.shared.place(of: line))")
+        synth.tap()
+        let pause = app.buttons["Pause Synth line"]
+        XCTAssertTrue(pause.waitForExistence(timeout: 8), "it plays")
+        XCTAssertTrue(poll(6) { AudioPlayback.shared.place(of: line) > 4.6 }, "from the middle on")
+        idle(1)
+        shot("a157-audio-playing")
+
+        // your memo starts: the synth line pauses and keeps its place
+        mine.tap()
+        XCTAssertTrue(app.buttons["Pause hum-idea.m4a"].waitForExistence(timeout: 8), "your memo plays")
+        XCTAssertTrue(app.buttons["Play Synth line"].waitForExistence(timeout: 3), "the other one stopped")
+        XCTAssertGreaterThan(AudioPlayback.shared.place(of: line), 4.5, "and kept its place")
+        app.buttons["Pause hum-idea.m4a"].tap()
+        XCTAssertTrue(app.buttons["Play hum-idea.m4a"].waitForExistence(timeout: 5), "paused")
     }
 
     // MARK: a133: a mockup set, and pictures in the order the text has them

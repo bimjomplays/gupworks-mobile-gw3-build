@@ -134,6 +134,7 @@ struct RemoteImage: View {
 
 /// A reply's pictures and videos: one fills the column; several sit in a two-column grid. Tap for full screen;
 /// a picture opens among the chat's other pictures when it sits in a chat (`slot`: its block in the reply).
+/// Audio files play in their own cards under them, as wide as the column (AudioPlayer.swift).
 struct MediaGroup: View {
     let items: [MDItem]
     let base: URL?
@@ -149,15 +150,21 @@ struct MediaGroup: View {
     }
 
     var body: some View {
-        Group {
-            if items.count == 1, let it = items.first {
-                tile(it, at: 0, single: true)
-            } else {
+        // an item keeps its place in the block (`k`): the photo viewer names pictures by it (ChatPhotos.collect)
+        let visual = Array(items.enumerated()).filter { $0.element.kind != "audio" }
+        let sounds = items.filter { $0.kind == "audio" }
+        VStack(alignment: .leading, spacing: 8) {
+            if visual.count == 1, let one = visual.first {
+                tile(one.element, at: one.offset, single: true)
+            } else if !visual.isEmpty {
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(Array(items.enumerated()), id: \.offset) { k, it in
+                    ForEach(visual, id: \.offset) { k, it in
                         tile(it, at: k, single: false)
                     }
                 }
+            }
+            if !sounds.isEmpty {
+                AudioList(items: sounds, base: base)
             }
         }
         .fullScreenCover(item: $open) { o in

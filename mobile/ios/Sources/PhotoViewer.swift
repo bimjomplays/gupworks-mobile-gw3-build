@@ -62,9 +62,9 @@ enum ChatPhotos {
         return out
     }
 
-    /// pictures and drawings; videos (and their posters) play in the video player instead
+    /// pictures and drawings; videos (and their posters) play in the video player instead, audio in its card
     static func isPicture(_ it: MDItem) -> Bool {
-        it.kind != "video" && !(it.url ?? "").isEmpty
+        it.kind != "video" && it.kind != "audio" && !(it.url ?? "").isEmpty
     }
 }
 

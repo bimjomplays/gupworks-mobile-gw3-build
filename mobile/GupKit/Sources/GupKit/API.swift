@@ -108,6 +108,7 @@ struct QueueItem: Codable, Equatable, Identifiable {
     var error: String?
     var images: [String]?
     var files: [String]?
+    var audio: [MDItem]?
 
     var id: String { clientId }
 }
