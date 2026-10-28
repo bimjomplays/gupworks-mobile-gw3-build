@@ -84,14 +84,18 @@ final class AudioPlayerUITests: XCTestCase {
         pause.tap()
         XCTAssertTrue(play.waitForExistence(timeout: 5), "paused")
 
-        // a drag along the 8 s waveform lands where the finger lets go: 90% is 0:07
+        // a drag to the right along the waveform scrubs (the menu's swipe leaves it alone) and lands where the finger
+        // lets go: 90% of the ~7.5 s line is 0:06-0:07
         let wave = app.descendants(matching: .any).matching(identifier: "audio-wave")
             .allElementsBoundByIndex.sorted { $0.frame.minY < $1.frame.minY }
         XCTAssertGreaterThanOrEqual(wave.count, 2)
         let line = wave[1]
         line.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5))
             .press(forDuration: 0.05, thenDragTo: line.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
-        XCTAssertTrue(wait(line, "value BEGINSWITH %@", "0:07"), "at 0:07: \(line.value ?? "")")
+        let landed = expectation(for: NSPredicate(format: "value BEGINSWITH '0:06' OR value BEGINSWITH '0:07'"),
+                                 evaluatedWith: line)
+        XCTAssertEqual(XCTWaiter.wait(for: [landed], timeout: 8), .completed, "near the end: \(line.value ?? "")")
+        XCTAssertFalse(el(app, "closeMenu").exists, "the menu stayed shut")
         sleep(1)
         shot("a157-audio-dragged")
     }

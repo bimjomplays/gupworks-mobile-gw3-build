@@ -404,15 +404,18 @@ struct OverviewSwipe: UIGestureRecognizerRepresentable {
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var closing = false
         private weak var touched: UIView?
+        /// the touch began on a view that drags sideways itself (MenuSwipe.ownDrag)
+        private var startedOwn = false
         private var scrolls: [MenuSwipe.WeakPan] = []
 
         func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
             touched = touch.view
+            startedOwn = MenuSwipe.ownsDrag(touch.location(in: nil))
             return true
         }
 
         func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
-            guard let pan = g as? UIPanGestureRecognizer, !MenuSwipe.pinHeld else { return false }
+            guard let pan = g as? UIPanGestureRecognizer, !MenuSwipe.pinHeld, !startedOwn else { return false }
             let v = pan.velocity(in: nil)
             guard abs(v.x) > 1.5 * abs(v.y) else { return false }
             if closing {

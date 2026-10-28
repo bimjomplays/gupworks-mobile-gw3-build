@@ -160,6 +160,7 @@ struct AudioCard: View {
     let base: URL?
     @State private var dragging: Double?
     @State private var waveWidth: Double = 1
+    @State private var dragID = UUID()
     private var playback: AudioPlayback { .shared }
 
     private var url: URL? { MediaLink.url(item.url, base: base) }
@@ -195,6 +196,9 @@ struct AudioCard: View {
                 AudioWaveform(bars: item.peaks, progress: AudioMath.progress(time: time, duration: duration))
                     .frame(height: 30)
                     .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { waveWidth = $0 }
+                    // a sideways drag here scrubs: the menu's and the Overview's swipes leave it alone
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { MenuSwipe.ownDrag[dragID] = $0 }
+                    .onDisappear { MenuSwipe.ownDrag[dragID] = nil }
                     .contentShape(Rectangle())
                     .onTapGesture { p in
                         guard let url, duration > 0 else { return }
