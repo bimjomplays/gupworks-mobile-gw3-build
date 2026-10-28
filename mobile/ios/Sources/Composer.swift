@@ -578,7 +578,7 @@ struct QueuedBubble: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            Bubble(prompt: Prompt(text: item.text, images: item.images), base: base,
+            Bubble(prompt: Prompt(text: item.text, images: item.images, audio: item.audio), base: base,
                    queued: item.state == "queued" && waits)
             if let files = item.files, !files.isEmpty {
                 FileLine(names: files)

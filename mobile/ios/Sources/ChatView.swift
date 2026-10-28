@@ -796,6 +796,9 @@ struct Bubble: View {
                 .padding(.leading, 60)
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
+            if let audio = prompt.audio, !audio.isEmpty {
+                AudioList(items: audio, base: base, mine: true)
+            }
             if let text = prompt.text, !text.isEmpty {
                 HStack {
                     Spacer(minLength: 60)
