@@ -283,6 +283,8 @@ struct AudioCard: View {
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }
+        // a new menu for each speed: a Menu's label wasn't redrawn after its Picker changed (CI showed "1×" at 1.5×)
+        .id(playback.speed)
         .accessibilityLabel("Speed")
         .accessibilityValue(AudioMath.speedLabel(playback.speed))
         .accessibilityIdentifier("audio-speed")

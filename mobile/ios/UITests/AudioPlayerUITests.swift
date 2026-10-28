@@ -62,6 +62,7 @@ final class AudioPlayerUITests: XCTestCase {
         // the speed menu: 1.5× is picked and shows on every card
         let speed = app.buttons.matching(identifier: "audio-speed").firstMatch
         XCTAssertEqual(speed.value as? String, "1×")
+        let label1x = speed.screenshot().pngRepresentation
         speed.tap()
         let fast = app.buttons["1.5×"]
         XCTAssertTrue(fast.waitForExistence(timeout: 5), "the speed menu")
@@ -73,6 +74,9 @@ final class AudioPlayerUITests: XCTestCase {
         for i in 0..<speeds.count {
             XCTAssertEqual(speeds.element(boundBy: i).value as? String, "1.5×", "every card plays at 1.5×")
         }
+        // and shows it: the label's pixels changed (an accessibility value can be right while the drawing is stale)
+        sleep(1)
+        XCTAssertNotEqual(speeds.firstMatch.screenshot().pngRepresentation, label1x, "the label reads 1.5×")
 
         // play: the button turns to pause and the waveform fills
         play.tap()
