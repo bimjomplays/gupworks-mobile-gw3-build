@@ -15,7 +15,9 @@ final class AudioPlayerUITests: XCTestCase {
 
     private func launch() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-demo", "-videoSpeed", "1", "-open", chat]  // 1× whatever an earlier test chose
+        // no "-videoSpeed 1": that pins the saved speed, and pressing play reads the saved speed back (the video
+        // player may have changed it), so a picked 1.5× fell back to 1×. The test sets 1× through the menu instead.
+        app.launchArguments = ["-demo", "-open", chat]
         app.launch()
         return app
     }
@@ -61,7 +63,13 @@ final class AudioPlayerUITests: XCTestCase {
 
         // the speed menu: 1.5× is picked and shows on every card
         let speed = app.buttons.matching(identifier: "audio-speed").firstMatch
-        XCTAssertEqual(speed.value as? String, "1×")
+        if speed.value as? String != "1×" {  // an earlier test's speed
+            speed.tap()
+            XCTAssertTrue(app.buttons["1×"].waitForExistence(timeout: 5))
+            app.buttons["1×"].tap()
+            XCTAssertTrue(wait(speed, "value == %@", "1×"), "back to 1×")
+            sleep(1)
+        }
         let label1x = speed.screenshot().pngRepresentation
         speed.tap()
         let fast = app.buttons["1.5×"]
@@ -83,6 +91,7 @@ final class AudioPlayerUITests: XCTestCase {
         let pause = app.buttons["Pause Synth line"]
         XCTAssertTrue(pause.waitForExistence(timeout: 8), "it plays")
         XCTAssertTrue(screenMoves(), "the waveform and the time move while it plays")
+        XCTAssertEqual(speed.value as? String, "1.5×", "playing kept the picked speed")
         shot("a157-audio-playing-fast")
 
         pause.tap()
