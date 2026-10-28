@@ -89,6 +89,14 @@ final class ViewLogicTests: XCTestCase {
         let past = UsageCard.rows([Meter(label: "5h", percent: 99, resets: iso.string(from: now.addingTimeInterval(-60)))],
                                   now: now, calendar: cal)
         XCTAssertEqual(past[1].detail, "Reset")
+
+        // a GPT chat: its limits are the ChatGPT plan's, and a limit ChatGPT doesn't report says so
+        let gpt = UsageCard.rows([Meter(label: "ctx", percent: 5, tokens: 13_500, switchAt: 150_000, plan: "openai"),
+                                  Meter(label: "wk", percent: 3, plan: "openai")], now: now, calendar: cal)
+        XCTAssertEqual(gpt.map(\.name), ["Context", "ChatGPT 5-hour limit", "ChatGPT weekly limit"])
+        XCTAssertEqual(gpt[1].detail, "Not reported by ChatGPT")
+        XCTAssertEqual(gpt[2].percent, 3)
+        XCTAssertEqual(rows.map(\.name), ["Context", "5-hour limit", "Weekly limit"])
     }
 }
 

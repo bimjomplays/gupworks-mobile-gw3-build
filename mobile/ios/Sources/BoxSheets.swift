@@ -274,7 +274,9 @@ struct UsageCard: View {
     }
 
     /// Context ("68K of 200K tokens"), the 5-hour limit ("resets in 3h 12m") and the week ("resets Thu 09:00").
+    /// A GPT chat's limits are the ChatGPT plan's ("ChatGPT weekly limit"); one it doesn't report says so.
     static func rows(_ usage: [Meter], now: Date, calendar: Calendar = .current) -> [Row] {
+        let openai = usage.contains { $0.plan == "openai" }
         func meter(_ l: String) -> Meter? { usage.first { $0.label == l } }
         let ctx = meter("ctx")
         var ctxLine = "A new chat starts empty"
@@ -286,7 +288,9 @@ struct UsageCard: View {
             ctxLine = "How full this chat is"
         }
         func resets(_ m: Meter?, weekday: Bool) -> String {
-            guard let r = m?.resets, let at = Format.isoDate(r) else { return m == nil ? "Not known yet" : "" }
+            guard let r = m?.resets, let at = Format.isoDate(r) else {
+                return m != nil ? "" : openai ? "Not reported by ChatGPT" : "Not known yet"
+            }
             guard at > now else { return "Reset" }
             if !weekday { return "resets in \(Format.span(at.timeIntervalSince(now)))" }
             let f = DateFormatter()
@@ -298,8 +302,10 @@ struct UsageCard: View {
         }
         let five = meter("5h"), week = meter("wk")
         return [Row(label: "ctx", name: "Context", percent: ctx?.percent ?? (ctx == nil ? 0 : nil), detail: ctxLine),
-                Row(label: "5h", name: "5-hour limit", percent: five?.percent, detail: resets(five, weekday: false)),
-                Row(label: "wk", name: "Weekly limit", percent: week?.percent, detail: resets(week, weekday: true))]
+                Row(label: "5h", name: openai ? "ChatGPT 5-hour limit" : "5-hour limit", percent: five?.percent,
+                    detail: resets(five, weekday: false)),
+                Row(label: "wk", name: openai ? "ChatGPT weekly limit" : "Weekly limit", percent: week?.percent,
+                    detail: resets(week, weekday: true))]
     }
 }
 

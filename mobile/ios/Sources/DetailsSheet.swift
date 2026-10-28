@@ -129,7 +129,7 @@ struct ChatDetailsSheet: View {
     private func meter(_ m: Meter) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(Self.meterName(m.label))
+                Text(Format.meterName(m))
                 Spacer()
                 Text(Format.meterLine(m, now: Date())).foregroundStyle(ChatStyle.dim).monospacedDigit()
             }
@@ -165,14 +165,6 @@ struct ChatDetailsSheet: View {
         }
     }
 
-    static func meterName(_ label: String) -> String {
-        switch label {
-        case "ctx": return "Context"
-        case "5h": return "5-hour"
-        case "wk": return "Week"
-        default: return label
-        }
-    }
 }
 
 /// D4/D5's section headers: small, grey, as typed (iOS 26 lists draw them large and bold otherwise)

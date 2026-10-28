@@ -117,12 +117,14 @@ enum OverviewSections {
 
     static func doneLabel(_ n: Int) -> String { n == 1 ? "1 done subagent" : "\(n) done subagents" }
 
-    /// "5-hour 18% · weekly 41%", or nil before anything measured them
+    /// "5-hour 18% · weekly 41%" ("ChatGPT weekly 3%" when the main chat runs on GPT), or nil before anything
+    /// measured them
     static func planLine(_ plan: ProjectUsage.Plan?) -> String? {
         guard let plan else { return nil }
         let bits = [plan.fiveHour.map { "5-hour \(Int($0.rounded()))%" }, plan.week.map { "weekly \(Int($0.rounded()))%" }]
             .compactMap { $0 }
-        return bits.isEmpty ? nil : bits.joined(separator: " · ")
+        if bits.isEmpty { return nil }
+        return (plan.provider == "openai" ? "ChatGPT " : "") + bits.joined(separator: " · ")
     }
 
     /// The usage card's rows: main chat and all threads (by model), then the heavy threads in red.

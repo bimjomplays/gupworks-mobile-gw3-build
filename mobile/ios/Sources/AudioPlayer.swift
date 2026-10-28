@@ -166,9 +166,10 @@ struct AudioCard: View {
     private var url: URL? { MediaLink.url(item.url, base: base) }
     private var name: String { item.name ?? "Audio" }
 
+    /// the PC's measured length first (the player's own can come out a hair short, 0:08 turning 0:07 on play)
     private var duration: Double {
-        let live = url == playback.current ? playback.duration : 0
-        return live > 0 ? live : item.duration ?? 0
+        if let d = item.duration, d > 0 { return d }
+        return url == playback.current ? playback.duration : 0
     }
 
     private var time: Double { dragging ?? playback.place(of: url) }

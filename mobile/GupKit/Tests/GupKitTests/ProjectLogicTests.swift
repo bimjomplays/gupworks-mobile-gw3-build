@@ -185,6 +185,8 @@ final class ProjectLogicTests: XCTestCase {
         XCTAssertEqual(OverviewSections.needsCount(v), 2)
         XCTAssertEqual(OverviewSections.planLine(v.plan), "5-hour 18% · weekly 41%")
         XCTAssertNil(OverviewSections.planLine(.init()))
+        XCTAssertEqual(OverviewSections.planLine(.init(week: 12, provider: "openai")), "ChatGPT weekly 12%")
+        XCTAssertNil(OverviewSections.planLine(.init(provider: "openai")))
         XCTAssertEqual(OverviewSections.usage(v).heavy.map(\.title), ["Contrast pass"])
         XCTAssertEqual(v.nextSchedule?.title, "Lighthouse report")
     }
