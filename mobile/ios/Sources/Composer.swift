@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 /// 5a/5e: ChatGPT's rounded box. The words on top; below them + (Photos, Camera, Files), the gauge (model and effort,
 /// 5f), the three usage rings (5g), then / commands, the mic and send (■ stop while Claude works).
 /// 5h: the mic turns the row into the recorder (× cancel, waveform, ■ words into the box, ↑ send).
+/// a161: + › Voice memo records an audio file instead (× cancel, waveform, clock, ■), previewed above the words.
 struct Composer: View {
     @Bindable var store: ChatStore
     /// context, 5-hour and weekly meters (a new chat: the account's, from home)
@@ -25,6 +26,7 @@ struct Composer: View {
     @State private var camera = false
     @State private var files = false
     @State private var problem: String?
+    @State private var memo = MemoRecorder()
     @FocusState private var focused: Bool
 
     static let fill = Color(hex: 0x1B1B1B)
@@ -35,9 +37,11 @@ struct Composer: View {
     private var voice: VoiceController { store.voice }
     /// the box is the recorder (5h)
     private var recorder: Bool { voice.phase != .idle }
+    /// the box is the voice memo's recorder (a161)
+    private var memoRecording: Bool { memo.recording }
 
     private var hasContent: Bool {
-        !store.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty
+        !store.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty || memo.hasMemo
     }
 
     private var placeholder: String {
@@ -100,7 +104,17 @@ struct Composer: View {
         .onChange(of: store.focusTick, initial: true) { _, tick in if tick > 0 { focused = true } }
         .onChange(of: voice.limitTick) { Task { await finishVoice(send: false) } }
         .onChange(of: recorder) { _, on in if on { usageOpen = false } }
-        .onDisappear { voice.cancel() }
+        .onChange(of: memoRecording) { _, on in if on { usageOpen = false } }
+        .onDisappear {
+            voice.cancel()
+            if memo.recording { memo.discard() }
+        }
+        .alert("Microphone is off", isPresented: $memo.denied) {
+            Button("Open Settings") { MemoRecorder.openSettings() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("To record a voice memo, allow the microphone in Settings › GupWorks.")
+        }
         .alert("Can't attach that", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -114,7 +128,24 @@ struct Composer: View {
                 AttachmentStrip(attachments: $attachments)
                     .padding(.top, 8)
             }
-            if recorder {
+            if memo.hasMemo && !memoRecording {
+                memoPreview
+                    .padding(.top, 10)
+                    .padding(.horizontal, 12)
+            }
+            if memoRecording {
+                HStack(spacing: 8) {
+                    Circle().fill(Theme.red).frame(width: 8, height: 8)
+                    Text("Recording voice memo")
+                        .font(.system(size: 17))
+                        .foregroundStyle(Self.ink)
+                }
+                .padding(.top, 14)
+                .padding(.horizontal, 20)
+                .frame(minHeight: 37, alignment: .top)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("memoRecording")
+            } else if recorder {
                 // the placeholder stays on top while recording, as Claude's
                 Text(placeholder)
                     .font(.system(size: 17))
@@ -146,14 +177,16 @@ struct Composer: View {
         .background(Self.fill, in: RoundedRectangle(cornerRadius: 28))
         .overlay(RoundedRectangle(cornerRadius: 28).stroke(Self.border, lineWidth: 1))
         .contentShape(RoundedRectangle(cornerRadius: 28))
-        .onTapGesture { if !recorder { focused = true } }
+        .onTapGesture { if !recorder && !memoRecording { focused = true } }
     }
 
     /// + gauge rings · / mic send; recording: × waveform ■ ↑. The mic key keeps its place in both, so a hold that
     /// starts on the mic ends on it as ↑.
     private var row: some View {
         HStack(spacing: 2) {
-            if recorder {
+            if memoRecording {
+                memoParts
+            } else if recorder {
                 recorderParts
             } else {
                 plusMenu
@@ -162,9 +195,12 @@ struct Composer: View {
                 Spacer(minLength: 4)
                 slash
             }
-            VoiceKey(recording: voice.phase == .recording, busy: voice.phase == .transcribing, down: micDown, up: micUp)
-                .padding(.horizontal, voice.phase == .recording || voice.phase == .transcribing ? -1 : -3.5)
-            if !recorder {
+            if !memoRecording {
+                VoiceKey(recording: voice.phase == .recording, busy: voice.phase == .transcribing, down: micDown,
+                         up: micUp)
+                    .padding(.horizontal, voice.phase == .recording || voice.phase == .transcribing ? -1 : -3.5)
+            }
+            if !recorder && !memoRecording {
                 if store.working {
                     if hasContent { sendButton }
                     stopButton
@@ -181,6 +217,8 @@ struct Composer: View {
             Button("Camera", systemImage: "camera") { camera = true }
                 .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
             Button("Files", systemImage: "folder") { files = true }
+            Button("Voice memo", systemImage: "waveform") { startMemo() }
+                .accessibilityIdentifier("voiceMemo")
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 22, weight: .light))
@@ -274,6 +312,95 @@ struct Composer: View {
         }
     }
 
+    // MARK: voice memo (a161)
+
+    /// × · waveform · clock · ■
+    @ViewBuilder
+    private var memoParts: some View {
+        Button { memo.discard() } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(Self.ink)
+                .frame(width: 40, height: 40)
+                .background(Color(hex: 0x333338), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Cancel voice memo")
+        .accessibilityIdentifier("memoCancel")
+        Waveform(levels: memo.levels)
+            .frame(height: 24)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 8)
+            .accessibilityHidden(true)
+        Text(VoiceMath.clock(memo.elapsed))
+            .font(.system(size: 15).monospacedDigit())
+            .foregroundStyle(Self.ink)
+            .padding(.trailing, 8)
+            .accessibilityLabel("Recording, \(Int(memo.elapsed)) seconds")
+            .accessibilityIdentifier("memoTimer")
+        Button {
+            Task { await memo.stop() }
+        } label: {
+            RoundedRectangle(cornerRadius: 2.5)
+                .fill(Color.black)
+                .frame(width: 12, height: 12)
+                .frame(width: 40, height: 40)
+                .background(Self.ink, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, 2)
+        .accessibilityLabel("Stop recording")
+        .accessibilityIdentifier("memoStop")
+    }
+
+    /// the recorded memo above the words: play it, record it again or delete it
+    private var memoPreview: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            AudioCard(item: MDItem(kind: "audio", name: "Voice memo", duration: memo.duration, peaks: memo.peaks),
+                      base: nil, local: memo.file)
+            HStack(spacing: 18) {
+                Button { startMemo() } label: {
+                    Label("Re-record", systemImage: "arrow.counterclockwise")
+                }
+                .accessibilityIdentifier("memoRerecord")
+                Button { memo.discard() } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                .accessibilityIdentifier("memoDelete")
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(ChatStyle.dim)
+            .frame(minHeight: 36)
+            .padding(.leading, 4)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("memoPreview")
+    }
+
+    private func startMemo() {
+        guard voice.phase == .idle else { return }
+        focused = false
+        Task {
+            await memo.start()
+            if let why = memo.problem {
+                memo.problem = nil
+                problem = why
+            }
+        }
+    }
+
+    /// what goes with the message: the picked photos and files, then the memo
+    private func takeAttachments() -> [Attachment] {
+        var picked = attachments
+        attachments = []
+        if memo.hasMemo {
+            if let a = memo.attachment() { picked.append(a) } else { problem = "The voice memo couldn't be read." }
+            memo.sent()
+        }
+        return picked
+    }
+
     /// ■ in the recorder: the words go in the box to check first
     private var intoBoxButton: some View {
         Button {
@@ -329,9 +456,7 @@ struct Composer: View {
         let words = VoiceMath.merge(store.draft, said)
         if send {
             store.draft = ""
-            let picked = attachments
-            attachments = []
-            await store.send(text: words, attachments: picked)
+            await store.send(text: words, attachments: takeAttachments())
         } else {
             store.put(words)
         }
@@ -385,9 +510,8 @@ struct Composer: View {
 
     private func send() {
         guard hasContent else { return }
-        let words = store.draft, picked = attachments
+        let words = store.draft, picked = takeAttachments()
         store.draft = ""
-        attachments = []
         Task { await store.send(text: words, attachments: picked) }
     }
 
@@ -612,8 +736,15 @@ struct OutgoingBubble: View {
                 .padding(.leading, 60)
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            let others = message.attachments.filter { $0.image == nil }.map(\.name)
+            let sounds = message.attachments.filter { MemoMath.isAudio(type: $0.type, name: $0.name) }
+            let others = message.attachments.filter { $0.image == nil && !sounds.contains($0) }.map(\.name)
             if !others.isEmpty { FileLine(names: others) }
+            ForEach(sounds) { a in
+                AudioCard(item: MDItem(kind: "audio", name: a.name, duration: a.duration, peaks: a.peaks),
+                          base: nil, local: a.local)
+                    .frame(maxWidth: 300)
+                    .padding(.leading, 60)
+            }
             if !message.text.isEmpty {
                 HStack {
                     Spacer(minLength: 60)
@@ -640,7 +771,7 @@ struct OutgoingBubble: View {
                 .font(.system(size: 15, weight: .medium))
                 .frame(minHeight: 44)
             } else {
-                Text(message.attachments.contains { $0.uploaded == nil } ? "Sending photos\u{2026}" : "Sending\u{2026}")
+                Text(Self.status(message.attachments))
                     .font(.system(size: 13))
                     .foregroundStyle(ChatStyle.dim)
             }
@@ -648,6 +779,17 @@ struct OutgoingBubble: View {
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.top, 14)
         .accessibilityIdentifier(message.failed == nil ? "sending" : "notSent")
+    }
+
+    /// "Sending photos…", "Sending voice memo…" while they upload, then "Sending…"
+    static func status(_ attachments: [Attachment]) -> String {
+        let up = attachments.filter { $0.uploaded == nil }
+        if up.isEmpty { return "Sending\u{2026}" }
+        if up.allSatisfy({ $0.image != nil }) { return "Sending photos\u{2026}" }
+        if up.allSatisfy({ MemoMath.isAudio(type: $0.type, name: $0.name) }) {
+            return up.count == 1 ? "Sending voice memo\u{2026}" : "Sending audio\u{2026}"
+        }
+        return "Uploading\u{2026}"
     }
 }
 

@@ -16,6 +16,9 @@ struct Attachment: Identifiable, Equatable {
     var image: Never?           // no pictures in the Linux tests
     #endif
     var uploaded: String?       // its path on the PC once uploaded
+    var duration: Double? = nil // a voice memo: its length in seconds (a161)
+    var peaks: [Int]? = nil     // and its loudness across it, 0-100 each, for the player
+    var local: URL? = nil       // and its file on the phone, played in the bubble while it sends
 
     static func == (a: Attachment, b: Attachment) -> Bool { a.id == b.id && a.uploaded == b.uploaded }
 }
@@ -683,17 +686,27 @@ final class ChatStore {
             status = ChatStatus(state: "idle", ts: Date().timeIntervalSince1970 * 1000, live: true, running: true)
             onMade?(id)
         }
-        demoTurn(m.text)
+        demoTurn(m.text, audio: Self.demoAudio(m.attachments))
         liveTick += 1
     }
 
-    private func demoTurn(_ text: String) {
+    /// the demo's sent sounds as the PC lists them (a161): each written to a temporary file the bubble plays
+    static func demoAudio(_ attachments: [Attachment]) -> [MDItem]? {
+        let items: [MDItem] = attachments.filter { MemoMath.isAudio(type: $0.type, name: $0.name) }.compactMap { a in
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent("demo-sent-" + a.name)
+            guard (try? a.data.write(to: file)) != nil else { return nil }
+            return MDItem(kind: "audio", url: file.absoluteString, name: a.name, duration: a.duration, peaks: a.peaks)
+        }
+        return items.isEmpty ? nil : items
+    }
+
+    private func demoTurn(_ text: String, audio: [MDItem]? = nil) {
         let now = Date().timeIntervalSince1970 * 1000
         let answer = Block(type: "text", id: "demo-a-\(turns.count)", answer: true,
                            md: [MD(t: "p", text: "This is the demo, so nothing went to a PC. Paired with your PC, "
                                    + "Claude answers here as it does on the desktop.")])
         upsert([Turn(id: "demo-t-\(turns.count)", kind: "prompt", start: now, state: "done",
-                     prompt: Prompt(text: text), open: false, blocks: [answer], rev: "demo")])
+                     prompt: Prompt(text: text, audio: audio), open: false, blocks: [answer], rev: "demo")])
     }
 
     private func demoStop() {

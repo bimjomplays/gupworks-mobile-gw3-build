@@ -10,7 +10,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.9.10"
+    MARKETING_VERSION: "0.9.11"
     CURRENT_PROJECT_VERSION: "1"
 # Hammer: real touches (taps, drags, long presses, pinches) inside the unit-test process, for the screen tests
 # (Tests/ScreenDriver.swift); XCTest's own event synthesizer only works from a UI-test bundle
@@ -60,7 +60,8 @@ targets:
           PC. Nothing else is recorded or sent anywhere.
         NSMicrophoneUsageDescription: >-
           GupWorks records your voice only while you hold or tap the mic in a chat, so your PC can turn it into text
-          for Claude. The recording is deleted once it's text.
+          for Claude (deleted once it's text), or while you record a voice memo, which is sent to the chat as an audio
+          file.
         # the PC's tailnet address, when its Tailscale name can't be looked up (Routes.swift): plain HTTP inside
         # Tailscale's encrypted tunnel, and only to Tailscale's own ranges
         NSAppTransportSecurity:
