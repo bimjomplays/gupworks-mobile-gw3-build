@@ -1048,7 +1048,8 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(mine.waitForExistence(timeout: 5), "his bubble plays the memo")
         XCTAssertTrue(find(app, "Here's the idea").exists)
         let width = app.windows.firstMatch.frame.width
-        XCTAssertGreaterThan(mine.frame.minX, width * 0.2, "in his bubble, on the right")
+        // his side: the card starts past the 60 pt gap (Claude's text starts at about 20); its play key is its left end
+        XCTAssertGreaterThan(mine.frame.minX, width * 0.15, "in his bubble, on the right")
         sleep(1)
         shot("a161-sent")
     }
