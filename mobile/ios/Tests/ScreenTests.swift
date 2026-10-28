@@ -1008,6 +1008,80 @@ final class ScreenTests: XCTestCase {
         shot("attach-menu")
     }
 
+    // MARK: a161: a voice memo from the + menu, sent as an audio file
+
+    /// + › Voice memo, the recorder bar, ■ to a preview that plays, then sent: his bubble plays it
+    func testA161VoiceMemo() {
+        let app = openChat(gallery, waitFor: "All five pages pass")
+        app.buttons["attach"].tap()
+        let item = app.buttons["Voice memo"]
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "Voice memo in the + menu")
+        XCTAssertTrue(app.buttons["Photos"].exists)
+        sleep(1)
+        shot("a161-plus-menu")
+        item.tap()
+        XCTAssertTrue(el(app, "memoRecording").waitForExistence(timeout: 5), "the box is the memo's recorder")
+        XCTAssertTrue(app.buttons["memoCancel"].exists)
+        XCTAssertTrue(app.buttons["memoStop"].exists)
+        XCTAssertFalse(app.buttons["mic"].exists, "the transcribe mic stays out of the way while recording")
+        XCTAssertFalse(app.buttons["send"].exists)
+        XCTAssertFalse(app.buttons["attach"].exists)
+        XCTAssertTrue(find(app, "Recording, 3 seconds").waitForExistence(timeout: 8), "the clock runs")
+        shot("a161-recording")
+        app.buttons["memoStop"].tap()
+        XCTAssertTrue(el(app, "memoPreview").waitForExistence(timeout: 8), "a preview to play first")
+        let play = app.buttons["Play Voice memo"]
+        XCTAssertTrue(play.waitForExistence(timeout: 5), "the preview has a player")
+        XCTAssertTrue(app.buttons["memoRerecord"].exists)
+        XCTAssertTrue(app.buttons["memoDelete"].exists)
+        XCTAssertTrue(app.buttons["mic"].exists, "the transcribe mic is back")
+        XCTAssertTrue(app.buttons["send"].isEnabled, "a memo alone can be sent")
+        play.tap()
+        XCTAssertTrue(app.buttons["Pause Voice memo"].waitForExistence(timeout: 8), "it plays")
+        sleep(1)
+        shot("a161-preview")
+        type(app, "Here's the idea")
+        app.buttons["send"].tap()
+        XCTAssertTrue(find(app, "This is the demo").waitForExistence(timeout: 10))
+        XCTAssertFalse(el(app, "memoPreview").exists, "the box is empty again")
+        let mine = app.buttons["Play Voice memo"]
+        XCTAssertTrue(mine.waitForExistence(timeout: 5), "his bubble plays the memo")
+        XCTAssertTrue(find(app, "Here's the idea").exists)
+        let width = app.windows.firstMatch.frame.width
+        XCTAssertGreaterThan(mine.frame.minX, width * 0.2, "in his bubble, on the right")
+        sleep(1)
+        shot("a161-sent")
+    }
+
+    /// ✕ while recording drops it; Re-record and Delete on the preview
+    func testA161MemoCancelAndRerecord() {
+        let app = openChat(gallery, waitFor: "All five pages pass")
+        app.buttons["attach"].tap()
+        app.buttons["Voice memo"].tap()
+        XCTAssertTrue(el(app, "memoRecording").waitForExistence(timeout: 5))
+        sleep(1)
+        app.buttons["memoCancel"].tap()
+        XCTAssertTrue(app.buttons["attach"].waitForExistence(timeout: 5), "cancelled: the box is back")
+        XCTAssertFalse(el(app, "memoPreview").exists, "nothing kept")
+        XCTAssertFalse(app.buttons["send"].isEnabled)
+
+        app.buttons["attach"].tap()
+        app.buttons["Voice memo"].tap()
+        XCTAssertTrue(el(app, "memoRecording").waitForExistence(timeout: 5))
+        sleep(1)
+        app.buttons["memoStop"].tap()
+        XCTAssertTrue(el(app, "memoPreview").waitForExistence(timeout: 8))
+        app.buttons["memoRerecord"].tap()
+        XCTAssertTrue(el(app, "memoRecording").waitForExistence(timeout: 5), "re-recording")
+        XCTAssertFalse(el(app, "memoPreview").exists)
+        sleep(1)
+        app.buttons["memoStop"].tap()
+        XCTAssertTrue(el(app, "memoPreview").waitForExistence(timeout: 8), "the new memo to preview")
+        app.buttons["memoDelete"].tap()
+        XCTAssertTrue(poll(3) { !el(app, "memoPreview").exists }, "deleted")
+        XCTAssertFalse(app.buttons["send"].isEnabled)
+    }
+
     func testQueuedThenStop() {
         let app = launch()
         open(app, "Wallpaper ideas", waitFor: "Working")

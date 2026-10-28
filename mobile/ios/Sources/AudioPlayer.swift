@@ -158,13 +158,21 @@ final class AudioPlayback {
 struct AudioCard: View {
     let item: MDItem
     let base: URL?
+    /// a file on the phone (the voice memo being previewed or sent, a161) instead of the item's link
+    let local: URL?
     @State private var dragging: Double?
     @State private var waveWidth: Double = 1
     @State private var dragID = UUID()
     private var playback: AudioPlayback { .shared }
 
-    private var url: URL? { MediaLink.url(item.url, base: base) }
-    private var name: String { item.name ?? "Audio" }
+    init(item: MDItem, base: URL?, local: URL? = nil) {
+        self.item = item
+        self.base = base
+        self.local = local
+    }
+
+    private var url: URL? { local ?? MediaLink.url(item.url, base: base) }
+    private var name: String { AudioMath.title(item.name) }
 
     /// the PC's measured length first (the player's own can come out a hair short, 0:08 turning 0:07 on play)
     private var duration: Double {

@@ -60,7 +60,8 @@ targets:
           PC. Nothing else is recorded or sent anywhere.
         NSMicrophoneUsageDescription: >-
           GupWorks records your voice only while you hold or tap the mic in a chat, so your PC can turn it into text
-          for Claude. The recording is deleted once it's text.
+          for Claude (deleted once it's text), or while you record a voice memo, which is sent to the chat as an audio
+          file.
         # the PC's tailnet address, when its Tailscale name can't be looked up (Routes.swift): plain HTTP inside
         # Tailscale's encrypted tunnel, and only to Tailscale's own ranges
         NSAppTransportSecurity:

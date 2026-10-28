@@ -5,6 +5,14 @@ import Foundation
 // fit its width and seeks where it's touched.
 
 enum AudioMath {
+    /// what a card calls its file: a voice memo (a161; "voice-memo-2026-10-28-143005.m4a", with or without the
+    /// PC's upload stamp in front) is "Voice memo", any other sound its own name
+    static func title(_ name: String?) -> String {
+        guard let name, !name.isEmpty else { return "Audio" }
+        return name.range(of: #"(^|-)voice-memo-\d{4}-\d{2}-\d{2}-\d{6}\.m4a$"#, options: .regularExpression) != nil
+            ? "Voice memo" : name
+    }
+
     /// the same speeds as the video player (VideoMath.speeds); the last one picked is shared (VideoSpeed)
     static let speeds: [Float] = [0.5, 0.75, 1, 1.25, 1.5, 2]
     /// a silent part still shows as a short bar, so the waveform reads as one line
