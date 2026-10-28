@@ -192,7 +192,7 @@ struct AudioCard: View {
         HStack(spacing: 12) {
             playButton
             VStack(alignment: .leading, spacing: 5) {
-                Waveform(bars: item.peaks, progress: AudioMath.progress(time: time, duration: duration))
+                AudioWaveform(bars: item.peaks, progress: AudioMath.progress(time: time, duration: duration))
                     .frame(height: 30)
                     .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { waveWidth = $0 }
                     .contentShape(Rectangle())
@@ -327,7 +327,7 @@ struct AudioCard: View {
 }
 
 /// The waveform: rounded bars, the played part bright and the rest dim.
-struct Waveform: View {
+struct AudioWaveform: View {
     let bars: [Int]?
     let progress: Double
 
