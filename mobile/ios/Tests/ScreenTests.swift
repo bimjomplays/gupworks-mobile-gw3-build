@@ -207,6 +207,19 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(el(app, "usageCard").waitForNonExistence(timeout: 5))
     }
 
+    /// a155: a GPT chat's card shows the ChatGPT plan's limits (the weekly one; ChatGPT reports no 5-hour one)
+    func test5gUsageOnAGPTChat() {
+        let app = openChat(chat(8), waitFor: "The backup didn")
+        app.buttons["usage"].tap()
+        XCTAssertTrue(el(app, "usageCard").waitForExistence(timeout: 5))
+        XCTAssertTrue(el(app, "usage-ctx").label.contains("18K"), el(app, "usage-ctx").label)
+        XCTAssertTrue(el(app, "usage-wk").label.contains("ChatGPT weekly limit"), el(app, "usage-wk").label)
+        XCTAssertTrue(el(app, "usage-wk").label.contains("3%"), el(app, "usage-wk").label)
+        XCTAssertTrue(el(app, "usage-5h").label.contains("Not reported by ChatGPT"), el(app, "usage-5h").label)
+        sleep(1)
+        shot("a155-gpt-usage")
+    }
+
     /// a118: on home (no chat yet) the rings draw empty and the button does nothing; the first message wakes it
     func test5gUsageIsOffOnHome() {
         let app = launch()

@@ -446,6 +446,7 @@ struct ProjectUsage: Codable, Equatable {
     struct Plan: Codable, Equatable {
         var fiveHour: Double?
         var week: Double?
+        var provider: String?   // "openai": the main chat runs on a GPT model, these are ChatGPT's limits
     }
 }
 

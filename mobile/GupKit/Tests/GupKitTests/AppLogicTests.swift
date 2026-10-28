@@ -358,6 +358,16 @@ final class AnswerTests: XCTestCase {
         XCTAssertNil(Format.cacheLeft(cold, now: now))
         XCTAssertEqual(Format.tokens(1_200_000), "1.2M")
     }
+
+    func testMeterNamesSayWhosePlan() throws {
+        XCTAssertEqual(Format.meterName(Meter(label: "ctx", percent: 1)), "Context")
+        XCTAssertEqual(Format.meterName(Meter(label: "wk", percent: 1)), "Week")
+        XCTAssertEqual(Format.meterName(Meter(label: "ctx", percent: 1, plan: "openai")), "Context")
+        XCTAssertEqual(Format.meterName(Meter(label: "wk", percent: 1, plan: "openai")), "ChatGPT week")
+        XCTAssertEqual(Format.meterName(Meter(label: "5h", percent: 1, plan: "openai")), "ChatGPT 5-hour")
+        let m = try JSONDecoder().decode(Meter.self, from: Data(#"{"label":"wk","percent":3,"plan":"openai"}"#.utf8))
+        XCTAssertEqual(m.plan, "openai")
+    }
 }
 
 @MainActor

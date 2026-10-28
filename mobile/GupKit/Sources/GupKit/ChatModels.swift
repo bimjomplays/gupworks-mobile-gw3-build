@@ -70,6 +70,7 @@ struct Meter: Codable, Equatable {
     var switchAt: Double?
     var auto: Bool?
     var resets: String?
+    var plan: String?           // "openai": a GPT chat, its limits are the ChatGPT plan's
 }
 
 struct ChatStatus: Codable, Equatable {
