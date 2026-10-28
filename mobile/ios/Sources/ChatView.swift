@@ -419,9 +419,7 @@ struct ChatView: View {
 
     /// the rings' meters: the chat's (a new chat: the account's 5-hour and week, from home)
     private var usage: [Meter] {
-        var u = store.header?.usage ?? []
-        for m in model.home?.usage ?? [] where !u.contains(where: { $0.label == m.label }) { u.append(m) }
-        return u
+        Format.chatMeters(store.header, home: model.home?.usage ?? [])
     }
 
     /// a thread's question waits in this chat: the composer reads "Answer or ask…"
