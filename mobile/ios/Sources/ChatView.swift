@@ -10,6 +10,8 @@ struct CardRoute: Hashable {
 /// has none and goes back instead.
 struct ChatView: View {
     let shell: ChatShell?
+    /// a181: what rides along from the Studio's Edit stage ("Edit · shot 6 selected"), a chip over the box
+    let context: String?
     @State private var store: ChatStore
     @State private var usageOpen = false
     @State private var folds: [String: Bool] = [:]
@@ -35,8 +37,10 @@ struct ChatView: View {
     @Environment(OverviewHost.self) private var overview: OverviewHost?
 
     /// `projectSheet`: a project's main chat opens with its Overview up (06); only the demo's `-sheet` shots set it (a149)
-    init(id: String?, pairing: Pairing?, demo: Bool, projectSheet: Bool = false, shell: ChatShell? = nil) {
+    init(id: String?, pairing: Pairing?, demo: Bool, projectSheet: Bool = false, shell: ChatShell? = nil,
+         context: String? = nil) {
         self.shell = shell
+        self.context = context
         _store = State(initialValue: ChatStore(id: id ?? "", pairing: pairing, demo: demo))
         _opensSheet = State(initialValue: projectSheet)
     }
@@ -263,7 +267,20 @@ struct ChatView: View {
         }
         .animation(.easeOut(duration: 0.18), value: usageOpen)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Composer(store: store, usage: usage, asking: asking, usageOpen: $usageOpen, prompt: composerPrompt)
+            VStack(alignment: .leading, spacing: 6) {
+                if let context {
+                    HStack(spacing: 6) {
+                        LucideIcon(name: "film", size: 13)
+                        Text(context).font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundStyle(Theme.blue)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Theme.blue.opacity(0.14), in: Capsule())
+                    .padding(.leading, 16)
+                    .accessibilityIdentifier("chatContext")
+                }
+                Composer(store: store, usage: usage, asking: asking, usageOpen: $usageOpen, prompt: composerPrompt)
+            }
         }
         .onChange(of: shell?.temporary ?? false, initial: true) { _, on in
             if store.isNew { store.temporary = on }

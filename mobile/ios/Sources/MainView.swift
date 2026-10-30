@@ -88,6 +88,16 @@ struct MainView: View {
             _path = State(initialValue: path)
             _onProjects = State(initialValue: p.hasMenu)
         }
+        // a181: the Studio's Edit stage on the demo's test video (and its chat over it)
+        if Demo.isOn, args.contains("-studio") {
+            var path = NavigationPath([Place.projects])
+            path.append(StudioEditRoute(projectId: "studio-test", videoId: "keeper", title: "The Keeper of Gull Point"))
+            if args.contains("-studioChat") {
+                path.append(ChatRoute(id: "studio-demo-chat", context: "Edit · shot 6 selected"))
+            }
+            _path = State(initialValue: path)
+            _onProjects = State(initialValue: true)
+        }
     }
 
     /// the status bar's height, read from the window: inside the full-screen reader below the proxy reports no inset
@@ -203,7 +213,10 @@ struct MainView: View {
             root
                 .id(current)
                 .navigationDestination(for: ChatRoute.self) { r in
-                    ChatView(id: r.id, pairing: model.pairing, demo: model.demo, projectSheet: r.sheet)
+                    ChatView(id: r.id, pairing: model.pairing, demo: model.demo, projectSheet: r.sheet, context: r.context)
+                }
+                .navigationDestination(for: StudioEditRoute.self) { r in
+                    StudioEditScreen(route: r, pairing: model.pairing, demo: model.demo)
                 }
                 .navigationDestination(for: Place.self) { p in
                     if p == .projects {
@@ -218,6 +231,7 @@ struct MainView: View {
                 }
         }
         .environment(\.openChat, { (id: String) in path.append(ChatRoute(id: id)) })
+        .environment(\.openChatRoute, { (r: ChatRoute) in path.append(r) })
     }
 
     @ViewBuilder

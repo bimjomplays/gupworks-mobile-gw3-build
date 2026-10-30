@@ -1,0 +1,105 @@
+{
+ "now": 1792000000000,
+ "header": {
+  "id": "studio-demo-chat",
+  "title": "The Keeper of Gull Point",
+  "role": "chat",
+  "model": "Opus 5.5",
+  "modelId": "claude-opus-5-5",
+  "provider": "Claude",
+  "effort": "medium",
+  "bypass": false,
+  "mode": "manual",
+  "door": false,
+  "usage": [
+   {
+    "label": "ctx",
+    "percent": 12,
+    "tokens": 24000,
+    "switchAt": 200000,
+    "auto": true
+   },
+   {
+    "label": "5h",
+    "percent": 22,
+    "resets": "2026-10-14T20:58:40.000Z"
+   },
+   {
+    "label": "wk",
+    "percent": 38,
+    "resets": "2026-10-17T17:46:40.000Z"
+   }
+  ],
+  "branch": "",
+  "folder": "/studio/gull-point/keeper",
+  "running": false,
+  "state": "idle",
+  "pinned": false
+ },
+ "status": {
+  "state": "idle",
+  "ts": 1791999940000,
+  "live": true,
+  "running": false
+ },
+ "turns": {
+  "turns": [
+   {
+    "id": "5d000001-0000-4000-8000-000000000001",
+    "kind": "prompt",
+    "start": 1791999880000,
+    "state": "done",
+    "prompt": {
+     "text": "Edit · shot 6 · 0:23.7–0:26.7 · The lamp room: clockwork and wick (c5)\n\nCut to the weather log right after “wick”, and let the room tone fade under it"
+    },
+    "handle": {
+     "title": "Worked for 9s",
+     "stats": "2 steps",
+     "ms": 9000
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "5d000002-0000-4000-8000-000000000002",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Done on the timeline: shot 6 ends on “wick” and the weather log comes in with a short crossfade. The room tone fades out over it."
+       },
+       {
+        "t": "list",
+        "items": [
+         {
+          "level": 0,
+          "text": "Shot 6 ends 0:26.7 → 0:26.1",
+          "n": 1
+         },
+         {
+          "level": 0,
+          "text": "Shot 7 in: cut → crossfade 0.4 s",
+          "n": 2
+         },
+         {
+          "level": 0,
+          "text": "Soft room tone: fade out 0.4 s",
+          "n": 3
+         }
+        ]
+       },
+       {
+        "t": "p",
+        "text": "It's one step in the undo history, the same as an edit by hand."
+       }
+      ]
+     }
+    ],
+    "rev": "5d0000000001",
+    "rewind": true
+   }
+  ],
+  "more": false
+ },
+ "cards": {}
+}

@@ -974,6 +974,36 @@ final class ScreenTests: XCTestCase {
         shot("a133-set-differences")
     }
 
+    // a163: generated and edited images inline, followed by two variations in a set.
+    func testA163GeneratedImageSet() {
+        let app = openChat("00000020-1111-4222-8333-000000000020", waitFor: "Garden variations")
+        let generated = find(app, "Picture Generated robot")
+        bring(app, generated)
+        XCTAssertTrue(generated.exists, "generated image is inline")
+        idle(1)
+        shot("a163-generated")
+
+        let edited = find(app, "Picture Edited robot")
+        bring(app, edited)
+        XCTAssertTrue(edited.exists, "edited image is inline")
+        idle(1)
+        shot("a163-edited")
+
+        bring(app, el(app, "mockupTitle"))
+        XCTAssertTrue(el(app, "mockupSet").exists)
+        XCTAssertTrue(el(app, "mockupTitle").label.contains("Garden variations"))
+        XCTAssertTrue(el(app, "mockupShot-1").exists, "first variation")
+        idle(1)
+        shot("a163-variations")
+        bring(app, el(app, "mockupShot-2"))
+        XCTAssertTrue(el(app, "mockupShot-2").exists, "second variation")
+        idle(1)
+        shot("a163-variations-two")
+        el(app, "mockupShot-2").tap()
+        XCTAssertTrue(el(app, "photoViewer").waitForExistence(timeout: 5))
+        XCTAssertEqual(el(app, "photoCounter").label, "2 of 2", "both variations belong to one set")
+    }
+
     /// a129's reply with four captioned pictures (1b, 2b, 3b, then 3a): each picture right under its own words,
     /// in the text's order, none grouped into a grid
     func testA133PicturesInTheTextsOrder() {
@@ -1817,5 +1847,148 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(el(app, "biggest-a6").exists)
         sleep(1)
         shot("12-usage")
+    }
+
+    // MARK: a181 · the Studio's Edit stage (docs/studio-phone-mockups 15-28)
+
+    /// the Edit stage of the demo's test video, loaded, with `flags`
+    private func studio(_ flags: [String] = []) -> App {
+        let app = launch(["-studio"] + flags)
+        XCTAssertTrue(el(app, "studioPlayer").waitForExistence(timeout: 20))
+        XCTAssertTrue(el(app, "studioTitle").waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, "The Keeper of Gull Point").waitForExistence(timeout: 10))
+        return app
+    }
+
+    func testStudio15Overview() {
+        let app = studio(["-studioTime", "25"])
+        for id in ["toolAudio", "toolText", "toolPhoto", "toolShots", "toolMix", "toolChat", "studioPlay", "studioAdd"] {
+            XCTAssertTrue(el(app, id).exists, id)
+        }
+        XCTAssertFalse(el(app, "toolSplit").exists, "no clip tools with nothing selected")
+        sleep(2)
+        shot("studio-15-edit")
+    }
+
+    func testStudio16Shot() {
+        let app = studio(["-studioTime", "25", "-studioSelect", "v6"])
+        XCTAssertTrue(el(app, "toolSplit").waitForExistence(timeout: 10))
+        for id in ["toolTrim", "toolReplace", "toolTransition", "toolDelete", "toolBack"] { XCTAssertTrue(el(app, id).exists, id) }
+        sleep(2)
+        shot("studio-16-shot")
+        el(app, "toolBack").tap()
+        XCTAssertTrue(el(app, "toolAudio").waitForExistence(timeout: 5))
+    }
+
+    func testStudio17Trim() {
+        let app = studio(["-studioTime", "25", "-studioTrim", "v6:right:-0.6"])
+        XCTAssertTrue(el(app, "studioPeek").waitForExistence(timeout: 10), "the picture shows the frame at the handle")
+        sleep(1)
+        shot("studio-17-trim")
+    }
+
+    func testStudio18Split() {
+        let app = studio(["-studioTime", "25", "-studioSelect", "v6"])
+        XCTAssertTrue(el(app, "toolSplit").waitForExistence(timeout: 10))
+        XCTAssertFalse(el(app, "studioUndo").isEnabled)
+        el(app, "toolSplit").tap()
+        XCTAssertTrue(find(app, "Split shot 6").waitForExistence(timeout: 5))
+        XCTAssertTrue(el(app, "studioUndo").isEnabled)
+        sleep(1)
+        shot("studio-18-split")
+        el(app, "studioToastUndo").tap()
+        XCTAssertTrue(poll(5) { !el(app, "studioUndo").isEnabled }, "the split is undone")
+    }
+
+    func testStudio19Voice() {
+        let app = studio(["-studioTime", "25", "-studioSelect", "voice:c5"])
+        XCTAssertTrue(el(app, "sheetVoice").waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, "Voice line c5").exists)
+        sleep(1)
+        shot("studio-19-voice")
+    }
+
+    func testStudio20Sounds() {
+        let app = studio(["-studioTime", "25", "-studioSheet", "sounds", "-studioSearch", "rain"])
+        XCTAssertTrue(el(app, "sheetSounds").waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, "FREESOUND · CC0 ONLY").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "soundsToGenerate").exists)
+        sleep(1)
+        shot("studio-20-sounds")
+        // a generation shows its price and waits for a yes
+        el(app, "soundsToGenerate").tap()
+        XCTAssertTrue(el(app, "generatePrice").waitForExistence(timeout: 5))
+        el(app, "generatePrice").tap()
+        XCTAssertTrue(el(app, "generateEstimate").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "generateConfirm").exists)
+        shot("studio-20b-generate")
+    }
+
+    func testStudio21Text() {
+        let app = studio(["-studioTime", "20", "-studioSelect", "t2"])
+        XCTAssertTrue(el(app, "sheetText").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "seg-lower").exists)
+        sleep(1)
+        shot("studio-21-text")
+    }
+
+    func testStudio22Transition() {
+        let app = studio(["-studioTime", "26.2", "-studioSelect", "v7", "-studioSheet", "transition"])
+        XCTAssertTrue(el(app, "sheetTransition").waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, "Into shot 7").exists)
+        el(app, "transition-crossfade").tap()
+        XCTAssertTrue(el(app, "studioUndo").isEnabled)
+        sleep(1)
+        shot("studio-22-transition")
+    }
+
+    func testStudio23Photo() {
+        let app = studio(["-studioTime", "25", "-studioSheet", "photo"])
+        XCTAssertTrue(el(app, "sheetPhoto").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "photo-p2").waitForExistence(timeout: 5))
+        el(app, "photo-p2").tap()
+        sleep(1)
+        shot("studio-23-photo")
+        el(app, "photoAdd").tap()
+        XCTAssertTrue(el(app, "toolKenBurns").waitForExistence(timeout: 5), "the new photo is selected with its tools")
+    }
+
+    func testStudio24KenBurns() {
+        let app = studio(["-studioAddPhoto", "p1", "-studioTime", "25", "-studioSheet", "kenburns"])
+        XCTAssertTrue(el(app, "sheetKenBurns").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "kb-in").exists)
+        sleep(2)
+        shot("studio-24-ken-burns")
+    }
+
+    func testStudio25Mix() {
+        let app = studio(["-studioTime", "25", "-studioSheet", "mix"])
+        XCTAssertTrue(el(app, "sheetMix").waitForExistence(timeout: 10))
+        XCTAssertTrue(el(app, "mixLoudness").exists)
+        XCTAssertTrue(el(app, "mixOutOfDate").exists)
+        XCTAssertTrue(el(app, "mixdownMake").exists)
+        sleep(1)
+        shot("studio-25-mix")
+    }
+
+    func testStudio26Zoom() {
+        _ = studio(["-studioTime", "25", "-studioZoom", "7"])
+        sleep(2)
+        shot("studio-26-zoom")
+    }
+
+    func testStudio27Reorder() {
+        _ = studio(["-studioTime", "25", "-studioLift", "v6:1"])
+        sleep(2)
+        shot("studio-27-reorder")
+    }
+
+    func testStudio28Chat() {
+        let app = launch(["-studio", "-studioChat"])
+        XCTAssertTrue(el(app, "chatContext").waitForExistence(timeout: 20))
+        XCTAssertTrue(find(app, "Edit · shot 6 selected").exists)
+        XCTAssertTrue(find(app, "Cut to the weather log").waitForExistence(timeout: 10))
+        sleep(1)
+        shot("studio-28-chat")
     }
 }

@@ -3,6 +3,8 @@ import SwiftUI
 extension EnvironmentValues {
     /// Pushes a chat on the list's stack (a thread opened from a project's Overview or a thread card).
     @Entry var openChat: ((String) -> Void)? = nil
+    /// a181: a chat with its route's extras (the Studio's Edit context chip)
+    @Entry var openChatRoute: ((ChatRoute) -> Void)? = nil
     /// The project's threads, live from the PC, by id: the main chat's thread cards read their state here (05).
     @Entry var projectThreads: [String: ThreadItem] = [:]
 }

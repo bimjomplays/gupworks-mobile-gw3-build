@@ -788,6 +788,14 @@ final class APIClient {
         return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
     }
 
+    // MARK: studio (a181)
+
+    /// POST /v1/studio/<route>: the Studio's service routes through gw3-phone (StudioEditAPI.swift)
+    func studioCall<T: Decodable, B: Encodable>(_ p: Pairing, _ route: String, _ body: B,
+                                                slow: Bool = false) async throws -> T {
+        try await request(p.baseURL, "/v1/studio/" + route, token: p.token, method: "POST", encoding: body, slow: slow)
+    }
+
     // MARK: file transfer (a144)
 
     /// a piece of a file going up over Tailscale's relay can take a while

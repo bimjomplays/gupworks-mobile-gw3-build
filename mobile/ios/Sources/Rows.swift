@@ -5,6 +5,8 @@ struct ChatRoute: Hashable {
     let id: String
     /// a project's main chat with its Overview up at once (06)
     var sheet = false
+    /// a181: the chip over the box when it's opened from the Studio's Edit stage
+    var context: String? = nil
 }
 
 /// A project folder from the desktop sidebar: tap to open or close it.
