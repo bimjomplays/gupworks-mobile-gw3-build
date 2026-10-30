@@ -179,6 +179,7 @@ final class AppModel {
         guard let h = home else { return false }
         let waiting: Set<String> = ["needs", "permission"]
         return h.projects.contains { waiting.contains($0.state) } || (h.setups + h.chats).contains { waiting.contains($0.state) }
+            || !(h.studioNeeds ?? []).isEmpty
     }
 
     func isPinned(project id: String) -> Bool {

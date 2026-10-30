@@ -276,5 +276,30 @@
    "percent": 41,
    "resets": "2026-10-17T17:46:40.000Z"
   }
+ ],
+ "studioNeeds": [
+  {
+   "projectId": "night-stories",
+   "videoId": "lantern",
+   "title": "The Lantern Hill Fire",
+   "channel": "Night Stories",
+   "chatId": "00000091-3333-4222-8333-000000000091",
+   "ts": 1791999940000,
+   "permission": false,
+   "question": "Draft of shot 6 is ready: the keeper's room, line c3. Approve it for the full render?",
+   "options": [
+    {
+     "n": 1,
+     "label": "Approve"
+    },
+    {
+     "n": 2,
+     "label": "Redraft"
+    }
+   ],
+   "answerable": true,
+   "kind": "ask",
+   "sig": "demo"
+  }
  ]
 }

@@ -1,0 +1,196 @@
+{
+ "now": 1792000000000,
+ "header": {
+  "id": "00000020-1111-4222-8333-000000000020",
+  "title": "Robot garden pictures",
+  "role": "chat",
+  "model": "GPT 6.1 Terra",
+  "modelId": "gpt-6.1-terra",
+  "provider": "OpenAI",
+  "effort": "medium",
+  "bypass": true,
+  "mode": "bypass",
+  "door": false,
+  "usage": [
+   {
+    "label": "ctx",
+    "percent": 7,
+    "tokens": 18400,
+    "switchAt": 150000,
+    "auto": true,
+    "plan": "openai"
+   },
+   {
+    "label": "wk",
+    "percent": 3,
+    "resets": "2026-10-19T17:46:40.000Z",
+    "plan": "openai"
+   }
+  ],
+  "branch": "",
+  "folder": "/work/garden",
+  "running": false,
+  "state": "done",
+  "pinned": false
+ },
+ "status": {
+  "state": "done",
+  "ts": 1791308800000,
+  "live": false,
+  "running": false
+ },
+ "turns": {
+  "turns": [
+   {
+    "id": "001e8481-0000-4000-8000-0000001e8481",
+    "kind": "prompt",
+    "start": 1791308801000,
+    "state": "done",
+    "prompt": {
+     "text": "Make an illustration of a blue robot watering a seedling."
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "001e8482-0000-4000-8000-0000001e8482",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Here is the robot watering a seedling."
+       },
+       {
+        "t": "media",
+        "items": [
+         {
+          "kind": "image",
+          "url": "demo:media/robot-generated.png",
+          "name": "Generated robot"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "rev": "101820585130",
+    "rewind": true
+   },
+   {
+    "id": "001e8484-0000-4000-8000-0000001e8484",
+    "kind": "prompt",
+    "start": 1791308803000,
+    "state": "done",
+    "prompt": {
+     "text": "Make the seedling a sunflower and add a butterfly."
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "001e8485-0000-4000-8000-0000001e8485",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Here is the edit with a sunflower and butterfly."
+       },
+       {
+        "t": "media",
+        "items": [
+         {
+          "kind": "image",
+          "url": "demo:media/robot-edited.png",
+          "name": "Edited robot"
+         }
+        ]
+       }
+      ]
+     }
+    ],
+    "rev": "7f4ea237d4ae",
+    "rewind": true
+   },
+   {
+    "id": "001e8487-0000-4000-8000-0000001e8487",
+    "kind": "prompt",
+    "start": 1791308805000,
+    "state": "done",
+    "prompt": {
+     "text": "Show me two garden variations."
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "001e8488-0000-4000-8000-0000001e8488",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Two garden variations."
+       },
+       {
+        "t": "mockups",
+        "set": {
+         "title": "Garden variations",
+         "same": "Same in all: a blue robot watering a garden",
+         "options": [
+          {
+           "n": 1,
+           "name": "Flower bed",
+           "differs": "kneeling beside an orange flower and small white flowers",
+           "shots": [
+            {
+             "badge": "1",
+             "label": "",
+             "url": "demo:media/robot-variation-one.png"
+            }
+           ]
+          },
+          {
+           "n": 2,
+           "name": "Green garden",
+           "differs": "kneeling beside a taller leafy plant and white flowers",
+           "shots": [
+            {
+             "badge": "2",
+             "label": "",
+             "url": "demo:media/robot-variation-two.png"
+            }
+           ]
+          }
+         ]
+        }
+       },
+       {
+        "t": "p",
+        "text": "**Mockup set: Garden variations** (2 options)",
+        "fallback": true
+       },
+       {
+        "t": "p",
+        "text": "Same in all: a blue robot watering a garden",
+        "fallback": true
+       },
+       {
+        "t": "p",
+        "text": "**Option 1 · Flower bed**: kneeling beside an orange flower and small white flowers\n(picture Option 1 · Flower bed missing: /work/garden/robot-variation-one.png)",
+        "fallback": true
+       },
+       {
+        "t": "p",
+        "text": "**Option 2 · Green garden**: kneeling beside a taller leafy plant and white flowers\n(picture Option 2 · Green garden missing: /work/garden/robot-variation-two.png)",
+        "fallback": true
+       }
+      ]
+     }
+    ],
+    "rev": "10d95403eb05",
+    "rewind": true
+   }
+  ],
+  "more": false
+ },
+ "cards": {}
+}

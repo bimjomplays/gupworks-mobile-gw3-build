@@ -1,0 +1,74 @@
+{
+ "title": "The Lantern Hill Fire",
+ "kind": "long",
+ "readonly": false,
+ "reason": "",
+ "duration": 1120,
+ "final": {
+  "file": "finish/final.mp4",
+  "fileUrl": "demo:media/dusk-loop.mp4",
+  "filePoster": "demo:media/dusk-loop.mp4.poster.png",
+  "at": 1791996100000
+ },
+ "checks": {
+  "at": 1791996200000,
+  "items": [
+   {
+    "id": "loudness",
+    "name": "Loudness",
+    "ok": true,
+    "detail": "-14.0 LUFS"
+   },
+   {
+    "id": "whisper",
+    "name": "Whisper vs script",
+    "ok": true,
+    "detail": "98% match"
+   },
+   {
+    "id": "black",
+    "name": "Black or frozen picture",
+    "ok": true,
+    "detail": "none"
+   },
+   {
+    "id": "length",
+    "name": "Length",
+    "ok": true,
+    "detail": "18:40 · brief said ~18"
+   }
+  ]
+ },
+ "jobs": {},
+ "chapters": [
+  {
+   "chapter": 0,
+   "title": "Cold open",
+   "start": 0,
+   "stamp": "0:00"
+  },
+  {
+   "chapter": 1,
+   "title": "The inquiry",
+   "start": 2,
+   "stamp": "0:02"
+  },
+  {
+   "chapter": 2,
+   "title": "The keeper",
+   "start": 4,
+   "stamp": "0:04"
+  }
+ ],
+ "notes": {
+  "notes": [
+   {
+    "id": "n1",
+    "at": 1.5,
+    "text": "Hold the dark lamp a second longer.",
+    "ts": 1791997900000
+   }
+  ],
+  "ok": null
+ }
+}

@@ -1,0 +1,98 @@
+{
+ "chapters": [
+  {
+   "chapter": 0,
+   "title": "Cold open",
+   "first": "c1"
+  }
+ ],
+ "readonly": false,
+ "drafts": [],
+ "renders": [
+  {
+   "id": "r10",
+   "videoId": "lantern",
+   "video": "The Lantern Hill Fire",
+   "shot": "sh10",
+   "status": "running",
+   "frames": 980,
+   "done": 412,
+   "eta": 2040
+  },
+  {
+   "id": "r11",
+   "videoId": "lantern",
+   "shot": "sh11",
+   "status": "queued",
+   "startsIn": 2040
+  }
+ ],
+ "shots": [
+  {
+   "id": "sh1",
+   "chapter": 0,
+   "lines": [
+    "c1"
+   ],
+   "start": 0,
+   "end": 6,
+   "style": "blender",
+   "description": "The lamp on Lantern Hill at nine.",
+   "status": "rendered",
+   "render": "renders/sh1.mp4",
+   "renderUrl": "demo:media/dusk-loop.mp4",
+   "renderPoster": "demo:media/dusk-loop.mp4.poster.png"
+  },
+  {
+   "id": "sh2",
+   "chapter": 0,
+   "lines": [
+    "c2"
+   ],
+   "start": 6,
+   "end": 9,
+   "style": "blender",
+   "description": "The lamp goes dark.",
+   "status": "approved",
+   "draft": "drafts/sh2.png",
+   "draftUrl": "demo:media/dusk.png"
+  },
+  {
+   "id": "sh6",
+   "chapter": 0,
+   "lines": [
+    "c3"
+   ],
+   "start": 9,
+   "end": 14,
+   "style": "blender",
+   "description": "Smoke over the net sheds, thin then thick.",
+   "status": "draft",
+   "draft": "drafts/sh6.png",
+   "draftUrl": "demo:media/fog.png",
+   "drafts": [
+    {
+     "n": 1
+    },
+    {
+     "n": 2,
+     "direction": "more smoke"
+    }
+   ]
+  },
+  {
+   "id": "sh10",
+   "chapter": 0,
+   "lines": [
+    "c4"
+   ],
+   "start": 14,
+   "end": 18,
+   "style": "blender",
+   "description": "The baker's boy runs for the fog bell.",
+   "status": "rendering",
+   "draft": "drafts/sh10.png",
+   "draftUrl": "demo:media/tide.png"
+  }
+ ]
+}

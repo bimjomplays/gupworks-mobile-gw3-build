@@ -974,6 +974,36 @@ final class ScreenTests: XCTestCase {
         shot("a133-set-differences")
     }
 
+    // a163: generated and edited images inline, followed by two variations in a set.
+    func testA163GeneratedImageSet() {
+        let app = openChat("00000020-1111-4222-8333-000000000020", waitFor: "Garden variations")
+        let generated = find(app, "Picture Generated robot")
+        bring(app, generated)
+        XCTAssertTrue(generated.exists, "generated image is inline")
+        idle(1)
+        shot("a163-generated")
+
+        let edited = find(app, "Picture Edited robot")
+        bring(app, edited)
+        XCTAssertTrue(edited.exists, "edited image is inline")
+        idle(1)
+        shot("a163-edited")
+
+        bring(app, el(app, "mockupTitle"))
+        XCTAssertTrue(el(app, "mockupSet").exists)
+        XCTAssertTrue(el(app, "mockupTitle").label.contains("Garden variations"))
+        XCTAssertTrue(el(app, "mockupShot-1").exists, "first variation")
+        idle(1)
+        shot("a163-variations")
+        bring(app, el(app, "mockupShot-2"))
+        XCTAssertTrue(el(app, "mockupShot-2").exists, "second variation")
+        idle(1)
+        shot("a163-variations-two")
+        el(app, "mockupShot-2").tap()
+        XCTAssertTrue(el(app, "photoViewer").waitForExistence(timeout: 5))
+        XCTAssertEqual(el(app, "photoCounter").label, "2 of 2", "both variations belong to one set")
+    }
+
     /// a129's reply with four captioned pictures (1b, 2b, 3b, then 3a): each picture right under its own words,
     /// in the text's order, none grouped into a grid
     func testA133PicturesInTheTextsOrder() {

@@ -40,6 +40,7 @@ struct Home: Codable, Equatable {
     var pinned: [PinRef]?           // the menu's Pinned: chats and projects in the order set on the phone (gw3-phone 0.8)
     var usage: [Meter]?             // the account's 5-hour and weekly limits, for a new chat's rings
     var archivedProjects: [ProjectRow]?  // the Projects filter's Archived (gw3-phone 0.9)
+    var studioNeeds: [StudioNeed]?  // YouTube Studio video chats waiting on you (a180)
 }
 
 /// One row of Pinned: a chat or a project.
@@ -722,18 +723,19 @@ final class APIClient {
         return req
     }
 
-    private func request<T: Decodable>(_ base: URL, _ path: String, token: String?, method: String = "GET",
-                                       query: [URLQueryItem] = [], body: [String: String]? = nil) async throws -> T {
+    func request<T: Decodable>(_ base: URL, _ path: String, token: String?, method: String = "GET",
+                               query: [URLQueryItem] = [], body: [String: String]? = nil,
+                               slow: Bool = false) async throws -> T {
         try await perform(base, path, token: token, method: method, query: query,
-                          json: body.map { try JSONEncoder().encode($0) })
+                          json: body.map { try JSONEncoder().encode($0) }, slow: slow)
     }
 
-    private func request<T: Decodable, B: Encodable>(_ base: URL, _ path: String, token: String?, method: String,
+    func request<T: Decodable, B: Encodable>(_ base: URL, _ path: String, token: String?, method: String,
                                                      encoding body: B, slow: Bool = false) async throws -> T {
         try await perform(base, path, token: token, method: method, json: try JSONEncoder().encode(body), slow: slow)
     }
 
-    private func perform<T: Decodable>(_ base: URL, _ path: String, token: String?, method: String = "GET",
+    func perform<T: Decodable>(_ base: URL, _ path: String, token: String?, method: String = "GET",
                                        query: [URLQueryItem] = [], json: Data? = nil, raw: Data? = nil,
                                        contentType: String? = nil, slow: Bool = false,
                                        via: URLSession? = nil) async throws -> T {
