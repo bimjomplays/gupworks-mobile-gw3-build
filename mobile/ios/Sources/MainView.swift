@@ -235,6 +235,7 @@ struct MainView: View {
         }
         .environment(\.openChat, { (id: String) in path.append(ChatRoute(id: id)) })
         .environment(\.openStudio, { (r: StudioRoute) in path.append(r) })
+        .environment(\.pushRoute, { (r: any Hashable) in path.append(r) })
         .onChange(of: alerts.open) { _, r in
             // a Studio notification was tapped: its video over the Studio home
             guard let r else { return }

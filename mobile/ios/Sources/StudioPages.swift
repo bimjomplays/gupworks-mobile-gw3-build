@@ -14,6 +14,8 @@ enum StudioRoute: Hashable {
 extension EnvironmentValues {
     /// pushes a Studio page (MainView's stack)
     @Entry var openStudio: ((StudioRoute) -> Void)? = nil
+    /// pushes any route on MainView's stack (a181's StudioEditRoute)
+    @Entry var pushRoute: ((any Hashable) -> Void)? = nil
 }
 
 /// Studio's look: the chat cards' dark boxes and the mockups' capsules.

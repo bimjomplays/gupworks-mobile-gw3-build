@@ -2,7 +2,7 @@ import SwiftUI
 
 // A Studio video on the phone (a180, mockups 03-06): its overview and the stage screens, one page with a stage row
 // on top. Script and Listen are in StudioScript.swift; Voice, Visuals and Final cut in StudioStages.swift; Edit is
-// a181's StudioEditStage.
+// a181's StudioEditView, pushed through StudioEditEntry.swift.
 
 /// 03 and the stages: the video's overview, or one stage when `stage` is set.
 struct StudioVideoPage: View {
@@ -11,6 +11,7 @@ struct StudioVideoPage: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openChat) private var openChat
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pushRoute) private var pushRoute
     @State private var store: StudioVideoStore?
     @State private var stage: String?
 
@@ -84,7 +85,7 @@ struct StudioVideoPage: View {
     @ViewBuilder
     private func page(_ store: StudioVideoStore) -> some View {
         switch stage {
-        case nil: StudioOverviewView(store: store) { s in withAnimation(.snappy(duration: 0.2)) { stage = s } }
+        case nil: StudioOverviewView(store: store) { s in pick(s) }
         case "brief": StudioBriefStage(store: store) { withAnimation { stage = "research" } }
         case "research": StudioResearchStage(store: store)
         case "script": StudioScriptStage(store: store)
@@ -100,6 +101,15 @@ struct StudioVideoPage: View {
         }
     }
 
+    /// Opens a stage; Edit is a181's own page, pushed on the stack when it's there.
+    private func pick(_ s: String) {
+        if s == "edit", let r = studioEditRoute(projectId: projectId, videoId: videoId, title: store?.title ?? "Video") {
+            pushRoute?(r)
+            return
+        }
+        withAnimation(.snappy(duration: 0.2)) { stage = s }
+    }
+
     /// The stages as pills: done ones with a tick, the open one white.
     private func stageRow(_ o: StudioOverview) -> some View {
         ScrollViewReader { proxy in
@@ -107,7 +117,7 @@ struct StudioVideoPage: View {
                 HStack(spacing: 8) {
                     ForEach(o.stages) { s in
                         let on = s.key == stage
-                        Button { withAnimation(.snappy(duration: 0.2)) { stage = s.key } } label: {
+                        Button { pick(s.key) } label: {
                             HStack(spacing: 5) {
                                 if s.state == "done" { Image(systemName: "checkmark").font(.system(size: 11, weight: .bold)) }
                                 if s.busy && !on { Spinner().scaleEffect(0.7).frame(width: 12, height: 12) }

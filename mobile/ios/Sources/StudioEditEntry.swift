@@ -1,22 +1,17 @@
 import SwiftUI
 
-/// The Edit stage of a Studio video (mockups 15-28). a181 builds the real one in its own files and replaces
-/// this view; the video page shows it when the Edit tab is open.
+// The Edit stage's entry point (mockups 15-28 are a181's). When a181's StudioEditView lands, studioEditRoute
+// returns `StudioEditRoute(projectId: projectId, videoId: videoId, title: title)` and the video page pushes it on
+// MainView's stack; StudioEditStage below is only the stand-in until then and goes with it.
+
+/// a181's Edit page for a video, or nil while it isn't in the app yet
+func studioEditRoute(projectId: String, videoId: String, title: String) -> (any Hashable)? { nil }
+
+/// the stand-in shown in the Edit tab until a181's page is there
 struct StudioEditStage: View {
     let store: StudioVideoStore
 
     var body: some View {
-        VStack(spacing: 10) {
-            LucideIcon(name: "scissors", size: 28)
-                .foregroundStyle(Theme.secondary)
-            Text("Edit on the PC for now")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(Theme.title)
-            Text("The phone's timeline editor is coming.")
-                .font(.system(size: 15))
-                .foregroundStyle(Theme.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 60)
+        StudioNote(text: "Edit on the PC for now.")
     }
 }
