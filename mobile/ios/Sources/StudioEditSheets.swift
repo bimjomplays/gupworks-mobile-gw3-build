@@ -60,7 +60,11 @@ struct StudioPanel<Content: View>: View {
                 .accessibilityLabel("Done")
                 .accessibilityIdentifier("sheetDone")
             }
-            content()
+            // a tall panel (Mix) scrolls instead of pushing the screen up past the status bar
+            ViewThatFits(in: .vertical) {
+                content()
+                ScrollView { content() }.scrollBounceBehavior(.basedOnSize)
+            }
         }
         .padding(.horizontal, 18)
         .padding(.bottom, 18)
@@ -899,17 +903,18 @@ struct StudioSoundsSheet: View {
                         Text("IN THIS VIDEO").font(.system(size: 13)).foregroundStyle(Theme.secondary)
                         ForEach(log.filter { $0.missing != true }) { s in owned(s) }
                     }
-                    Button { tab = "generate"; if prompt.isEmpty { prompt = query.isEmpty ? store.found?.query ?? "" : query } } label: {
-                        StudioIconRow(icon: "wand-sparkles", title: "Nothing fits? Generate it",
-                                      sub: "ElevenLabs sound effect · about \(Int(rate("sfx") * 2)) credits") {
-                            LucideIcon(name: "chevron-right", size: 18).foregroundStyle(Theme.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("soundsToGenerate")
                 }
             }
-            .frame(maxHeight: 250)
+            .frame(maxHeight: 190)
+            // under the list, not in it, so it's always in reach
+            Button { tab = "generate"; if prompt.isEmpty { prompt = query.isEmpty ? store.found?.query ?? "" : query } } label: {
+                StudioIconRow(icon: "wand-sparkles", title: "Nothing fits? Generate it",
+                              sub: "ElevenLabs sound effect · about \(Int(rate("sfx") * 2)) credits") {
+                    LucideIcon(name: "chevron-right", size: 18).foregroundStyle(Theme.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("soundsToGenerate")
         }
     }
 

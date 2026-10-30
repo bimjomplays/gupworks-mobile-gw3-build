@@ -187,14 +187,6 @@ struct StudioEditScreen: View {
                     StudioOverlayText(clip: s.clip, opacity: s.opacity, width: g.size.width,
                                       selected: store.selected == s.clip.id)
                 }
-                if let p = player.peeking {
-                    Text("Frame at \(StudioEdit.clock(p))")
-                        .font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
-                        .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(Color.black.opacity(0.6), in: Capsule())
-                        .padding(10)
-                        .accessibilityIdentifier("studioPeek")
-                }
                 if case .kenburns(let id) = sheet, StudioEdit.clip(id, in: store.model)?.kenburns != nil {
                     Text("Start → end")
                         .font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
@@ -209,6 +201,17 @@ struct StudioEditScreen: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Player")
         .accessibilityIdentifier("studioPlayer")
+        .overlay(alignment: .topLeading) {
+            // outside the player's one accessibility element, so it can be read on its own
+            if let p = player.peeking {
+                Text("Frame at \(StudioEdit.clock(p))")
+                    .font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Color.black.opacity(0.6), in: Capsule())
+                    .padding(10)
+                    .accessibilityIdentifier("studioPeek")
+            }
+        }
     }
 
     private struct Shown: Identifiable {

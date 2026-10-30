@@ -143,16 +143,16 @@ final class StudioEditStore {
         guard !readonly, var m = Optional(model), f(&m), m != model else { return false }
         let before = model
         model = m
-        if toast { show(label, undo: true) }
         if demo {
             demoPast.append((before, view?.mix, label))
             demoFuture = []
             view?.model = m
             view?.mixCurrent = false
-            return true
+        } else {
+            queue.append(.save(m, label))
+            Task { await flush() }
         }
-        queue.append(.save(m, label))
-        Task { await flush() }
+        if toast { show(label, undo: true) }
         return true
     }
 
@@ -230,7 +230,7 @@ final class StudioEditStore {
 
     func show(_ text: String, undo: Bool = false, show: String? = nil) {
         toastN += 1
-        toast = Toast(text: text, undo: undo && canUndo, show: show, n: toastN)
+        toast = Toast(text: text, undo: undo && (canUndo || saving || !queue.isEmpty), show: show, n: toastN)  // a change still on its way can be undone too
     }
 
     // MARK: the video chat

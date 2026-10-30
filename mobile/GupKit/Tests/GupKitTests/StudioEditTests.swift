@@ -355,6 +355,17 @@ final class StudioEditTests: XCTestCase {
         XCTAssertEqual(s.view?.jobs?.last?.status, "running")
     }
 
+    /// the first change's toast offers Undo (it used to ask before the change was in the history)
+    @MainActor
+    func testFirstChangeToastOffersUndo() async throws {
+        let s = StudioEditStore(ref: StudioRef(projectId: "demo", videoId: "demo"), pairing: nil, demo: true)
+        await s.load()
+        let at = s.model.video[5].start + 1
+        XCTAssertTrue(s.change("Split v6", toast: true) { StudioEdit.split(&$0, "v6", at: at) != nil })
+        XCTAssertEqual(s.toast?.text, "Split v6")
+        XCTAssertEqual(s.toast?.undo, true)
+    }
+
     /// the demo's video chat (28) decodes, and the store's chat is that one
     @MainActor
     func testStudioDemoChat() async throws {
