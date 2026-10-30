@@ -11,11 +11,12 @@ enum Current: Hashable {
 
 /// A place from the menu's top rows, pushed over the chat.
 enum Place: String, Hashable, CaseIterable {
-    case projects, scheduled, quick, transfer, bot
+    case projects, studio, scheduled, quick, transfer, bot
 
     var title: String {
         switch self {
         case .projects: return "Projects"
+        case .studio: return "Studio"
         case .scheduled: return "Scheduled"
         case .quick: return "Quick actions"
         case .transfer: return "File transfer"
@@ -24,7 +25,7 @@ enum Place: String, Hashable, CaseIterable {
     }
 
     /// a page with its own menu button instead of a back button
-    var hasMenu: Bool { self == .projects || self == .transfer }
+    var hasMenu: Bool { self == .projects || self == .studio || self == .transfer }
 }
 
 /// What the main chat needs from the shell around it: the menu, a new chat, the temporary switch.
@@ -69,6 +70,7 @@ struct MainView: View {
     @State private var onProjects = false
     /// a141: the Overview of the project whose main chat is on top, slid in from the right over it
     @State private var overview = OverviewHost()
+    private let alerts = StudioAlerts.shared
 
     init() {
         let args = Demo.args
@@ -82,6 +84,12 @@ struct MainView: View {
         _temporary = State(initialValue: Demo.isOn && args.contains("-temporary"))
         if Demo.isOn, let i = args.firstIndex(of: "-place"), i + 1 < args.count, let p = Place(rawValue: args[i + 1]) {
             var path = NavigationPath([p])
+            if p == .studio, let j = args.firstIndex(of: "-studio"), j + 1 < args.count {
+                // -studio <pid>[/<vid>[/<stage>]]: the channel page, its video's overview or one stage
+                let parts = args[j + 1].split(separator: "/").map(String.init)
+                path.append(StudioRoute.channel(parts[0]))
+                if parts.count > 1 { path.append(StudioRoute.video(parts[0], parts[1], stage: parts.count > 2 ? parts[2] : nil)) }
+            }
             if let j = args.firstIndex(of: "-push"), j + 1 < args.count {
                 path.append(ChatRoute(id: args[j + 1], sheet: args.contains("-sheet")))
             }
@@ -89,8 +97,8 @@ struct MainView: View {
             _onProjects = State(initialValue: p.hasMenu)
         }
         // a181: the Studio's Edit stage on the demo's test video (and its chat over it)
-        if Demo.isOn, args.contains("-studio") {
-            var path = NavigationPath([Place.projects])
+        if Demo.isOn, args.contains("-studioEdit") {
+            var path = NavigationPath([Place.studio])
             path.append(StudioEditRoute(projectId: "studio-test", videoId: "keeper", title: "The Keeper of Gull Point"))
             if args.contains("-studioChat") {
                 path.append(ChatRoute(id: "studio-demo-chat", context: "Edit · shot 6 selected"))
@@ -221,6 +229,8 @@ struct MainView: View {
                 .navigationDestination(for: Place.self) { p in
                     if p == .projects {
                         ProjectsPage(openMenu: { withAnimation(.snappy(duration: 0.3)) { openMenu() } })
+                    } else if p == .studio {
+                        StudioHomePage(openMenu: { withAnimation(.snappy(duration: 0.3)) { openMenu() } })
                     } else if p == .quick {
                         QuickActionsView(pairing: model.pairing, demo: model.demo)
                     } else if p == .transfer {
@@ -229,8 +239,22 @@ struct MainView: View {
                         ComingSoonPage(place: p)
                     }
                 }
+                .navigationDestination(for: StudioRoute.self) { r in
+                    switch r {
+                    case .channel(let pid): StudioChannelPage(projectId: pid)
+                    case .video(let pid, let vid, let stage): StudioVideoPage(projectId: pid, videoId: vid, stage: stage)
+                    }
+                }
         }
         .environment(\.openChat, { (id: String) in path.append(ChatRoute(id: id)) })
+        .environment(\.openStudio, { (r: StudioRoute) in path.append(r) })
+        .environment(\.pushRoute, { (r: any Hashable) in path.append(r) })
+        .onChange(of: alerts.open) { _, r in
+            // a Studio notification was tapped: its video over the Studio home
+            guard let r else { return }
+            alerts.open = nil
+            openNeed(r)
+        }
         .environment(\.openChatRoute, { (r: ChatRoute) in path.append(r) })
     }
 
@@ -299,6 +323,18 @@ struct MainView: View {
         current = .fresh
         path = NavigationPath()
         onProjects = false
+        close()
+    }
+
+    /// a Studio video that needs you (its notification, a channel card): Studio, the channel, the video
+    private func openNeed(_ r: StudioRoute) {
+        guard case .video(let pid, _, _) = r else { return }
+        _ = dropTemporary()
+        var p = NavigationPath([Place.studio])
+        p.append(StudioRoute.channel(pid))
+        p.append(r)
+        path = p
+        onProjects = true
         close()
     }
 
@@ -540,6 +576,7 @@ struct MenuIcon: View {
     var body: some View {
         switch place {
         case .projects: Image(systemName: "folder").font(.system(size: 19))
+        case .studio: LucideIcon(name: "clapperboard", size: 20)
         case .scheduled: Image(systemName: "clock").font(.system(size: 19))
         case .quick: Image(systemName: "bolt").font(.system(size: 19))
         case .transfer: Image(systemName: "arrow.up.arrow.down").font(.system(size: 19))

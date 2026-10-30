@@ -1,0 +1,123 @@
+{
+ "now": 1792000000000,
+ "header": {
+  "id": "00000091-3333-4222-8333-000000000091",
+  "title": "The Lantern Hill Fire",
+  "role": "chat",
+  "model": "GPT 6.1 Sol",
+  "modelId": "gpt-6.1-sol",
+  "provider": "OpenAI",
+  "effort": "medium",
+  "bypass": true,
+  "mode": "bypass",
+  "door": false,
+  "usage": [
+   {
+    "label": "ctx",
+    "percent": 7,
+    "tokens": 18400,
+    "switchAt": 150000,
+    "auto": true,
+    "plan": "openai"
+   },
+   {
+    "label": "wk",
+    "percent": 3,
+    "resets": "2026-10-19T17:46:40.000Z",
+    "plan": "openai"
+   }
+  ],
+  "branch": "",
+  "folder": "/work/night-stories/videos/the-lantern-hill-fire",
+  "running": true,
+  "state": "idle",
+  "pinned": false,
+  "project": {
+   "id": "night-stories",
+   "name": "Night Stories",
+   "icon": "clapperboard",
+   "color": "red"
+  },
+  "video": {
+   "projectId": "night-stories",
+   "videoId": "lantern",
+   "title": "The Lantern Hill Fire",
+   "channel": "Night Stories",
+   "openStage": "script",
+   "stageName": "Script",
+   "selection": "script line c3: \"Down in the harbour, smoke rose over the net sheds, thin at first and then thick.\""
+  }
+ },
+ "status": {
+  "state": "done",
+  "ts": 1791999300000,
+  "live": true,
+  "running": true
+ },
+ "turns": {
+  "turns": [
+   {
+    "id": "00910001-0000-4000-8000-000000910001",
+    "kind": "prompt",
+    "start": 1791999060000,
+    "state": "done",
+    "prompt": {
+     "text": "Approve shot 2"
+    },
+    "handle": {
+     "title": "Worked for 6s",
+     "stats": "3 steps",
+     "ms": 6000
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "00910001-0001-4000-8000-000000910001",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Queued shot 2 for the full render. It starts after shot 10, in about 34 minutes."
+       }
+      ]
+     }
+    ],
+    "rev": "910000000001",
+    "rewind": true
+   },
+   {
+    "id": "00910002-0000-4000-8000-000000910002",
+    "kind": "prompt",
+    "start": 1791999120000,
+    "state": "done",
+    "prompt": {
+     "text": "Make this part of the script punchier (script line c3): \"Down in the harbour, smoke rose over the net sheds, thin at first and then thick.\""
+    },
+    "handle": {
+     "title": "Worked for 18s",
+     "stats": "3 steps",
+     "ms": 18000
+    },
+    "open": false,
+    "blocks": [
+     {
+      "type": "text",
+      "id": "00910002-0001-4000-8000-000000910002",
+      "answer": true,
+      "md": [
+       {
+        "t": "p",
+        "text": "Proposed in the script: two short beats, so the smoke lands. It still rests on f3."
+       }
+      ]
+     }
+    ],
+    "rev": "910000000002",
+    "rewind": true
+   }
+  ],
+  "more": false
+ },
+ "cards": {}
+}

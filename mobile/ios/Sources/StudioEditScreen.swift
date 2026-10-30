@@ -182,7 +182,7 @@ struct StudioEditScreen: View {
         GeometryReader { g in
             ZStack(alignment: .topLeading) {
                 Color.black
-                StudioPlayerSurface(player: player.player)
+                StudioEditPlayerSurface(player: player.player)
                 ForEach(shownText) { s in
                     StudioOverlayText(clip: s.clip, opacity: s.opacity, width: g.size.width,
                                       selected: store.selected == s.clip.id)
@@ -541,7 +541,7 @@ struct StudioFullScreen: View {
             Color.black.ignoresSafeArea()
             GeometryReader { g in
                 ZStack {
-                    StudioPlayerSurface(player: player.player)
+                    StudioEditPlayerSurface(player: player.player)
                     ForEach(StudioPreview.overlays(at: player.time, store.model).map { $0.clip }) { c in
                         StudioOverlayText(clip: c, opacity: 1, width: g.size.width)
                     }

@@ -82,7 +82,7 @@ struct StudioModel: Codable, Equatable {
     }
 }
 
-struct StudioWord: Codable, Equatable {
+struct StudioEditWord: Codable, Equatable {
     var w: String
     var t: Double
     var end: Double
@@ -96,7 +96,7 @@ struct StudioVoiceLine: Codable, Equatable, Identifiable {
     var start: Double
     var end: Double
     var file: String?
-    var words: [StudioWord]
+    var words: [StudioEditWord]
 }
 
 /// A shot-list entry; `src` is its render or draft (`from` says which).
@@ -125,7 +125,7 @@ struct StudioPhoto: Codable, Equatable, Identifiable {
     var rejected: Bool
 }
 
-struct StudioChapter: Codable, Equatable {
+struct StudioEditChapter: Codable, Equatable {
     var chapter: Int
     var title: String
     var start: Double
@@ -222,7 +222,7 @@ struct StudioSound: Codable, Equatable, Identifiable {
 }
 
 /// a generation or mixdown running on the PC
-struct StudioJob: Codable, Equatable, Identifiable {
+struct StudioEditJob: Codable, Equatable, Identifiable {
     var id: String
     var kind: String            // sfx | music | mixdown
     var status: String          // running | done | failed
@@ -267,11 +267,11 @@ struct StudioEditView: Codable, Equatable {
     var base: String?           // the timeline's own version, which saves are made over
     var history: StudioHistory?
     var chatId: String?
-    var chapters: [StudioChapter]?
+    var chapters: [StudioEditChapter]?
     // the sound part
     var mix: StudioMix?
     var log: [StudioSound]?
-    var jobs: [StudioJob]?
+    var jobs: [StudioEditJob]?
     var mixdown: StudioMixdown?
     var mixCurrent: Bool?
     var credits: StudioCredits?
@@ -358,11 +358,11 @@ struct StudioGenerateReply: Codable, Equatable {
     var how: String?
     var seconds: Double
     var left: Double?
-    var job: StudioJob?
+    var job: StudioEditJob?
 }
 
 struct StudioJobReply: Codable, Equatable {
-    var job: StudioJob
+    var job: StudioEditJob
 }
 
 struct StudioVideoRecord: Codable, Equatable {

@@ -1,0 +1,150 @@
+{
+ "title": "The Lantern Hill Fire",
+ "questions": [],
+ "threads": [
+  {
+   "id": "a4",
+   "title": "The keeper after the inquiry",
+   "status": "running"
+  }
+ ],
+ "rights": {
+  "public-domain": "Public domain",
+  "cc-credit": "CC with credit",
+  "needs-permission": "Needs permission",
+  "reference-only": "Reference only"
+ },
+ "items": {
+  "sources": [
+   {
+    "id": "s1",
+    "title": "Harbour log, 1871",
+    "kind": "record",
+    "credibility": "high"
+   },
+   {
+    "id": "s2",
+    "title": "The Tide Gazette, 4 Apr",
+    "kind": "newspaper",
+    "credibility": "medium"
+   },
+   {
+    "id": "s3",
+    "title": "Inquiry notes",
+    "kind": "record",
+    "credibility": "high"
+   }
+  ],
+  "facts": [
+   {
+    "id": "f1",
+    "text": "The lamp was trimmed at nine and burned until half past ten.",
+    "sources": [
+     "s1",
+     "s3"
+    ],
+    "confidence": "high",
+    "question": "q1",
+    "mark": "pinned"
+   },
+   {
+    "id": "f2",
+    "text": "The baker's boy rang the fog bell to raise the alarm.",
+    "sources": [
+     "s2"
+    ],
+    "confidence": "high",
+    "question": "q2"
+   },
+   {
+    "id": "f3",
+    "text": "Smoke was seen over the net sheds before eleven.",
+    "sources": [
+     "s2"
+    ],
+    "confidence": "medium",
+    "question": "q2"
+   },
+   {
+    "id": "f4",
+    "text": "The keeper left the tower to help carry water.",
+    "sources": [
+     "s3"
+    ],
+    "confidence": "low",
+    "question": "q3",
+    "conflicts": [
+     {
+      "text": "The gazette says he stayed in the tower all night.",
+      "sources": [
+       "s2"
+      ]
+     }
+    ]
+   }
+  ],
+  "people": [
+   {
+    "id": "p1",
+    "name": "Elias Marrow",
+    "role": "lighthouse keeper"
+   },
+   {
+    "id": "p2",
+    "name": "Tom Fenn",
+    "role": "baker's boy"
+   }
+  ],
+  "places": [
+   {
+    "id": "l1",
+    "name": "Lantern Hill",
+    "where": "above the harbour"
+   }
+  ],
+  "events": [
+   {
+    "id": "e1",
+    "date": "4 Apr",
+    "text": "Fire in the net sheds"
+   }
+  ],
+  "media": [
+   {
+    "id": "m1",
+    "title": "The harbour at dusk",
+    "file": "media/dusk.png",
+    "fileUrl": "demo:media/dusk.png",
+    "kind": "photo",
+    "rights": "public-domain",
+    "credit": "Town archive",
+    "date": "1871"
+   },
+   {
+    "id": "m2",
+    "title": "Fog over the sheds",
+    "file": "media/fog.png",
+    "fileUrl": "demo:media/fog.png",
+    "kind": "photo",
+    "rights": "cc-credit",
+    "credit": "Harbour society"
+   },
+   {
+    "id": "m3",
+    "title": "The tide table",
+    "file": "media/tide.png",
+    "fileUrl": "demo:media/tide.png",
+    "kind": "document",
+    "rights": "public-domain",
+    "credit": "Tide Gazette"
+   },
+   {
+    "id": "m4",
+    "title": "The keeper's grave",
+    "kind": "photo",
+    "rights": "needs-permission",
+    "credit": "a family album"
+   }
+  ]
+ }
+}

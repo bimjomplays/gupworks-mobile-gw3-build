@@ -327,7 +327,7 @@ final class StudioPlayer {
 }
 
 /// the player's picture
-struct StudioPlayerSurface: UIViewRepresentable {
+struct StudioEditPlayerSurface: UIViewRepresentable {
     let player: AVPlayer
 
     func makeUIView(context: Context) -> PlayerLayerView {

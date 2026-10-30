@@ -69,7 +69,7 @@ final class StudioEditTests: XCTestCase {
 
     func testSnapToWords() {
         let voice = [StudioVoiceLine(id: "c1", chapter: 0, text: "the storm came", start: 10, end: 12, file: nil,
-                                     words: [StudioWord(w: "storm,", t: 0.3, end: 0.8)])]
+                                     words: [StudioEditWord(w: "storm,", t: 0.3, end: 0.8)])]
         let pts = StudioEdit.snapPoints(StudioModel(), voice: voice, playhead: 0, skip: nil)
         let s = StudioEdit.snap(10.85, pts, within: 0.1)
         XCTAssertEqual(s.t, 10.8, accuracy: 1e-9)
@@ -203,7 +203,7 @@ final class StudioEditTests: XCTestCase {
     /// the same numbers gw3_studio_sound.duck_ranges and duck_amount give
     func testDuckMatchesThePC() {
         let voice = [StudioVoiceLine(id: "a", chapter: 0, text: "", start: 1, end: 3, file: nil,
-                                     words: [StudioWord(w: "a", t: 0.1, end: 0.5), StudioWord(w: "b", t: 0.9, end: 1.6)]),
+                                     words: [StudioEditWord(w: "a", t: 0.1, end: 0.5), StudioEditWord(w: "b", t: 0.9, end: 1.6)]),
                      StudioVoiceLine(id: "b", chapter: 0, text: "", start: 5, end: 6, file: nil, words: [])]
         let r = StudioPreview.duckRanges(voice, hold: 0.5)
         XCTAssertEqual(r.map(\.0), [1.1, 5])

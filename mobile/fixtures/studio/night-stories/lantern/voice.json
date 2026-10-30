@@ -1,0 +1,103 @@
+{
+ "chapters": [
+  {
+   "chapter": 0,
+   "title": "Cold open",
+   "first": "c1"
+  },
+  {
+   "chapter": 1,
+   "title": "The inquiry",
+   "first": "c7"
+  }
+ ],
+ "config": {
+  "name": "Ash",
+  "model": "eleven_v4"
+ },
+ "approved": 2,
+ "trackSeconds": 9.1,
+ "readonly": false,
+ "jobs": [],
+ "rate": 1.0,
+ "credits": {
+  "used": 31388,
+  "limit": 140000,
+  "left": 108612
+ },
+ "creditsError": "",
+ "lines": [
+  {
+   "id": "c1",
+   "chapter": 0,
+   "text": "The lamp on Lantern Hill was trimmed at nine, as it was every night.",
+   "chars": 68,
+   "takes": [
+    {
+     "n": 1,
+     "file": "voice/c1.mp3",
+     "fileUrl": "demo:media/synth-line.m4a",
+     "seconds": 3.9
+    }
+   ],
+   "approved": 1
+  },
+  {
+   "id": "c2",
+   "chapter": 0,
+   "text": "By half past ten it had gone dark.",
+   "chars": 33,
+   "takes": [
+    {
+     "n": 1,
+     "file": "voice/c1.mp3",
+     "fileUrl": "demo:media/synth-line.m4a",
+     "seconds": 2.1
+    }
+   ],
+   "approved": 1
+  },
+  {
+   "id": "c3",
+   "chapter": 0,
+   "text": "Down in the harbour, smoke rose over the net sheds, thin at first and then thick.",
+   "chars": 80,
+   "takes": [
+    {
+     "n": 1,
+     "file": "voice/c1.mp3",
+     "fileUrl": "demo:media/synth-line.m4a",
+     "seconds": 4.4
+    },
+    {
+     "n": 2,
+     "file": "voice/c2.mp3",
+     "fileUrl": "demo:media/synth-line.m4a",
+     "seconds": 4.9,
+     "direction": "slower, stress thick",
+     "applied": [
+      "[measured]",
+      "tempo 0.93"
+     ]
+    }
+   ],
+   "approved": null
+  },
+  {
+   "id": "c4",
+   "chapter": 0,
+   "text": "The baker's boy saw it and ran for the fog bell.",
+   "chars": 48,
+   "takes": [],
+   "approved": null
+  },
+  {
+   "id": "c5",
+   "chapter": 0,
+   "text": "For a while nobody came, and the bell rang on over the water.",
+   "chars": 61,
+   "takes": [],
+   "approved": null
+  }
+ ]
+}

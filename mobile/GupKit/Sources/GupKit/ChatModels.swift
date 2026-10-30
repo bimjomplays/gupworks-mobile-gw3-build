@@ -35,6 +35,18 @@ struct ChatHeader: Codable, Equatable {
 
     /// a thread's own chat (07): its task and live line (gw3-phone a121)
     var work: WorkInfo?
+    /// a Studio video's own chat (a180): the video, the stage open on the PC and what is selected there
+    var video: VideoInfo?
+
+    struct VideoInfo: Codable, Equatable {
+        var projectId: String
+        var videoId: String
+        var title: String
+        var channel: String
+        var openStage: String
+        var stageName: String
+        var selection: String?
+    }
 
     struct WorkInfo: Codable, Equatable {
         var id: String

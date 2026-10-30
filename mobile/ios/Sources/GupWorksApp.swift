@@ -40,6 +40,10 @@ struct RootView: View {
             await model.refresh()
             await model.followHome()
         }
+        // a Studio video chat's new question becomes a notification (a180)
+        .onChange(of: model.home?.studioNeeds) { _, needs in
+            if let needs { StudioAlerts.shared.post(needs) }
+        }
         .onChange(of: phase) { _, now in
             if model.isPaired { model.transfer.active = now == .active }
         }

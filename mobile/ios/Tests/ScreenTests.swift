@@ -1853,7 +1853,7 @@ final class ScreenTests: XCTestCase {
 
     /// the Edit stage of the demo's test video, loaded, with `flags`
     private func studio(_ flags: [String] = []) -> App {
-        let app = launch(["-studio"] + flags)
+        let app = launch(["-studioEdit"] + flags)
         XCTAssertTrue(el(app, "studioPlayer").waitForExistence(timeout: 20))
         XCTAssertTrue(el(app, "studioTitle").waitForExistence(timeout: 10))
         XCTAssertTrue(find(app, "The Keeper of Gull Point").waitForExistence(timeout: 10))
@@ -1984,7 +1984,7 @@ final class ScreenTests: XCTestCase {
     }
 
     func testStudio28Chat() {
-        let app = launch(["-studio", "-studioChat"])
+        let app = launch(["-studioEdit", "-studioChat"])
         XCTAssertTrue(el(app, "chatContext").waitForExistence(timeout: 20))
         XCTAssertTrue(find(app, "Edit · shot 6 selected").exists)
         XCTAssertTrue(find(app, "Cut to the weather log").waitForExistence(timeout: 10))

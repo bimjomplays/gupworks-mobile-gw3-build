@@ -262,25 +262,25 @@ enum StudioEdit {
     }
 
     /// The shots that start inside a chapter (each but the timeline's first has a cut before it).
-    static func shots(in ch: StudioChapter, _ m: StudioModel) -> [String] {
+    static func shots(in ch: StudioEditChapter, _ m: StudioModel) -> [String] {
         let first = m.video.first?.id
         return m.video.filter { $0.start >= ch.start - 0.05 && $0.start < ch.end - 0.05 && $0.id != first }.map(\.id)
     }
 
     /// The chapter a time is in (the last that started by then).
-    static func chapter(at t: Double, _ chapters: [StudioChapter]) -> StudioChapter? {
+    static func chapter(at t: Double, _ chapters: [StudioEditChapter]) -> StudioEditChapter? {
         chapters.last { $0.start <= t + 1e-6 } ?? chapters.first
     }
 
     /// Chapters from the voice lines, when the PC sent none.
-    static func chapters(_ voice: [StudioVoiceLine]) -> [StudioChapter] {
-        var out: [StudioChapter] = []
+    static func chapters(_ voice: [StudioVoiceLine]) -> [StudioEditChapter] {
+        var out: [StudioEditChapter] = []
         for l in voice {
             if var last = out.last, last.chapter == l.chapter {
                 last.end = l.end
                 out[out.count - 1] = last
             } else {
-                out.append(StudioChapter(chapter: l.chapter, title: "Chapter \(l.chapter + 1)", start: l.start, end: l.end))
+                out.append(StudioEditChapter(chapter: l.chapter, title: "Chapter \(l.chapter + 1)", start: l.start, end: l.end))
             }
         }
         return out

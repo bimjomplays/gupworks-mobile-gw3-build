@@ -21,6 +21,9 @@ final class AudioPlayback {
     private(set) var playing = false     // playing or about to (waiting for data)
     private(set) var waiting = false
     private(set) var failed: String?
+    /// the sound that last played to its end, and how many times one has (Studio's Listen reads on with it)
+    private(set) var ended: URL?
+    private(set) var ends = 0
     /// where each other sound was left (or was moved to before it played)
     private(set) var places: [URL: Double] = [:]
     var speed: Float = VideoSpeed().current {
@@ -148,6 +151,8 @@ final class AudioPlayback {
 
     /// At the end it goes back to the start, ready to play again.
     private func reachedEnd() {
+        ended = current
+        ends += 1
         playing = false
         time = 0
         player.seek(to: .zero)

@@ -1,0 +1,153 @@
+{
+ "projectId": "night-stories",
+ "name": "Night Stories",
+ "icon": "clapperboard",
+ "color": "red",
+ "mainChatId": "00000090-3333-4222-8333-000000000090",
+ "about": "YouTube channel: quiet stories from made-up harbour towns",
+ "longVideos": 2,
+ "shorts": 2,
+ "needs": [
+  {
+   "projectId": "night-stories",
+   "videoId": "lantern",
+   "title": "The Lantern Hill Fire",
+   "channel": "Night Stories",
+   "chatId": "00000091-3333-4222-8333-000000000091",
+   "ts": 1791999640000,
+   "permission": false,
+   "question": "Draft of shot 6 is ready: the keeper's room, line c3. Approve it for the full render?",
+   "options": [
+    {
+     "n": 1,
+     "label": "Approve"
+    },
+    {
+     "n": 2,
+     "label": "Redraft"
+    }
+   ],
+   "answerable": true,
+   "kind": "ask",
+   "sig": "demo"
+  }
+ ],
+ "working": 2,
+ "covers": [
+  "demo:media/dusk.png",
+  "demo:media/fog.png",
+  "demo:media/tide.png"
+ ],
+ "latest": [
+  "The Lantern Hill Fire",
+  "The Salt Road"
+ ],
+ "updated": 1791999460000,
+ "videos": [
+  {
+   "id": "lantern",
+   "title": "The Lantern Hill Fire",
+   "kind": "long",
+   "stage": "visuals",
+   "stageIndex": 5,
+   "stageName": "Visuals",
+   "stages": 8,
+   "chatId": "00000091-3333-4222-8333-000000000091",
+   "chatState": "needs",
+   "updated": 1791999460000,
+   "jobs": [
+    {
+     "id": "a12",
+     "title": "Render shots 10-14",
+     "status": "running"
+    }
+   ],
+   "readonly": false,
+   "working": "Rendering shot 10 · 34 min",
+   "needs": {
+    "projectId": "night-stories",
+    "videoId": "lantern",
+    "title": "The Lantern Hill Fire",
+    "channel": "Night Stories",
+    "chatId": "00000091-3333-4222-8333-000000000091",
+    "ts": 1791999640000,
+    "permission": false,
+    "question": "Draft of shot 6 is ready: the keeper's room, line c3. Approve it for the full render?",
+    "options": [
+     {
+      "n": 1,
+      "label": "Approve"
+     },
+     {
+      "n": 2,
+      "label": "Redraft"
+     }
+    ],
+    "answerable": true,
+    "kind": "ask",
+    "sig": "demo"
+   },
+   "cover": "demo:media/dusk.png",
+   "duration": "18:40"
+  },
+  {
+   "id": "v2",
+   "title": "The Salt Road",
+   "kind": "long",
+   "stage": "research",
+   "stageIndex": 1,
+   "stageName": "Research",
+   "stages": 8,
+   "chatId": null,
+   "chatState": "idle",
+   "updated": 1791992500000,
+   "jobs": [
+    {
+     "id": "a14",
+     "title": "4 of 7 questions answered",
+     "status": "running"
+    }
+   ],
+   "readonly": false,
+   "working": "4 of 7 questions answered"
+  }
+ ],
+ "shortsList": [
+  {
+   "id": "s1",
+   "title": "Fog Bell",
+   "kind": "short",
+   "stage": "finish",
+   "stageIndex": 7,
+   "stageName": "Finish",
+   "stages": 8,
+   "chatId": null,
+   "chatState": "idle",
+   "updated": 1791996100000,
+   "jobs": [],
+   "readonly": false,
+   "cover": "demo:media/fog.png",
+   "duration": "0:48"
+  },
+  {
+   "id": "s2",
+   "title": "Tide Clock",
+   "kind": "short",
+   "stage": "finish",
+   "stageIndex": 7,
+   "stageName": "Finish",
+   "stages": 8,
+   "chatId": null,
+   "chatState": "idle",
+   "updated": 1791996100000,
+   "jobs": [],
+   "readonly": false,
+   "cover": "demo:media/tide.png",
+   "duration": "0:52"
+  }
+ ],
+ "styleGuide": {
+  "path": "Notes/Night Stories/style-guide.md",
+  "text": "# Night Stories style guide\n\nHow every video on this channel sounds and looks.\n\n## Voice\n\nCalm and close, like reading by a lamp. Short sentences.\n\n## Words and phrases to avoid\n\n- \"For a while\" as an opener\n- \"Little did they know\"\n\n## Pacing and structure\n\nA cold open under a minute, then chapters of three to five minutes.\n\n## Look\n\nDusk colours, slow camera moves, no fast cuts.\n"
+ }
+}

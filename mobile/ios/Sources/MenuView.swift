@@ -154,7 +154,9 @@ struct MenuView: View {
                 }
                 ForEach(Place.allCases, id: \.self) { p in
                     Button { place(p) } label: {
-                        MenuRow(title: p.title) { MenuIcon(place: p) }
+                        MenuRow(title: p.title) { MenuIcon(place: p) } mark: {
+                            if p == .studio, !(model.home?.studioNeeds ?? []).isEmpty { StateMark(state: "needs") }
+                        }
                     }
                     .buttonStyle(MenuRowStyle())
                     .disabled(sorting)

@@ -65,7 +65,7 @@ final class StudioEditStore {
     var shots: [String: StudioShot] { view?.shotsById ?? [:] }
     var voice: [StudioVoiceLine] { view?.voice ?? [] }
     var mix: StudioMix { view?.mix ?? StudioMix() }
-    var chapters: [StudioChapter] {
+    var chapters: [StudioEditChapter] {
         if let c = view?.chapters, !c.isEmpty { return c }
         return StudioEdit.chapters(voice)
     }
@@ -359,7 +359,7 @@ final class StudioEditStore {
         estimate = nil
         b.confirm = true
         if demo {
-            addJob(StudioJob(id: "snd9", kind: b.kind, status: "running", progress: 0.3,
+            addJob(StudioEditJob(id: "snd9", kind: b.kind, status: "running", progress: 0.3,
                                                          phase: "Generating", prompt: b.prompt))
             return
         }
@@ -403,7 +403,7 @@ final class StudioEditStore {
         view = v
     }
 
-    private func addJob(_ j: StudioJob) {
+    private func addJob(_ j: StudioEditJob) {
         guard var v = view else { return }
         v.jobs = (v.jobs ?? []).filter { $0.id != j.id } + [j]
         view = v
@@ -411,11 +411,11 @@ final class StudioEditStore {
 
     // MARK: mixdown
 
-    var mixdownJob: StudioJob? { view?.jobs?.last { $0.kind == "mixdown" } }
+    var mixdownJob: StudioEditJob? { view?.jobs?.last { $0.kind == "mixdown" } }
 
     func makeMixdown() async {
         if demo {
-            addJob(StudioJob(id: "snd8", kind: "mixdown", status: "running", progress: 0.4,
+            addJob(StudioEditJob(id: "snd8", kind: "mixdown", status: "running", progress: 0.4,
                                                          phase: "Measuring"))
             return
         }
