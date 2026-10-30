@@ -242,6 +242,7 @@ struct StudioScriptStage: View {
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 10)
         .padding(.bottom, 6)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("selectionBar")
     }
 
@@ -290,6 +291,7 @@ struct StudioScriptStage: View {
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(StudioLook.needsBorder, lineWidth: 1))
         .padding(.leading, 34)
         .padding(.vertical, 6)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("change-\(c.id)")
     }
 }
@@ -448,6 +450,7 @@ struct StudioListenView: View {
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .padding(.horizontal, 10)
         .padding(.bottom, 6)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("listenPlayer")
     }
 

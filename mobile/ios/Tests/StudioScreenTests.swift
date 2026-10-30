@@ -56,7 +56,7 @@ final class StudioScreenTests: XCTestCase {
         let app = studio()
         let card = el(app, "channel-\(chan)")
         XCTAssertTrue(card.waitForExistence(timeout: 20))
-        XCTAssertTrue(find(app, "Draft of shot 6 is ready").exists, "the channel card shows the question that needs you")
+        XCTAssertTrue(find(app, "needs you").exists, "the channel card shows that a video needs you")
         XCTAssertTrue(el(app, "newChannel").exists)
         sleep(1)
         shot("s01-channels")

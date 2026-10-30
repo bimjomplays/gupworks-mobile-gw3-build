@@ -187,6 +187,7 @@ struct StudioVoiceStage: View {
         }
         .padding(12)
         .background(isActive ? Color.white.opacity(0.03) : .clear)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("voice-\(l.id)")
     }
 
@@ -601,8 +602,17 @@ struct StudioFinishStage: View {
     }
 
     private func video(_ f: StudioFinish, link: String, poster: String?) -> some View {
+        Color.black
+            .aspectRatio(16 / 9, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .overlay(alignment: .bottom) { videoContent(f, link: link, poster: poster) }
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("finalCut")
+    }
+
+    private func videoContent(_ f: StudioFinish, link: String, poster: String?) -> some View {
         ZStack(alignment: .bottom) {
-            Color.black
             if let p = playback {
                 StudioPlayerSurface(view: p.surface)
                 if p.waiting { ProgressView().tint(.white) }
@@ -624,9 +634,6 @@ struct StudioFinishStage: View {
             }
             scrubber(f, link: link, poster: poster)
         }
-        .aspectRatio(16 / 9, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .accessibilityIdentifier("finalCut")
     }
 
     private func scrubber(_ f: StudioFinish, link: String, poster: String?) -> some View {
@@ -741,6 +748,7 @@ struct StudioFinishStage: View {
             }
             .padding(14)
             .studioCard()
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("finalNotes")
         }
     }
@@ -766,6 +774,7 @@ struct StudioFinishStage: View {
             }
             .padding(14)
             .studioCard()
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("finalChecks")
         }
     }

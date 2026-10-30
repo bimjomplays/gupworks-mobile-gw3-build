@@ -279,6 +279,7 @@ struct StudioNeedsCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(StudioLook.needsBG, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(StudioLook.needsBorder, lineWidth: 1))
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("needsYou")
     }
 }
@@ -555,6 +556,7 @@ struct StudioResearchStage: View {
             .studioCard()
             .contentShape(Rectangle())
             .onTapGesture { withAnimation(.snappy(duration: 0.2)) { open = isOpen ? nil : f.id } }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("fact-\(f.id)")
         }
     }

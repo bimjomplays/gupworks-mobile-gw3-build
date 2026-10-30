@@ -63,6 +63,7 @@ struct StudioChatExtras: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .studioCard(radius: 16)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("chatChange-\(c.id)")
     }
 }
