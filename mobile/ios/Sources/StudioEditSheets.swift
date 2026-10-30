@@ -38,6 +38,7 @@ struct StudioPanel<Content: View>: View {
     let title: String
     var note: String?
     let id: String
+    var scroll: CGFloat? = nil
     var close: () -> Void
     @ViewBuilder var content: () -> Content
 
@@ -60,10 +61,12 @@ struct StudioPanel<Content: View>: View {
                 .accessibilityLabel("Done")
                 .accessibilityIdentifier("sheetDone")
             }
-            // a tall panel (Mix) scrolls instead of pushing the screen up past the status bar
-            ViewThatFits(in: .vertical) {
+            if let scroll {
+                // a tall panel (Mix) scrolls instead of pushing the screen up past the status bar
+                ScrollView { VStack(alignment: .leading, spacing: 14) { content() } }
+                    .frame(maxHeight: scroll)
+            } else {
                 content()
-                ScrollView { content() }.scrollBounceBehavior(.basedOnSize)
             }
         }
         .padding(.horizontal, 18)
@@ -726,7 +729,7 @@ struct StudioMixSheet: View {
         let mix = store.mix
         let md = store.view?.mixdown
         let canMixdown = md.map { cache.ready($0.file) } ?? false
-        StudioPanel(title: "Mix", note: "picture and sound together", id: "sheetMix", close: close) {
+        StudioPanel(title: "Mix", note: "picture and sound together", id: "sheetMix", scroll: 400, close: close) {
             StudioSegments(items: [("timeline", "Timeline mix"), ("mixdown", "Mixdown")],
                            chosen: player.useMixdown ? "mixdown" : "timeline",
                            disabled: canMixdown ? [] : ["mixdown"]) { k in player.useMixdown = k == "mixdown" }
