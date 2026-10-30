@@ -10,6 +10,8 @@ struct CardRoute: Hashable {
 /// has none and goes back instead.
 struct ChatView: View {
     let shell: ChatShell?
+    /// a181: what rides along from the Studio's Edit stage ("Edit · shot 6 selected"), a chip over the box
+    let context: String?
     @State private var store: ChatStore
     @State private var usageOpen = false
     @State private var folds: [String: Bool] = [:]
@@ -28,6 +30,8 @@ struct ChatView: View {
     @State private var showSettings = false
     @State private var showTask = false
     @State private var confirmStop = false
+    /// a Studio video chat's video (a180): its script's waiting changes and running jobs show in the chat
+    @State private var studio: StudioVideoStore?
     @Environment(\.openChat) private var openChat
     @Environment(\.scenePhase) private var phase
     @Environment(\.dismiss) private var dismiss
@@ -35,8 +39,10 @@ struct ChatView: View {
     @Environment(OverviewHost.self) private var overview: OverviewHost?
 
     /// `projectSheet`: a project's main chat opens with its Overview up (06); only the demo's `-sheet` shots set it (a149)
-    init(id: String?, pairing: Pairing?, demo: Bool, projectSheet: Bool = false, shell: ChatShell? = nil) {
+    init(id: String?, pairing: Pairing?, demo: Bool, projectSheet: Bool = false, shell: ChatShell? = nil,
+         context: String? = nil) {
         self.shell = shell
+        self.context = context
         _store = State(initialValue: ChatStore(id: id ?? "", pairing: pairing, demo: demo))
         _opensSheet = State(initialValue: projectSheet)
     }
@@ -46,6 +52,8 @@ struct ChatView: View {
     }
 
     /// the project's id when this is its main chat
+    private var video: ChatHeader.VideoInfo? { store.header?.video }
+
     private var mainOf: String? {
         guard let h = store.header, h.role == "main" else { return nil }
         return h.project?.id
@@ -185,6 +193,9 @@ struct ChatView: View {
                         store.discard(m.clientId)
                     }
                 }
+                if let v = video, let studio {
+                    StudioChatExtras(video: v, store: studio).padding(.top, 14)
+                }
                 if let d = store.dialog {
                     DialogCard(dialog: d, busy: store.answering, base: store.baseURL) { a in
                         Task { await store.answer(a) }
@@ -263,7 +274,34 @@ struct ChatView: View {
         }
         .animation(.easeOut(duration: 0.18), value: usageOpen)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Composer(store: store, usage: usage, asking: asking, usageOpen: $usageOpen, prompt: composerPrompt)
+            VStack(spacing: 0) {
+                if let context {
+                    // a181: what the Edit stage has selected rides along with the chat it opened
+                    HStack(spacing: 6) {
+                        LucideIcon(name: "film", size: 13)
+                        Text(context).font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundStyle(Theme.blue)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Theme.blue.opacity(0.14), in: Capsule())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 16).padding(.bottom, 6)
+                    .accessibilityIdentifier("chatContext")
+                } else if let sel = video?.selection, !sel.isEmpty { StudioSelectionChip(text: sel) }
+                Composer(store: store, usage: usage, asking: asking, usageOpen: $usageOpen, prompt: composerPrompt)
+            }
+        }
+        .task(id: video.map { "\($0.projectId)/\($0.videoId)" } ?? "") {
+            guard let v = video else { return }
+            if studio?.videoId != v.videoId {
+                studio = StudioVideoStore(projectId: v.projectId, videoId: v.videoId, pairing: model.pairing, demo: model.demo)
+            }
+            while !Task.isCancelled, let studio {
+                await studio.refresh()
+                await studio.load("script")
+                if studio.demo { return }
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+            }
         }
         .onChange(of: shell?.temporary ?? false, initial: true) { _, on in
             if store.isNew { store.temporary = on }
@@ -473,6 +511,15 @@ struct ChatView: View {
                     .accessibilityIdentifier("temporaryChat")
                 }
             }
+        } else if let v = video {
+            // 14: the video chat's pill says which video and stage it is on
+            ToolbarItem(placement: .principal) {
+                StudioPill(title: "Video chat", subtitle: "\(v.title) \u{00B7} on \(v.stageName)")
+            }
+            .sharedBackgroundVisibility(.hidden)
+            ToolbarItem(placement: .topBarTrailing) {
+                moreMenu
+            }
         } else if mainOf != nil || work != nil {
             ToolbarItem(placement: .principal) {
                 projectPill
@@ -591,6 +638,7 @@ struct ChatView: View {
     }
 
     private var composerPrompt: String? {
+        if let v = video { return "Message \(v.title)'s chat" }
         if mainOf != nil { return "Message the main chat" }
         if work != nil { return "Message this thread" }
         return nil

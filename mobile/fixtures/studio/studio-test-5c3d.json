@@ -1,0 +1,42 @@
+{
+ "projectId": "studio-test-5c3d",
+ "name": "Studio Test",
+ "icon": "flask-conical",
+ "color": "green",
+ "mainChatId": null,
+ "about": "YouTube channel: a test channel",
+ "longVideos": 1,
+ "shorts": 0,
+ "needs": [],
+ "working": 0,
+ "covers": [
+  "demo:media/robot-generated.png"
+ ],
+ "latest": [
+  "Why Lamps Flicker"
+ ],
+ "updated": 1791826900000,
+ "videos": [
+  {
+   "id": "v1",
+   "title": "Why Lamps Flicker",
+   "kind": "long",
+   "stage": "finish",
+   "stageIndex": 7,
+   "stageName": "Finish",
+   "stages": 8,
+   "chatId": null,
+   "chatState": "idle",
+   "updated": 1791826900000,
+   "jobs": [],
+   "readonly": false,
+   "cover": "demo:media/robot-generated.png",
+   "duration": "6:10"
+  }
+ ],
+ "shortsList": [],
+ "styleGuide": {
+  "path": "Notes/Studio Test/style-guide.md",
+  "text": "# Studio Test style guide\n"
+ }
+}

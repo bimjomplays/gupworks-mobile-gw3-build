@@ -1,0 +1,144 @@
+{
+ "card": {
+  "id": "lantern",
+  "title": "The Lantern Hill Fire",
+  "kind": "long",
+  "stage": "visuals",
+  "stageIndex": 5,
+  "stageName": "Visuals",
+  "stages": 8,
+  "chatId": "00000091-3333-4222-8333-000000000091",
+  "chatState": "needs",
+  "updated": 1791999460000,
+  "jobs": [
+   {
+    "id": "a12",
+    "title": "Render shots 10-14",
+    "status": "running"
+   }
+  ],
+  "readonly": false,
+  "working": "Rendering shot 10 · 34 min",
+  "needs": {
+   "projectId": "night-stories",
+   "videoId": "lantern",
+   "title": "The Lantern Hill Fire",
+   "channel": "Night Stories",
+   "chatId": "00000091-3333-4222-8333-000000000091",
+   "ts": 1791999640000,
+   "permission": false,
+   "question": "Draft of shot 6 is ready: the keeper's room, line c3. Approve it for the full render?",
+   "options": [
+    {
+     "n": 1,
+     "label": "Approve"
+    },
+    {
+     "n": 2,
+     "label": "Redraft"
+    }
+   ],
+   "answerable": true,
+   "kind": "ask",
+   "sig": "demo"
+  },
+  "cover": "demo:media/dusk.png",
+  "duration": "18:40"
+ },
+ "channel": {
+  "projectId": "night-stories",
+  "name": "Night Stories",
+  "icon": "clapperboard",
+  "color": "red"
+ },
+ "stages": [
+  {
+   "key": "brief",
+   "name": "Brief",
+   "state": "done",
+   "summary": "Long video · about 18 min · 7 of 7 answered",
+   "busy": false
+  },
+  {
+   "key": "research",
+   "name": "Research",
+   "state": "done",
+   "summary": "41 facts · 26 sources · 14 media cleared",
+   "busy": false
+  },
+  {
+   "key": "outline",
+   "name": "Outline",
+   "state": "done",
+   "summary": "6 chapters · approved",
+   "busy": false
+  },
+  {
+   "key": "script",
+   "name": "Script",
+   "state": "done",
+   "summary": "212 lines · draft 6 · all sourced",
+   "busy": false
+  },
+  {
+   "key": "voice",
+   "name": "Voice",
+   "state": "done",
+   "summary": "212 of 212 approved · 18:40 · Ash",
+   "busy": false
+  },
+  {
+   "key": "visuals",
+   "name": "Visuals",
+   "state": "current",
+   "summary": "9 of 42 rendered · shot 10 rendering",
+   "busy": true
+  },
+  {
+   "key": "edit",
+   "name": "Edit",
+   "state": "todo",
+   "summary": "Picture and sound on one timeline",
+   "busy": false
+  },
+  {
+   "key": "finish",
+   "name": "Finish",
+   "state": "todo",
+   "summary": "Watch the final cut here when it's rendered",
+   "busy": false
+  }
+ ],
+ "openStage": "visuals",
+ "needs": {
+  "projectId": "night-stories",
+  "videoId": "lantern",
+  "title": "The Lantern Hill Fire",
+  "channel": "Night Stories",
+  "chatId": "00000091-3333-4222-8333-000000000091",
+  "ts": 1791999640000,
+  "permission": false,
+  "question": "Draft of shot 6 is ready: the keeper's room, line c3. Approve it for the full render?",
+  "options": [
+   {
+    "n": 1,
+    "label": "Approve"
+   },
+   {
+    "n": 2,
+    "label": "Redraft"
+   }
+  ],
+  "answerable": true,
+  "kind": "ask",
+  "sig": "demo"
+ },
+ "jobs": [
+  {
+   "id": "a12",
+   "title": "Render shots 10-14",
+   "status": "running"
+  }
+ ],
+ "voiceSeconds": 1120
+}

@@ -1,0 +1,36 @@
+{
+ "brief": {
+  "topic": "A lighthouse keeper's lamp goes dark on the night the harbour fire starts, and the town blames him.",
+  "angle": "He saw the fire first. Why did he say nothing?",
+  "audience": "People who like slow, calm stories before bed.",
+  "format": "long",
+  "length": "About 18 min",
+  "extra": ""
+ },
+ "title": "The Lantern Hill Fire",
+ "filled": 5,
+ "of": 5,
+ "questions": [
+  {
+   "id": "q1",
+   "text": "What did the keeper write in his log that night?",
+   "state": "answered",
+   "thread": null,
+   "summary": "\"Lamp trimmed at nine\", then nothing"
+  },
+  {
+   "id": "q2",
+   "text": "Who first raised the alarm?",
+   "state": "answered",
+   "thread": null,
+   "summary": "The baker's boy, ringing the fog bell"
+  },
+  {
+   "id": "q3",
+   "text": "What happened to the keeper after the inquiry?",
+   "state": "researching",
+   "thread": "a4",
+   "summary": ""
+  }
+ ]
+}

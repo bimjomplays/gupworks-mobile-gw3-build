@@ -1,0 +1,133 @@
+{
+ "lines": [
+  {
+   "id": "c1",
+   "chapter": 0,
+   "text": "The lamp on Lantern Hill was trimmed at nine, as it was every night.",
+   "facts": [
+    "f1"
+   ]
+  },
+  {
+   "id": "c2",
+   "chapter": 0,
+   "text": "By half past ten it had gone dark.",
+   "facts": [
+    "f1"
+   ]
+  },
+  {
+   "id": "c3",
+   "chapter": 0,
+   "text": "Down in the harbour, smoke rose over the net sheds, thin at first and then thick.",
+   "facts": [
+    "f3"
+   ]
+  },
+  {
+   "id": "c4",
+   "chapter": 0,
+   "text": "The baker's boy saw it and ran for the fog bell.",
+   "facts": [
+    "f2"
+   ]
+  },
+  {
+   "id": "c5",
+   "chapter": 0,
+   "text": "For a while nobody came, and the bell rang on over the water.",
+   "facts": [
+    "f2"
+   ]
+  },
+  {
+   "id": "c6",
+   "chapter": 0,
+   "text": "The keeper said nothing about where he had been.",
+   "facts": []
+  },
+  {
+   "id": "c7",
+   "chapter": 1,
+   "text": "The inquiry met three days later in the chapel hall.",
+   "facts": [
+    "f4"
+   ]
+  }
+ ],
+ "chapters": [
+  {
+   "chapter": 0,
+   "title": "Cold open",
+   "first": "c1"
+  },
+  {
+   "chapter": 1,
+   "title": "The inquiry",
+   "first": "c7"
+  }
+ ],
+ "checks": {
+  "hits": [
+   {
+    "line": "c5",
+    "start": 0,
+    "end": 11,
+    "rule": "\"For a while\" as an opener",
+    "severity": "warn"
+   }
+  ],
+  "unsourced": [
+   "c6"
+  ],
+  "rules": 2
+ },
+ "pending": [
+  {
+   "id": "x1",
+   "at": 1791999640000,
+   "by": "chat",
+   "note": "Two short beats instead of one long one, so the smoke lands. Still rests on f3.",
+   "request": "punchier",
+   "status": "pending",
+   "lines": [
+    {
+     "id": "c3",
+     "old": "Down in the harbour, smoke rose over the net sheds, thin at first and then thick.",
+     "new": "Down in the harbour, smoke rose over the net sheds. Thin, then thick.",
+     "facts": [
+      "f3"
+     ]
+    }
+   ]
+  }
+ ],
+ "versions": [
+  {
+   "n": 6,
+   "at": 1791999100000,
+   "by": "chat",
+   "label": "Tighter cold open",
+   "lines": 212
+  },
+  {
+   "n": 5,
+   "at": 1791913300000,
+   "by": "you",
+   "label": "Your edits",
+   "lines": 210
+  },
+  {
+   "n": 4,
+   "at": 1791826900000,
+   "by": "chat",
+   "label": "Draft from the chat",
+   "lines": 208
+  }
+ ],
+ "voice": "am_michael",
+ "words": 2980,
+ "seconds": 1120,
+ "title": "The Lantern Hill Fire",
+ "readonly": false
+}

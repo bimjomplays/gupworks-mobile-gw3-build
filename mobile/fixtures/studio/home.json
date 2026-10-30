@@ -1,0 +1,128 @@
+{
+ "channels": [
+  {
+   "projectId": "night-stories",
+   "name": "Night Stories",
+   "icon": "clapperboard",
+   "color": "red",
+   "mainChatId": "00000090-3333-4222-8333-000000000090",
+   "about": "YouTube channel: quiet stories from made-up harbour towns",
+   "longVideos": 2,
+   "shorts": 2,
+   "needs": [
+    {
+     "projectId": "night-stories",
+     "videoId": "lantern",
+     "title": "The Lantern Hill Fire",
+     "channel": "Night Stories",
+     "chatId": "00000091-3333-4222-8333-000000000091",
+     "ts": 1791999640000,
+     "permission": false,
+     "question": "Draft of shot 6 is ready: the keeper's room, line c3. Approve it for the full render?",
+     "options": [
+      {
+       "n": 1,
+       "label": "Approve"
+      },
+      {
+       "n": 2,
+       "label": "Redraft"
+      }
+     ],
+     "answerable": true,
+     "kind": "ask",
+     "sig": "demo"
+    }
+   ],
+   "working": 2,
+   "covers": [
+    "demo:media/dusk.png",
+    "demo:media/fog.png",
+    "demo:media/tide.png"
+   ],
+   "latest": [
+    "The Lantern Hill Fire",
+    "The Salt Road"
+   ],
+   "updated": 1791999460000
+  },
+  {
+   "projectId": "studio-test-5c3d",
+   "name": "Studio Test",
+   "icon": "flask-conical",
+   "color": "green",
+   "mainChatId": null,
+   "about": "YouTube channel: a test channel",
+   "longVideos": 1,
+   "shorts": 0,
+   "needs": [],
+   "working": 0,
+   "covers": [
+    "demo:media/robot-generated.png"
+   ],
+   "latest": [
+    "Why Lamps Flicker"
+   ],
+   "updated": 1791826900000
+  }
+ ],
+ "stages": [
+  {
+   "key": "brief",
+   "name": "Brief"
+  },
+  {
+   "key": "research",
+   "name": "Research"
+  },
+  {
+   "key": "outline",
+   "name": "Outline"
+  },
+  {
+   "key": "script",
+   "name": "Script"
+  },
+  {
+   "key": "voice",
+   "name": "Voice"
+  },
+  {
+   "key": "visuals",
+   "name": "Visuals"
+  },
+  {
+   "key": "edit",
+   "name": "Edit"
+  },
+  {
+   "key": "finish",
+   "name": "Finish"
+  }
+ ],
+ "needs": [
+  {
+   "projectId": "night-stories",
+   "videoId": "lantern",
+   "title": "The Lantern Hill Fire",
+   "channel": "Night Stories",
+   "chatId": "00000091-3333-4222-8333-000000000091",
+   "ts": 1791999640000,
+   "permission": false,
+   "question": "Draft of shot 6 is ready: the keeper's room, line c3. Approve it for the full render?",
+   "options": [
+    {
+     "n": 1,
+     "label": "Approve"
+    },
+    {
+     "n": 2,
+     "label": "Redraft"
+    }
+   ],
+   "answerable": true,
+   "kind": "ask",
+   "sig": "demo"
+  }
+ ]
+}
