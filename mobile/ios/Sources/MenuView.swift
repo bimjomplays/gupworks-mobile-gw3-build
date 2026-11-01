@@ -152,11 +152,9 @@ struct MenuView: View {
                 if let e = model.error {
                     ErrorBanner(error: e).padding(.horizontal, 22).padding(.vertical, 8)
                 }
-                ForEach(Place.allCases, id: \.self) { p in
+                ForEach(Place.menuRows, id: \.self) { p in
                     Button { place(p) } label: {
-                        MenuRow(title: p.title) { MenuIcon(place: p) } mark: {
-                            if p == .studio, !(model.home?.studioNeeds ?? []).isEmpty { StateMark(state: "needs") }
-                        }
+                        MenuRow(title: p.title) { MenuIcon(place: p) } mark: { EmptyView() }
                     }
                     .buttonStyle(MenuRowStyle())
                     .disabled(sorting)
@@ -266,7 +264,8 @@ struct MenuView: View {
     private func open(_ item: PinItem) {
         switch item {
         case .chat(let c): pick(.chat(c.id, sheet: false))
-        case .project(let p): if let id = p.mainChatId { pick(.chat(id, sheet: false)) }
+        case .project(let p):
+            if p.isStudio { place(.studio) } else if let id = p.mainChatId { pick(.chat(id, sheet: false)) }
         }
     }
 
@@ -381,7 +380,7 @@ struct MenuView: View {
         guard !q.isEmpty, let h = model.home else { return [] }
         var items = model.pinnedItems
         items += model.recents.map { .chat($0) }
-        items += h.projects.filter { p in !items.contains { $0.ref == PinRef(kind: "project", id: p.id) } }
+        items += h.listed.filter { p in !items.contains { $0.ref == PinRef(kind: "project", id: p.id) } }
             .map { .project($0) }
         return items.filter { $0.title.localizedStandardContains(q) }
     }

@@ -107,6 +107,21 @@
    "created": 1787680000000
   }
  ],
+ "studio": {
+  "id": "studio",
+  "name": "YouTube Studio",
+  "state": "needs",
+  "detail": "1 needs you",
+  "needs": 1,
+  "permission": 0,
+  "working": 0,
+  "paused": false,
+  "mainChatId": null,
+  "icon": "clapperboard",
+  "color": "red",
+  "lastActive": 1791999000000,
+  "created": 0
+ },
  "archivedProjects": [
   {
    "id": "old-blog-6e7f",
@@ -127,6 +142,9 @@
  "layout": [
   {
    "project": "lumen-studio"
+  },
+  {
+   "project": "studio"
   },
   {
    "folder": {

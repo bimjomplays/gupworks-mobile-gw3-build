@@ -132,6 +132,7 @@ final class ScreenTests: XCTestCase {
                    "newChat", "settings", "search"] {
             XCTAssertTrue(el(app, id).exists, id)
         }
+        XCTAssertFalse(el(app, "place-studio").exists, "YouTube Studio is a row of the Projects list (a191)")
         // in 5c's order: places, Pinned, Recents
         XCTAssertLessThan(el(app, "place-bot").frame.minY, el(app, "pin-Lumen Studio website").frame.minY)
         XCTAssertLessThan(el(app, "pin-Carrot picture").frame.minY, el(app, "chat-Recipe scaler").frame.minY)
@@ -393,6 +394,39 @@ final class ScreenTests: XCTestCase {
         el(app, "colour-blue").tap()
         el(app, "iconDone").tap()
         XCTAssertTrue(el(app, "newName").waitForExistence(timeout: 5))
+    }
+
+    /// a191: YouTube Studio is a row of the Projects list with its icon and colour; a tap opens the Studio
+    func testStudioIsAProjectRow() {
+        let app = projects()
+        XCTAssertTrue(el(app, "project-studio").waitForExistence(timeout: 5))
+        sleep(1)
+        shot("a191-projects-studio")
+        el(app, "project-studio").tap()
+        XCTAssertTrue(el(app, "studioSearch").waitForExistence(timeout: 10))
+        sleep(1)
+        shot("a191-studio-from-projects")
+    }
+
+    /// a191: the Studio row's long-press: Pin and Icon and colour
+    func testStudioRowMenuAndLook() {
+        let app = projects()
+        let row = el(app, "project-studio")
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Icon and colour"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Pin"].exists)
+        XCTAssertFalse(app.buttons["Archive"].exists)
+        sleep(1)
+        shot("a191-studio-row-menu")
+        app.buttons["Icon and colour"].tap()
+        XCTAssertTrue(el(app, "icon-clapperboard").waitForExistence(timeout: 10))
+        el(app, "colour-blue").tap()
+        sleep(1)
+        shot("a191-studio-look")
+        el(app, "iconDone").tap()
+        XCTAssertTrue(el(app, "icon-clapperboard").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(el(app, "project-studio").waitForExistence(timeout: 5))
     }
 
     func testComingSoonPlaces() {

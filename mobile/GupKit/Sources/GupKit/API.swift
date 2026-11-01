@@ -41,6 +41,24 @@ struct Home: Codable, Equatable {
     var usage: [Meter]?             // the account's 5-hour and weekly limits, for a new chat's rings
     var archivedProjects: [ProjectRow]?  // the Projects filter's Archived (gw3-phone 0.9)
     var studioNeeds: [StudioNeed]?  // YouTube Studio video chats waiting on you (a180)
+    var studio: ProjectRow?         // YouTube Studio as a row of the Projects list, id "studio" (gw3-phone 0.9.6)
+}
+
+extension Home {
+    static let studioId = "studio"
+
+    /// The Projects list's rows: the projects, then YouTube Studio (its place comes from the layout or the sort).
+    var listed: [ProjectRow] { projects + (studio.map { [$0] } ?? []) }
+}
+
+extension ProjectRow {
+    var isStudio: Bool { id == Home.studioId }
+}
+
+/// PUT /v1/home/studio: YouTube Studio's icon and colour (kept by the projects service, as the desktop's).
+struct StudioLookBody: Codable, Equatable {
+    var icon: String
+    var color: String      // "" is no colour
 }
 
 /// One row of Pinned: a chat or a project.
@@ -482,6 +500,11 @@ final class APIClient {
     /// Pinned in a new order (chats joining or leaving it are pinned or unpinned); the answer is the new home.
     func setPinned(_ p: Pairing, _ pinned: [PinRef]) async throws -> Home {
         try await request(p.baseURL, "/v1/home/pinned", token: p.token, method: "PUT", encoding: PinnedBody(pinned: pinned))
+    }
+
+    func setStudioLook(_ p: Pairing, icon: String, color: String?) async throws -> Home {
+        try await request(p.baseURL, "/v1/home/studio", token: p.token, method: "PUT",
+                          encoding: StudioLookBody(icon: icon, color: color ?? ""))
     }
 
     /// chats whose words match (titles are matched on the phone)
@@ -979,6 +1002,7 @@ enum Demo {
             return r
         }
         h.projects = h.projects.map(move)
+        h.studio = h.studio.map(move)
         h.archivedProjects = h.archivedProjects?.map(move)
         h.usage = h.usage.map { shiftResets($0, by: shift) }
         return h
