@@ -74,6 +74,35 @@ final class ProjectLogicTests: XCTestCase {
         XCTAssertNil(model.projectRow(r.projectId))
     }
 
+    /// a191: YouTube Studio is a row of the Projects list: in the desktop's order, pinnable, its look set from here
+    @MainActor
+    func testStudioIsARowOfTheProjectsList() async throws {
+        var home: Home = try XCTUnwrap(Demo.load("home"))
+        let studio = try XCTUnwrap(home.studio)
+        XCTAssertTrue(studio.isStudio)
+        XCTAssertEqual([studio.name, studio.icon, studio.color], ["YouTube Studio", "clapperboard", "red"])
+        XCTAssertEqual(home.listed.map(\.id), home.projects.map(\.id) + ["studio"])
+        let rows = ProjectLayout.rows(home.listed, layout: home.layout, open: [:])
+        XCTAssertEqual(rows.map(\.id).prefix(2), ["p-lumen-studio", "p-studio"])  // where the desktop has it
+        home.pinned = [PinRef(kind: "project", id: "studio")] + (home.pinned ?? [])
+        XCTAssertEqual(AppModel.pinnedItems(home).first?.title, "YouTube Studio")
+        home.studio = nil  // an older PC: no row
+        XCTAssertEqual(home.listed.map(\.id), home.projects.map(\.id))
+        XCTAssertFalse(AppModel.pinnedItems(home).contains { $0.ref.id == "studio" })
+
+        let enc = JSONEncoder()
+        enc.outputFormatting = .sortedKeys
+        XCTAssertEqual(String(decoding: try enc.encode(StudioLookBody(icon: "film", color: "")), as: UTF8.self),
+                       #"{"color":"","icon":"film"}"#)
+        let model = AppModel(demo: true)
+        await model.refresh()
+        await model.setStudioLook(icon: "film", color: nil)
+        XCTAssertEqual(model.home?.studio?.icon, "film")
+        XCTAssertNil(model.home?.studio?.color)
+        await model.togglePin(project: "studio")
+        XCTAssertTrue(model.isPinned(project: "studio"))
+    }
+
     func testIdeaChanges() throws {
         let f: ProjectFixture = try XCTUnwrap(Demo.load("lumen-studio", in: "fixtures/projects"))
         let l = try XCTUnwrap(f.ideas)

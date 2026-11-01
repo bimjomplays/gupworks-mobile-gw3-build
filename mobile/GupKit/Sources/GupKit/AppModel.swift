@@ -160,7 +160,7 @@ final class AppModel {
         let chats = h.setups + h.chats
         guard let order = h.pinned else { return chats.filter(\.pinned).map { .chat($0) } }
         return order.compactMap { r in
-            if r.kind == "project" { return h.projects.first { $0.id == r.id }.map { .project($0) } }
+            if r.kind == "project" { return h.listed.first { $0.id == r.id }.map { .project($0) } }
             return chats.first { $0.id == r.id }.map { .chat($0) }
         }
     }
@@ -178,7 +178,7 @@ final class AppModel {
     var needsYou: Bool {
         guard let h = home else { return false }
         let waiting: Set<String> = ["needs", "permission"]
-        return h.projects.contains { waiting.contains($0.state) } || (h.setups + h.chats).contains { waiting.contains($0.state) }
+        return h.listed.contains { waiting.contains($0.state) } || (h.setups + h.chats).contains { waiting.contains($0.state) }
             || !(h.studioNeeds ?? []).isEmpty
     }
 
@@ -192,6 +192,22 @@ final class AppModel {
         var order = pinnedItems.map(\.ref)
         if order.contains(ref) { order.removeAll { $0 == ref } } else { order.insert(ref, at: 0) }
         await setPinned(order)
+    }
+
+    /// YouTube Studio's icon and colour (a191): shown at once, then kept by the PC, which the desktop reads too.
+    func setStudioLook(icon: String, color: String?) async {
+        guard var h = home, h.studio != nil else { return }
+        h.studio?.icon = icon
+        h.studio?.color = color
+        home = h
+        if demo { return }
+        guard let p = pairing else { return }
+        do {
+            home = try await api.setStudioLook(p, icon: icon, color: color)
+        } catch {
+            actionError = APIError.from(error).message
+            await refresh()
+        }
     }
 
     /// Pinned in a new order (5d's Done, or a pin or unpin): shown at once, then sent; the PC answers with the home.

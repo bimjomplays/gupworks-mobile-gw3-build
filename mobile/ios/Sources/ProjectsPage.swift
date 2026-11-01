@@ -7,10 +7,12 @@ enum ProjectFilter: String, CaseIterable {
 
 /// 01-02: every project newest first, its icon, and what it's doing under its name; the filter (Pinned, All,
 /// Archived, folders), search, and New project. A tap opens the project's main chat (05); long-press for Pin,
-/// Settings, Archive.
+/// Settings, Archive. YouTube Studio is a row like a project (a191): it opens the Studio, long-press to pin it or
+/// pick its icon and colour.
 struct ProjectsPage: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openChat) private var openChat
+    @Environment(\.pushRoute) private var pushRoute
     /// the slide-out menu, as on every page
     let openMenu: () -> Void
     @AppStorage("projectsFilter") private var filterRaw = ProjectFilter.all.rawValue
@@ -22,6 +24,7 @@ struct ProjectsPage: View {
     @State private var hits: [ProjectHit] = []
     @State private var newProject: Bool
     @State private var settingsFor: String?
+    @State private var studioLook = false
     @FocusState private var searchFocused: Bool
 
     init(openMenu: @escaping () -> Void) {
@@ -69,6 +72,15 @@ struct ProjectsPage: View {
         }
         .sheet(item: Binding(get: { settingsFor.map(SheetID.init) }, set: { settingsFor = $0?.id })) { s in
             ProjectSettingsSheet(projectId: s.id)
+        }
+        .sheet(isPresented: $studioLook) {
+            NavigationStack {
+                IconPickerView(icon: model.home?.studio?.icon, color: model.home?.studio?.color) { i, c in
+                    Task { await model.setStudioLook(icon: i, color: c) }
+                }
+            }
+            .presentationDetents([.large])
+            .presentationBackground(SheetStyle.background)
         }
         .task(id: query) {
             let q = query.trimmingCharacters(in: .whitespaces)
@@ -180,7 +192,7 @@ struct ProjectsPage: View {
     private var filterMenu: some View {
         VStack(spacing: 0) {
             filterRow(.pinned, icon: "pin", text: "Pinned", count: pinnedRows.count)
-            filterRow(.all, icon: "folder", text: "All projects", count: model.home?.projects.count ?? 0)
+            filterRow(.all, icon: "folder", text: "All projects", count: model.home?.listed.count ?? 0)
             menuLine
             filterRow(.archived, icon: "archive", text: "Archived", count: model.home?.archivedProjects?.count ?? 0)
             menuLine
@@ -248,13 +260,13 @@ struct ProjectsPage: View {
         let rows: [ProjectRow]
         switch filter {
         case .pinned: rows = pinnedRows
-        case .all: rows = ProjectRow.newestFirst(h.projects)
+        case .all: rows = ProjectRow.newestFirst(h.listed)
         case .archived: rows = ProjectRow.newestFirst(h.archivedProjects ?? [])
         }
         guard searching else { return rows }
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         guard !q.isEmpty else { return rows }
-        return ProjectRow.newestFirst((h.projects + (h.archivedProjects ?? [])).filter { $0.name.lowercased().contains(q) })
+        return ProjectRow.newestFirst((h.listed + (h.archivedProjects ?? [])).filter { $0.name.lowercased().contains(q) })
     }
 
     private var list: some View {
@@ -265,7 +277,7 @@ struct ProjectsPage: View {
                         note("Projects can't be read right now (\(e)).")
                     }
                     if showFolders && filter == .all && !searching {
-                        ForEach(ProjectLayout.rows(ProjectRow.newestFirst(home.projects), layout: home.layout,
+                        ForEach(ProjectLayout.rows(ProjectRow.newestFirst(home.listed), layout: home.layout,
                                                    open: openFolders)) { row in
                             switch row {
                             case .folder(let f, let count): folderHeader(f, count: count)
@@ -353,7 +365,13 @@ struct ProjectsPage: View {
         }
         .buttonStyle(RowPress())
         .contextMenu {
-            if archived {
+            if p.isStudio {
+                let pinned = model.isPinned(project: p.id)
+                Button(pinned ? "Unpin" : "Pin", systemImage: pinned ? "pin.slash" : "pin") {
+                    Task { await model.togglePin(project: p.id) }
+                }
+                Button("Icon and colour", systemImage: "paintpalette") { studioLook = true }
+            } else if archived {
                 Button("Unarchive", systemImage: "archivebox") {
                     Task { await model.setArchived(project: p.id, false) }
                 }
@@ -395,6 +413,7 @@ struct ProjectsPage: View {
     /// a project opens on its main chat; one without (not started yet, or archived long ago) on its Settings
     private func open(_ p: ProjectRow) {
         searchFocused = false
+        if p.isStudio { pushRoute?(Place.studio); return }
         if let id = p.mainChatId { openChat?(id) } else { settingsFor = p.id }
     }
 }

@@ -24,6 +24,9 @@ enum Place: String, Hashable, CaseIterable {
         }
     }
 
+    /// the menu's top rows: YouTube Studio is a row of the Projects list instead (a191), as on the desktop
+    static var menuRows: [Place] { allCases.filter { $0 != .studio } }
+
     /// a page with its own menu button instead of a back button
     var hasMenu: Bool { self == .projects || self == .studio || self == .transfer }
 }
