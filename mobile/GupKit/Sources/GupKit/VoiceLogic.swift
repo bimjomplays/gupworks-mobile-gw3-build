@@ -85,3 +85,28 @@ struct Transcript: Equatable {
     /// why the PC didn't do it (shown under the box when the iPhone did)
     var why: String?
 }
+
+/// a193: the feel of the mic and the Voice memo: a haptic with a short chime when recording starts and when it stops,
+/// and the error haptic alone (no chime) when the microphone or the transcription fails. The system sounds are the
+/// dictation-style tones (begin_record, end_record); they follow the ringer and the silent switch, as dictation's do.
+/// The haptic still fires with the phone on silent.
+enum VoiceCue: Equatable, CaseIterable {
+    case start, stop, error
+
+    enum Haptic: Equatable { case impact, error }
+
+    var haptic: Haptic { self == .error ? .error : .impact }
+
+    /// the system sound to play (nil: none)
+    var systemSound: UInt32? {
+        switch self {
+        case .start: return 1113  // begin_record.caf
+        case .stop: return 1114   // end_record.caf
+        case .error: return nil
+        }
+    }
+
+    /// The chime is played before the microphone starts and the recording waits for it to end, so it can't leak into
+    /// the audio. The wait is capped in case the system never reports the sound as finished.
+    static let startChimeWait: TimeInterval = 0.6
+}

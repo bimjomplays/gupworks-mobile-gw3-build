@@ -380,6 +380,7 @@ struct Composer: View {
 
     private func startMemo() {
         guard voice.phase == .idle else { return }
+        VoiceFeedback.prepare()
         focused = false
         Task {
             await memo.start()
@@ -423,6 +424,7 @@ struct Composer: View {
     /// `at` is the touch's own time, not when the handler ran: a busy first start can delay the
     /// release by more than the hold time, and a tap mustn't turn into push-to-talk because of that
     private func micDown(at t: Date) {
+        VoiceFeedback.prepare()
         switch voice.press.down(at: t, recording: voice.phase == .recording) {
         case .start:
             focused = false
