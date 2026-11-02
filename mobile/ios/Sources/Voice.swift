@@ -41,6 +41,9 @@ final class VoiceController {
     private var pcCheck: Task<Hello?, Never>?
     private var noteTask: Task<Void, Never>?
     private var finishing = false
+    /// the start chime is playing: a second start waits, and a cancel in that moment stops this one
+    private var starting = false
+    private var startGen = 0
     private var peak: Float = 0
     private var lastBar: TimeInterval = 0
     private static var preparedPhone = false
@@ -54,7 +57,7 @@ final class VoiceController {
     private var demoOffline: Bool { Demo.args.contains("-voice-offline") }
 
     func start() async {
-        guard phase == .idle else { return }
+        guard phase == .idle, !starting else { return }
         note = nil
         levels = []
         elapsed = 0
@@ -62,15 +65,22 @@ final class VoiceController {
         lastBar = 0
         onPhone = false
         if demo {
+            await VoiceFeedback.play(.start)
             begin()
             return
         }
         // the system asks once; a "no" is remembered and only Settings changes it
         guard await AVAudioApplication.requestRecordPermission() else {
-            show("GupWorks can't use the microphone. Allow it in Settings › GupWorks.")
+            fail("GupWorks can't use the microphone. Allow it in Settings › GupWorks.")
             return
         }
         guard phase == .idle else { return }
+        // haptic and chime first, with the microphone still off, so the chime isn't in the recording
+        starting = true
+        let gen = startGen
+        await VoiceFeedback.play(.start, wait: true)
+        starting = false
+        guard phase == .idle, gen == startGen else { return }
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
@@ -88,14 +98,14 @@ final class VoiceController {
             guard r.prepareToRecord(), r.record() else {
                 try? FileManager.default.removeItem(at: url)
                 endSession()
-                show("The microphone didn't start.")
+                fail("The microphone didn't start.")
                 return
             }
             recorder = r
             file = url
         } catch {
             endSession()
-            show("The microphone didn't start: \(error.localizedDescription)")
+            fail("The microphone didn't start: \(error.localizedDescription)")
             return
         }
         if let p = pairing {
@@ -172,6 +182,7 @@ final class VoiceController {
         recorder = nil
         endSession()
         phase = .transcribing
+        Task { await VoiceFeedback.play(.stop) }
         let url = file
         file = nil
         let check = pcCheck
@@ -210,7 +221,7 @@ final class VoiceController {
             return Transcript(text: text, source: .phone, why: why)
         } catch {
             if Task.isCancelled { return nil }
-            show("Couldn't turn that into text: \(why), and this iPhone couldn't either (\(OnDeviceSpeech.describe(error))).")
+            fail("Couldn't turn that into text: \(why), and this iPhone couldn't either (\(OnDeviceSpeech.describe(error))).")
             return nil
         }
     }
@@ -226,6 +237,8 @@ final class VoiceController {
 
     /// ×: nothing is kept or sent
     func cancel() {
+        startGen += 1
+        starting = false
         meterTask?.cancel()
         meterTask = nil
         job?.cancel()
@@ -248,6 +261,12 @@ final class VoiceController {
     private func endSession() {
         if demo { return }
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    /// a note under the box, with the error haptic and no chime
+    private func fail(_ text: String) {
+        Task { await VoiceFeedback.play(.error) }
+        show(text)
     }
 
     /// a note under the box for a few seconds

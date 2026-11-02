@@ -115,3 +115,22 @@ final class MemoSendTests: XCTestCase {
         XCTAssertNil(ChatStore.demoAudio([a]))
     }
 }
+
+final class VoiceCueTests: XCTestCase {
+    func testStartAndStopHaveAChimeAndAnImpact() {
+        XCTAssertEqual(VoiceCue.start.haptic, .impact)
+        XCTAssertEqual(VoiceCue.stop.haptic, .impact)
+        XCTAssertNotNil(VoiceCue.start.systemSound)
+        XCTAssertNotNil(VoiceCue.stop.systemSound)
+        XCTAssertNotEqual(VoiceCue.start.systemSound, VoiceCue.stop.systemSound)
+    }
+
+    func testErrorHasTheErrorHapticAndNoChime() {
+        XCTAssertEqual(VoiceCue.error.haptic, .error)
+        XCTAssertNil(VoiceCue.error.systemSound)
+    }
+
+    func testTheStartChimeWaitIsShort() {
+        XCTAssertLessThanOrEqual(VoiceCue.startChimeWait, 1)
+    }
+}
