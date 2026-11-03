@@ -33,7 +33,8 @@ final class MemoRecorder {
     private var peak: Float = 0
     private var lastBar: TimeInterval = 0
     private var interruption: NSObjectProtocol?
-    private var starting = false  // the start chime is playing
+    /// seconds at the start of the recording that hold the start chime (a194), cut off when it stops
+    private var headTrim: TimeInterval = 0
 
     init(demo: Bool = Demo.isOn) {
         self.demo = demo
@@ -44,8 +45,8 @@ final class MemoRecorder {
 
     /// + › Voice memo, or Re-record on the preview (the old memo goes)
     func start() async {
-        guard !flow.recording, !starting else { return }
-        if !demo {
+        guard !flow.recording else { return }
+        if !demo, AVAudioApplication.shared.recordPermission != .granted {
             // the system asks once; a "no" is remembered and only Settings changes it
             guard await AVAudioApplication.requestRecordPermission() else {
                 denied = true
@@ -53,20 +54,17 @@ final class MemoRecorder {
                 return
             }
         }
-        guard !flow.recording, !starting else { return }
-        AudioPlayback.shared.pause()
-        // haptic and chime first, with the microphone still off, so the chime isn't in the memo
-        starting = true
-        await VoiceFeedback.play(.start, wait: !demo)
-        starting = false
         guard !flow.recording else { return }
+        AudioPlayback.shared.pause()
+        // a194: the haptic now (iOS mutes it once the microphone is on) and the microphone right after; the chime plays
+        // as it starts and its first moments are cut off
+        VoiceFeedback.tap()
+        headTrim = 0
         let old = file
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("memo-\(UUID().uuidString).m4a")
         if !demo {
             do {
-                let session = AVAudioSession.sharedInstance()
-                try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
-                try session.setActive(true)
+                try VoiceFeedback.openRecordingSession()
                 let settings: [String: Any] = [
                     AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
                     AVSampleRateKey: 44_100.0,
@@ -83,6 +81,8 @@ final class MemoRecorder {
                     return
                 }
                 recorder = r
+                headTrim = StartChime.headTrim(chimeAt: r.currentTime)
+                VoiceFeedback.playStartChime()
             } catch {
                 endSession()
                 fail("The microphone didn't start: \(error.localizedDescription)")
@@ -153,7 +153,18 @@ final class MemoRecorder {
         recorder = nil
         endSession()
         Task { await VoiceFeedback.play(.stop) }
-        guard let url = file else { return reset() }
+        guard var url = file else { return reset() }
+        if headTrim > 0 {
+            // the chime at the start is cut off (if that fails, the memo keeps it)
+            let cut = headTrim
+            headTrim = 0
+            if let trimmed = await AudioTrim.dropHead(url, seconds: cut) {
+                try? FileManager.default.removeItem(at: url)
+                file = trimmed
+                url = trimmed
+                all.removeFirst(min(all.count, Int(cut / 0.05)))  // the meter is read every 50 ms
+            }
+        }
         if demo {
             // the demo's memo is a short hum from the fixtures, so the preview has something to play
             try? FileManager.default.removeItem(at: url)
@@ -180,6 +191,7 @@ final class MemoRecorder {
             endSession()
         }
         recorder = nil
+        headTrim = 0
         reset()
     }
 

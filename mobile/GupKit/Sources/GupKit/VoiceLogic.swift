@@ -105,8 +105,28 @@ enum VoiceCue: Equatable, CaseIterable {
         case .error: return nil
         }
     }
+}
 
-    /// The chime is played before the microphone starts and the recording waits for it to end, so it can't leak into
-    /// the audio. The wait is capped in case the system never reports the sound as finished.
-    static let startChimeWait: TimeInterval = 0.6
+/// a194: the quick start. The haptic fires, the microphone starts at once, and the begin_record chime plays as it
+/// starts instead of being waited for. The microphone hears it (the speaker is right there), so the first moments of
+/// the recording are cut off before it is transcribed or kept as a memo: `headTrim` says how many seconds.
+/// begin_record.caf is 0.45 s long, but measured on iOS 26.5 (CI simulator, a194) its sound is all in the first 0.2 s:
+/// the loudest 50 ms, then 29% (50-100 ms), 18%, 9%, 2% at 200 ms and about 1% after. Its peak is only 13% of full scale.
+enum StartChime {
+    /// how long the chime is audible
+    static let audible: TimeInterval = 0.2
+    /// the system sound starts a little after the call
+    static let latency: TimeInterval = 0.05
+    /// what the microphone still hears after it (the room)
+    static let tail: TimeInterval = 0.03
+
+    /// seconds to drop from the start of a recording whose chime was started `chimeAt` seconds into it
+    static func headTrim(chimeAt: TimeInterval) -> TimeInterval {
+        max(0, chimeAt) + latency + audible + tail
+    }
+
+    /// seconds of recording left after the head is dropped
+    static func heard(total: TimeInterval, trim: TimeInterval) -> TimeInterval {
+        max(0, total - trim)
+    }
 }
