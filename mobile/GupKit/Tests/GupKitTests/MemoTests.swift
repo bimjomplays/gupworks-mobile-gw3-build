@@ -129,8 +129,23 @@ final class VoiceCueTests: XCTestCase {
         XCTAssertEqual(VoiceCue.error.haptic, .error)
         XCTAssertNil(VoiceCue.error.systemSound)
     }
+}
 
-    func testTheStartChimeWaitIsShort() {
-        XCTAssertLessThanOrEqual(VoiceCue.startChimeWait, 1)
+final class StartChimeTests: XCTestCase {
+    func testTheHeadDroppedCoversTheChimeAndItsTail() {
+        let base = StartChime.latency + StartChime.audible + StartChime.tail
+        XCTAssertEqual(StartChime.headTrim(chimeAt: 0), base, accuracy: 0.0001)
+        XCTAssertEqual(StartChime.headTrim(chimeAt: 0.03), 0.03 + base, accuracy: 0.0001)
+        XCTAssertEqual(StartChime.headTrim(chimeAt: -1), base, accuracy: 0.0001)
+    }
+
+    func testTheTrimIsFarShorterThanTheOldWait() {
+        // before a194 the microphone waited for the whole 0.45 s chime and then set up (and 0.6 s was the cap)
+        XCTAssertLessThan(StartChime.headTrim(chimeAt: 0.05), 0.4)
+    }
+
+    func testWhatIsHeardNeverGoesBelowZero() {
+        XCTAssertEqual(StartChime.heard(total: 1, trim: 0.28), 0.72, accuracy: 0.0001)
+        XCTAssertEqual(StartChime.heard(total: 0.2, trim: 0.28), 0)
     }
 }

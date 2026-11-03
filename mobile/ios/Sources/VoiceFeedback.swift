@@ -1,10 +1,13 @@
 import AudioToolbox
+import AVFoundation
 import Foundation
 import UIKit
 
-// a193: the haptic and chime around the mic key and the Voice memo (VoiceCue in GupKit says which). The start cue is
-// played before the microphone starts and the recording waits for the chime to end, so the transcription never hears
-// it (and iOS mutes haptics once the microphone is on). System sounds follow the ringer and silent switch.
+// a193: the haptic and chime around the mic key and the Voice memo (VoiceCue in GupKit says which). System sounds
+// follow the ringer and silent switch.
+// a194: the start doesn't wait for the chime. The haptic fires (iOS mutes haptics once the microphone is on), the
+// microphone starts at once and the chime plays as it starts. The microphone hears the chime, so the recording's first
+// moments are cut off before it is transcribed or kept as a memo (StartChime in GupKit, AudioTrim).
 
 @MainActor
 enum VoiceFeedback {
@@ -17,49 +20,29 @@ enum VoiceFeedback {
         notice.prepare()
     }
 
-    /// the cue's haptic and chime; with `wait`, returns once the chime has played (or after a short cap)
-    static func play(_ cue: VoiceCue, wait: Bool = false) async {
+    /// the cue's haptic and chime
+    static func play(_ cue: VoiceCue) async {
         switch cue.haptic {
         case .impact: impact.impactOccurred()
         case .error: notice.notificationOccurred(.error)
         }
-        guard let sound = cue.systemSound else { return }
-        if wait {
-            await chime(sound)
-        } else {
-            AudioServicesPlaySystemSound(sound)
-        }
+        if let sound = cue.systemSound { AudioServicesPlaySystemSound(sound) }
     }
 
-    private static func chime(_ sound: UInt32) async {
-        let once = Once()
-        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
-            once.set { c.resume() }
-            AudioServicesPlaySystemSoundWithCompletion(sound) { once.fire() }
-            Task {
-                try? await Task.sleep(for: .seconds(VoiceCue.startChimeWait))
-                once.fire()
-            }
-        }
+    /// the start haptic alone, before the microphone is on
+    static func tap() { impact.impactOccurred() }
+
+    /// the start chime, once the microphone is recording
+    static func playStartChime() {
+        if let sound = VoiceCue.start.systemSound { AudioServicesPlaySystemSound(sound) }
     }
 
-    /// runs its action the first time `fire` is called, from whichever thread
-    private final class Once: @unchecked Sendable {
-        private let lock = NSLock()
-        private var action: (() -> Void)?
-        private var fired = false
-
-        func set(_ a: @escaping () -> Void) {
-            lock.lock(); defer { lock.unlock() }
-            action = a
-        }
-
-        func fire() {
-            lock.lock()
-            let a = fired ? nil : action
-            fired = true
-            lock.unlock()
-            a?()
-        }
+    /// The recording session. Haptics and system sounds stay on while it records, or iOS would mute the start chime
+    /// (and the stop haptic) as the microphone starts.
+    static func openRecordingSession() throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
+        try? session.setAllowHapticsAndSystemSoundsDuringRecording(true)
+        try session.setActive(true)
     }
 }
