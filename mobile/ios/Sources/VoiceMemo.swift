@@ -33,7 +33,6 @@ final class MemoRecorder {
     private var peak: Float = 0
     private var lastBar: TimeInterval = 0
     private var interruption: NSObjectProtocol?
-    private var starting = false  // the start chime is playing
 
     init(demo: Bool = Demo.isOn) {
         self.demo = demo
@@ -44,8 +43,8 @@ final class MemoRecorder {
 
     /// + › Voice memo, or Re-record on the preview (the old memo goes)
     func start() async {
-        guard !flow.recording, !starting else { return }
-        if !demo {
+        guard !flow.recording else { return }
+        if !demo, AVAudioApplication.shared.recordPermission != .granted {
             // the system asks once; a "no" is remembered and only Settings changes it
             guard await AVAudioApplication.requestRecordPermission() else {
                 denied = true
@@ -53,20 +52,16 @@ final class MemoRecorder {
                 return
             }
         }
-        guard !flow.recording, !starting else { return }
-        AudioPlayback.shared.pause()
-        // haptic and chime first, with the microphone still off, so the chime isn't in the memo
-        starting = true
-        await VoiceFeedback.play(.start, wait: !demo)
-        starting = false
         guard !flow.recording else { return }
+        AudioPlayback.shared.pause()
+        // a194: the haptic now (iOS mutes it once the microphone is on) and the microphone right after; the chime plays
+        // as it starts (it stays faintly in the first moments of the memo)
+        VoiceFeedback.tap()
         let old = file
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("memo-\(UUID().uuidString).m4a")
         if !demo {
             do {
-                let session = AVAudioSession.sharedInstance()
-                try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
-                try session.setActive(true)
+                try VoiceFeedback.openRecordingSession()
                 let settings: [String: Any] = [
                     AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
                     AVSampleRateKey: 44_100.0,
@@ -83,6 +78,7 @@ final class MemoRecorder {
                     return
                 }
                 recorder = r
+                VoiceFeedback.playStartChime()
             } catch {
                 endSession()
                 fail("The microphone didn't start: \(error.localizedDescription)")

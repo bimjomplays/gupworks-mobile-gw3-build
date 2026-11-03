@@ -129,8 +129,4 @@ final class VoiceCueTests: XCTestCase {
         XCTAssertEqual(VoiceCue.error.haptic, .error)
         XCTAssertNil(VoiceCue.error.systemSound)
     }
-
-    func testTheStartChimeWaitIsShort() {
-        XCTAssertLessThanOrEqual(VoiceCue.startChimeWait, 1)
-    }
 }

@@ -105,8 +105,4 @@ enum VoiceCue: Equatable, CaseIterable {
         case .error: return nil
         }
     }
-
-    /// The chime is played before the microphone starts and the recording waits for it to end, so it can't leak into
-    /// the audio. The wait is capped in case the system never reports the sound as finished.
-    static let startChimeWait: TimeInterval = 0.6
 }

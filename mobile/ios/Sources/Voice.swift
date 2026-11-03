@@ -41,9 +41,6 @@ final class VoiceController {
     private var pcCheck: Task<Hello?, Never>?
     private var noteTask: Task<Void, Never>?
     private var finishing = false
-    /// the start chime is playing: a second start waits, and a cancel in that moment stops this one
-    private var starting = false
-    private var startGen = 0
     private var peak: Float = 0
     private var lastBar: TimeInterval = 0
     private static var preparedPhone = false
@@ -57,7 +54,7 @@ final class VoiceController {
     private var demoOffline: Bool { Demo.args.contains("-voice-offline") }
 
     func start() async {
-        guard phase == .idle, !starting else { return }
+        guard phase == .idle else { return }
         note = nil
         levels = []
         elapsed = 0
@@ -70,21 +67,19 @@ final class VoiceController {
             return
         }
         // the system asks once; a "no" is remembered and only Settings changes it
-        guard await AVAudioApplication.requestRecordPermission() else {
-            fail("GupWorks can't use the microphone. Allow it in Settings › GupWorks.")
-            return
+        // (a granted permission is read at once: no wait before the haptic)
+        if AVAudioApplication.shared.recordPermission != .granted {
+            guard await AVAudioApplication.requestRecordPermission() else {
+                fail("GupWorks can't use the microphone. Allow it in Settings › GupWorks.")
+                return
+            }
         }
         guard phase == .idle else { return }
-        // haptic and chime first, with the microphone still off, so the chime isn't in the recording
-        starting = true
-        let gen = startGen
-        await VoiceFeedback.play(.start, wait: true)
-        starting = false
-        guard phase == .idle, gen == startGen else { return }
+        // a194: the haptic now (iOS mutes it once the microphone is on) and the microphone right after; the chime
+        // plays as it starts and stays in the recording (the transcriber ignores it, see VoiceFeedback)
+        VoiceFeedback.tap()
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
-            try session.setActive(true)
+            try VoiceFeedback.openRecordingSession()
             let url = FileManager.default.temporaryDirectory
                 .appendingPathComponent("voice-\(UUID().uuidString).m4a")
             let settings: [String: Any] = [
@@ -103,6 +98,7 @@ final class VoiceController {
             }
             recorder = r
             file = url
+            VoiceFeedback.playStartChime()
         } catch {
             endSession()
             fail("The microphone didn't start: \(error.localizedDescription)")
@@ -237,8 +233,6 @@ final class VoiceController {
 
     /// ×: nothing is kept or sent
     func cancel() {
-        startGen += 1
-        starting = false
         meterTask?.cancel()
         meterTask = nil
         job?.cancel()
