@@ -33,8 +33,6 @@ final class MemoRecorder {
     private var peak: Float = 0
     private var lastBar: TimeInterval = 0
     private var interruption: NSObjectProtocol?
-    /// seconds at the start of the recording that hold the start chime (a194), cut off when it stops
-    private var headTrim: TimeInterval = 0
 
     init(demo: Bool = Demo.isOn) {
         self.demo = demo
@@ -57,9 +55,8 @@ final class MemoRecorder {
         guard !flow.recording else { return }
         AudioPlayback.shared.pause()
         // a194: the haptic now (iOS mutes it once the microphone is on) and the microphone right after; the chime plays
-        // as it starts and its first moments are cut off
+        // as it starts (it stays faintly in the first moments of the memo)
         VoiceFeedback.tap()
-        headTrim = 0
         let old = file
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("memo-\(UUID().uuidString).m4a")
         if !demo {
@@ -81,7 +78,6 @@ final class MemoRecorder {
                     return
                 }
                 recorder = r
-                headTrim = StartChime.headTrim(chimeAt: r.currentTime)
                 VoiceFeedback.playStartChime()
             } catch {
                 endSession()
@@ -153,18 +149,7 @@ final class MemoRecorder {
         recorder = nil
         endSession()
         Task { await VoiceFeedback.play(.stop) }
-        guard var url = file else { return reset() }
-        if headTrim > 0 {
-            // the chime at the start is cut off (if that fails, the memo keeps it)
-            let cut = headTrim
-            headTrim = 0
-            if let trimmed = await AudioTrim.dropHead(url, seconds: cut) {
-                try? FileManager.default.removeItem(at: url)
-                file = trimmed
-                url = trimmed
-                all.removeFirst(min(all.count, Int(cut / 0.05)))  // the meter is read every 50 ms
-            }
-        }
+        guard let url = file else { return reset() }
         if demo {
             // the demo's memo is a short hum from the fixtures, so the preview has something to play
             try? FileManager.default.removeItem(at: url)
@@ -191,7 +176,6 @@ final class MemoRecorder {
             endSession()
         }
         recorder = nil
-        headTrim = 0
         reset()
     }
 

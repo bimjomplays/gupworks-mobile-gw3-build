@@ -6,8 +6,11 @@ import UIKit
 // a193: the haptic and chime around the mic key and the Voice memo (VoiceCue in GupKit says which). System sounds
 // follow the ringer and silent switch.
 // a194: the start doesn't wait for the chime. The haptic fires (iOS mutes haptics once the microphone is on), the
-// microphone starts at once and the chime plays as it starts. The microphone hears the chime, so the recording's first
-// moments are cut off before it is transcribed or kept as a memo (StartChime in GupKit, AudioTrim).
+// microphone starts at once and the chime plays as it starts. The microphone hears the chime, and it is left in the
+// recording: cutting the first moments off would cut off a first word spoken at once (push-to-talk). begin_record.caf
+// is 0.45 s but all its sound is in the first ~0.2 s (peak 13% of full scale); tested with the PC's whisper-cli, a
+// sentence starting during the chime comes out whole even with the chime 8 times louder than the file, and the chime
+// at its own level with no speech gives no text.
 
 @MainActor
 enum VoiceFeedback {

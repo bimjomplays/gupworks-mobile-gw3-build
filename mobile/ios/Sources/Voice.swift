@@ -41,8 +41,6 @@ final class VoiceController {
     private var pcCheck: Task<Hello?, Never>?
     private var noteTask: Task<Void, Never>?
     private var finishing = false
-    /// seconds at the start of the recording that hold the start chime
-    private var headTrim: TimeInterval = 0
     private var peak: Float = 0
     private var lastBar: TimeInterval = 0
     private static var preparedPhone = false
@@ -63,7 +61,6 @@ final class VoiceController {
         peak = 0
         lastBar = 0
         onPhone = false
-        headTrim = 0
         if demo {
             await VoiceFeedback.play(.start)
             begin()
@@ -79,7 +76,7 @@ final class VoiceController {
         }
         guard phase == .idle else { return }
         // a194: the haptic now (iOS mutes it once the microphone is on) and the microphone right after; the chime
-        // plays as it starts and its first moments are cut off
+        // plays as it starts and stays in the recording (the transcriber ignores it, see VoiceFeedback)
         VoiceFeedback.tap()
         do {
             try VoiceFeedback.openRecordingSession()
@@ -101,7 +98,6 @@ final class VoiceController {
             }
             recorder = r
             file = url
-            headTrim = StartChime.headTrim(chimeAt: r.currentTime)
             VoiceFeedback.playStartChime()
         } catch {
             endSession()
@@ -188,26 +184,17 @@ final class VoiceController {
         let check = pcCheck
         pcCheck = nil
         let seconds = elapsed
-        let trim = headTrim
-        headTrim = 0
         job = Task { [weak self] in
             defer { if let url { try? FileManager.default.removeItem(at: url) } }
             guard let self else { return nil }
-            return await self.transcribe(url, seconds: seconds, trim: trim, check: check)
+            return await self.transcribe(url, seconds: seconds, check: check)
         }
     }
 
-    private func transcribe(_ url: URL?, seconds: TimeInterval, trim: TimeInterval,
-                            check: Task<Hello?, Never>?) async -> Transcript? {
+    private func transcribe(_ url: URL?, seconds: TimeInterval, check: Task<Hello?, Never>?) async -> Transcript? {
         if demo { return await demoTranscript() }
-        guard let whole = url else { return nil }
-        // nothing to hear, as on the desktop (the chime at the start doesn't count)
-        if StartChime.heard(total: seconds, trim: trim) < 0.25 { return Transcript(text: "", source: .pc) }
-        // the chime at the start of the recording is cut off; if that fails the whole file goes
-        var url = whole
-        if trim > 0, let cut = await AudioTrim.dropHead(whole, seconds: trim) { url = cut }
-        defer { if url != whole { try? FileManager.default.removeItem(at: url) } }
-        if Task.isCancelled { return nil }
+        guard let url else { return nil }
+        if seconds < 0.25 { return Transcript(text: "", source: .pc) }  // nothing to hear, as on the desktop
         let hello = await check?.value
         var why = "your PC couldn't be reached"
         if let p = pairing, VoiceMath.usePC(hello) {
@@ -246,7 +233,6 @@ final class VoiceController {
 
     /// ×: nothing is kept or sent
     func cancel() {
-        headTrim = 0
         meterTask?.cancel()
         meterTask = nil
         job?.cancel()
