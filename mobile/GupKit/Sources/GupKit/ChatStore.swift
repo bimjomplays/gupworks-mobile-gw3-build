@@ -347,6 +347,30 @@ final class ChatStore {
         } catch {}
     }
 
+    /// "Send now" on a queued message: it goes into the running turn at Claude's next step. The label goes at once
+    /// (the message shows as sent); if the PC refuses, it's queued again with the reason in `actionError`.
+    func sendNow(_ clientId: String) async {
+        markState(clientId, "sent")
+        guard !demo else { return }
+        guard let p = pairing else { return markState(clientId, "queued") }
+        do {
+            try await api.sendNow(p, chat: id, clientId: clientId)
+        } catch let e as APIError {
+            markState(clientId, "queued")
+            actionError = e.message
+        } catch {
+            markState(clientId, "queued")
+            actionError = APIError.from(error).message
+        }
+    }
+
+    /// Draws a message as `state` before the stream says so (the stream's next queue event replaces it).
+    func markState(_ clientId: String, _ state: String) {
+        queue = queue.map { var q = $0; if q.clientId == clientId { q.state = state }; return q }
+        for i in outbox.indices where outbox[i].listed?.clientId == clientId { outbox[i].listed?.state = state }
+        liveTick += 1
+    }
+
     // MARK: answering, picking, commands (slice 4)
 
     /// Answers the needs-you card as the desktop's button would. A chat on an older hold turns the card into

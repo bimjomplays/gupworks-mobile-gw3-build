@@ -184,7 +184,9 @@ struct ChatView: View {
                 }
                 ForEach(store.waiting) { q in
                     // "queued" only while Claude works: an idle chat sends it within a moment
-                    QueuedBubble(item: q, base: store.baseURL, waits: store.working).padding(.top, 14)
+                    QueuedBubble(item: q, base: store.baseURL, waits: store.working) {
+                        Task { await store.sendNow(q.clientId) }
+                    }.padding(.top, 14)
                 }
                 ForEach(store.sending) { m in
                     OutgoingBubble(message: m) {
@@ -822,6 +824,8 @@ struct Bubble: View {
     let prompt: Prompt
     let base: URL?
     var queued = false
+    /// "Send now" on the queued line: the message goes into the running turn instead of waiting for its end
+    var sendNow: (() -> Void)?
     @Environment(\.chatPhotos) private var photos
     @Environment(\.photoScope) private var scope
     @State private var open: MediaOpen?
@@ -864,9 +868,22 @@ struct Bubble: View {
                 }
             }
             if queued {
-                Text("queued · sends when Claude is done")
-                    .font(.system(size: 13))
-                    .foregroundStyle(ChatStyle.dim)
+                HStack(spacing: 8) {
+                    Text("queued · sends when Claude is done")
+                        .font(.system(size: 13))
+                        .foregroundStyle(ChatStyle.dim)
+                    if let sendNow {
+                        Button(action: sendNow) {
+                            Text("Send now")
+                                .font(.system(size: 13, weight: .semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(ChatStyle.cardBG, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("sendNow")
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)

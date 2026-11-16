@@ -1147,6 +1147,25 @@ final class ScreenTests: XCTestCase {
         XCTAssertFalse(app.buttons["send"].isEnabled)
     }
 
+    /// a202: "Send now" sits on the queued line; tapping it drops the queued label and shows the message as sent
+    func testA202QueuedSendNow() {
+        let app = launch()
+        open(app, "Wallpaper ideas", waitFor: "Working")
+        XCTAssertTrue(app.buttons["stop"].waitForExistence(timeout: 5))
+        type(app, "Is it almost done")
+        app.buttons["send"].tap()
+        XCTAssertTrue(find(app, "queued · sends when Claude is done").waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["sendNow"].waitForExistence(timeout: 5), "Send now on the queued line")
+        sleep(1)
+        shot("a202-send-now")
+        app.buttons["sendNow"].tap()
+        XCTAssertTrue(poll(5) { !self.find(app, "queued · sends").exists }, "the queued label goes")
+        XCTAssertFalse(app.buttons["sendNow"].exists)
+        XCTAssertTrue(find(app, "Is it almost done").exists, "the message shows as sent")
+        sleep(1)
+        shot("a202-sent")
+    }
+
     func testQueuedThenStop() {
         let app = launch()
         open(app, "Wallpaper ideas", waitFor: "Working")
