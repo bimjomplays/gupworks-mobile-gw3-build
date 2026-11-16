@@ -438,6 +438,13 @@ final class APIClient {
                                            encoding: [String: String]())
     }
 
+    /// "Send now": a queued message goes into the running turn at Claude's next step instead of after the turn
+    /// (the PC answers 409 when the chat isn't running).
+    func sendNow(_ p: Pairing, chat: String, clientId: String) async throws {
+        let _: OKReply = try await request(p.baseURL, "/v1/chats/\(chat)/send-now", token: p.token, method: "POST",
+                                           encoding: ["clientId": clientId])
+    }
+
     /// A new chat with its first message; the answer names it.
     func newChat(_ p: Pairing, _ m: NewChatBody) async throws -> NewChatReply {
         try await request(p.baseURL, "/v1/chats", token: p.token, method: "POST", encoding: m)

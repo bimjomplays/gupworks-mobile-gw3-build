@@ -701,11 +701,14 @@ struct QueuedBubble: View {
     let base: URL?
     /// Claude is on a turn, so a queued message really waits for it
     var waits = true
+    /// "Send now" (not for a /command: it runs when Claude is done)
+    var sendNow: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
             Bubble(prompt: Prompt(text: item.text, images: item.images, audio: item.audio), base: base,
-                   queued: item.state == "queued" && waits)
+                   queued: item.state == "queued" && waits,
+                   sendNow: item.text.trimmingCharacters(in: .whitespaces).hasPrefix("/") ? nil : sendNow)
             if let files = item.files, !files.isEmpty {
                 FileLine(names: files)
             }
@@ -715,7 +718,7 @@ struct QueuedBubble: View {
                     .foregroundStyle(Theme.red)
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)  // its Send now button stays a button of its own
         .accessibilityIdentifier(item.state == "queued" ? "queued" : "queue-\(item.state)")
     }
 }

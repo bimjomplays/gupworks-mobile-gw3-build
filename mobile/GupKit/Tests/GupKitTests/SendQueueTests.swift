@@ -135,4 +135,20 @@ final class SendQueueTests: XCTestCase {
         s.handle(turn("t-1", "yes", start: 6_000))
         XCTAssertEqual(bubbles(s), ["yes", "yes"])
     }
+
+    // a202: "Send now" on a queued message: it shows as sent at once, each message on its own.
+    func testSendNowMarksOnlyThatMessageAsSent() async {
+        let (s, id) = await sending("First")
+        s.handle(ev("status", #"{"state":"working","ts":1,"live":true,"running":true}"#))
+        await s.send(text: "Second", attachments: [])
+        let second = s.outbox[1].clientId
+        s.handle(queueEvent([item(id, "First", ts: 5_000, "queued"), item(second, "Second", ts: 6_000, "queued")]))
+        XCTAssertEqual(bubbles(s), ["Earlier", "queued: First", "queued: Second"])
+        await s.sendNow(id)  // no PC to reach: it goes back to queued
+        XCTAssertEqual(bubbles(s), ["Earlier", "queued: First", "queued: Second"])
+        s.markState(id, "sent")
+        XCTAssertEqual(bubbles(s), ["Earlier", "sent: First", "queued: Second"])
+        s.markState(second, "sent")
+        XCTAssertEqual(bubbles(s), ["Earlier", "sent: First", "sent: Second"])
+    }
 }
