@@ -1459,6 +1459,14 @@ final class ScreenTests: XCTestCase {
         menuRow = ""
         for _ in 0..<4 where !b.waitForExistence(timeout: 2) {
             Tree.cache = nil
+            // iOS 26: the bubble's rows are _UIEditMenuListViewCell, its arrow an _UIEditMenuPageButton named Forward
+            if let fwd = Tree.nodes().first(where: { $0.label == "Forward" && $0.kind.contains("EditMenu") }) {
+                menuRow += " | Forward"
+                let f = fwd.frame
+                Finger.tap(CGPoint(x: f.midX, y: f.midY))
+                idle(0.6)
+                continue
+            }
             guard let copy = Tree.nodes(.button).first(where: { $0.label == "Copy" }) else {
                 menuRow += " | no Copy; on screen: " + Tree.nodes().map { "\($0.kind) '\($0.label.prefix(30))'" }
                     .joined(separator: ", ")
@@ -1514,13 +1522,15 @@ final class ScreenTests: XCTestCase {
         sleep(1)
         shot("a229-select-word")
         // the end handle, from the word to the last paragraph
-        guard let range = tv.selectedTextRange, let to = spot(tv, "close the lightbox") ?? spot(tv, "I also made Esc")
+        guard let range = tv.selectedTextRange, let to = spot(tv, "kept focus inside")
         else { return XCTFail("no selection or no last paragraph") }
         let caret = tv.convert(tv.caretRect(for: range.end), to: nil)
         settle()
-        Finger.press(CGPoint(x: caret.midX, y: caret.maxY - 3), seconds: 0.15,
-                     thenDragTo: CGPoint(x: to.maxX - 2, y: to.midY), speed: 250, hold: 0.4)
+        // the end handle's knob hangs under the caret; the caret lands a little above the finger
+        Finger.press(CGPoint(x: caret.midX, y: caret.maxY + 4), seconds: 0.15,
+                     thenDragTo: CGPoint(x: to.maxX, y: to.midY + 4), speed: 150, hold: 0.8)
         idle(0.6)
+        _ = poll(2) { self.selection(tv).contains("I also made") }
         let picked = selection(tv)
         XCTAssertTrue(picked.contains("All five pages pass") && picked.contains("I also made"),
                       "the selection runs across the paragraphs: \(picked)")

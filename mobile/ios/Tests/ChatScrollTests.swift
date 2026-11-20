@@ -132,9 +132,11 @@ final class ChatScrollTests: XCTestCase {
         stays(app, line, before, "streaming while scrolled up")
         App.current?.shot("a229-streaming-scrolled-up")
         // back down to the bottom while it still streams: letting go there follows again
+        // (flicks: a held drag at a time doesn't catch up with a line every 0.4 s on the CI's simulator)
         for _ in 0..<20 {
             if let (_, r) = newestStep(app), r.maxY <= box(app).frame.minY + 4, r.minY > 120 { break }
-            scrollDown(app, by: 0.5)
+            app.swipeUp()
+            spin(0.8)
         }
         let reached = newestStep(app)?.0 ?? 0
         XCTAssertLessThan(reached, 155, "still streaming when the bottom was reached")
@@ -229,18 +231,23 @@ final class ChatScrollTests: XCTestCase {
         let app = open(["-long", "-older"])
         let first = "The gallery feels slow on my phone"
         let h = app.frame.height
-        // up until the chat is near its top (the older page is then on its way, 2.5 s later); stop right there
+        // (a page may already come while the chat opens: the first frame starts at its top)
+        spin(3.5)
+        // up until the chat is near its top (the next page is then on its way, 2.5 s later); stop right there
         for _ in 0..<40 {
             if let sv = chatScroll(), sv.contentOffset.y + sv.adjustedContentInset.top < 300 { break }
             scrollUp(app, by: 0.25)
         }
-        guard let before = rect(app, first), before.maxY > 0, before.minY < h else {
-            return XCTFail("the first message isn't in view: \(String(describing: rect(app, first)))")
-        }
-        XCTAssertNil(rect(app, "Earlier question 2"), "no older turns yet")
-        XCTAssertTrue(poll(6) { self.rect(app, "Earlier question 2") != nil }, "the older page loaded")
+        let earlier = (1...6).map { "Earlier question \($0)" }
+        let had = Set(earlier.filter { rect(app, $0) != nil })
+        XCTAssertLessThan(had.count, 6, "a page still to come")
+        // a row in view to watch: the chat's first message or an older question
+        guard let anchor = ([first] + earlier).first(where: { t in rect(app, t).map { $0.minY > 120 && $0.maxY < h - 280 } ?? false }),
+              let before = rect(app, anchor)
+        else { return XCTFail("nothing to watch in view") }
+        XCTAssertTrue(poll(6) { earlier.contains { !had.contains($0) && self.rect(app, $0) != nil } }, "the next page loaded")
         spin(0.5)
-        stays(app, first, before, "older turns loaded above")
+        stays(app, anchor, before, "older turns loaded above")
         App.current?.shot("a229-older-loaded")
     }
 }
