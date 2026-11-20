@@ -116,7 +116,8 @@ final class ChatScrollTests: XCTestCase {
     /// scrolled up while the reply streams in: the line being read stays where it is
     func testStreamingWhileScrolledUp() {
         let app = open(["-stream"])
-        XCTAssertTrue(poll(10) { self.rect(app, "Step 6 of the plan") != nil })
+        // enough of the plan to fill the screen above the box
+        XCTAssertTrue(poll(15) { self.rect(app, "Step 16 of the plan") != nil })
         scrollUp(app)
         spin(0.5)
         guard let (line, before) = visibleStep(app) else { return XCTFail("no line of the plan on screen") }
@@ -185,12 +186,13 @@ final class ChatScrollTests: XCTestCase {
         let handle = app.buttons.matching(identifier: "handle").element(boundBy: 0)
         let h = app.frame.height
         for _ in 0..<40 {
-            if handle.exists, handle.frame.minY > h * 0.3, handle.frame.maxY < h * 0.6 { break }
-            if handle.exists, handle.frame.minY > 0, handle.frame.minY <= h * 0.3 { scrollUp(app, by: 0.1) } else { scrollUp(app, by: 0.35) }
+            // in view below the top bar (it may be the chat's first row, as high as it goes)
+            if handle.exists, handle.frame.minY > 120, handle.frame.maxY < h * 0.6 { break }
+            if handle.exists, handle.frame.minY > 0, handle.frame.minY <= 120 { scrollUp(app, by: 0.1) } else { scrollUp(app, by: 0.35) }
         }
         spin(0.5)
         let before = handle.frame
-        XCTAssertGreaterThan(before.minY, h * 0.25, "the first fold is in view: \(before)")
+        XCTAssertGreaterThan(before.minY, 120, "the first fold is in view: \(before)")
         handle.tap()
         XCTAssertTrue(poll(3) { (handle.value as? String) == "open" }, "the fold opened")
         spin(1)
@@ -217,7 +219,8 @@ final class ChatScrollTests: XCTestCase {
         let first = "The gallery feels slow on my phone"
         let h = app.frame.height
         for _ in 0..<40 {
-            if let r = rect(app, first), r.minY > h * 0.25, r.maxY < h * 0.7 { break }
+            // the chat's first message, as high as it goes: right under the top bar
+            if let r = rect(app, first), r.minY > 100, r.maxY < h * 0.7 { break }
             scrollUp(app, by: 0.35)
         }
         guard let before = rect(app, first) else { return XCTFail("the first message isn't in view") }

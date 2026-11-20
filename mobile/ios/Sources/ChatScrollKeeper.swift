@@ -55,7 +55,12 @@ final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
 
     /// the content, the screen or the insets changed size (the keyboard, a rotation, new text)
     func resized() {
-        guard view != nil else { return }
+        guard let sv = view else { return }
+        // content that shrank leaves UIKit's offset past its end (it doesn't clamp): back to the end, unless a finger
+        // or a bounce has it
+        if !sv.isTracking, !sv.isDecelerating, sv.contentOffset.y > lowest + 0.5 {
+            sv.contentOffset.y = lowest
+        }
         perform(logic.resized(gap: gap))
     }
 

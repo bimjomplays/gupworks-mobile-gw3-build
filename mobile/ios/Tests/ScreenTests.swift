@@ -1452,9 +1452,16 @@ final class ScreenTests: XCTestCase {
     private func menuButton(_ app: App, _ label: String) -> Element {
         let b = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
         for _ in 0..<3 where !b.waitForExistence(timeout: 2) {
-            let more = app.buttons.matching(NSPredicate(format: "label IN %@", ["Next", "More", "Forward", "Show More Items"])).firstMatch
-            guard more.exists else { break }
+            // the bubble's page arrow: the rightmost button on the Copy button's row
+            guard let copy = Tree.nodes(.button).first(where: { $0.label == "Copy" }) else { break }
+            let row = Tree.nodes(.any).filter {
+                abs($0.frame.midY - copy.frame.midY) < 12 && $0.frame.height < 80 && $0.frame.width < 70
+                    && $0.frame.minX > copy.frame.maxX
+            }
+            print("edit menu row: \(row.map { "\($0.kind) '\($0.label)' \($0.frame)" })")
+            guard let more = row.max(by: { $0.frame.maxX < $1.frame.maxX }) else { break }
             more.tap()
+            idle(0.5)
         }
         return b
     }
