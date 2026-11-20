@@ -1687,8 +1687,8 @@
     ]
    },
    {
-    "id": "gpt-6.1-sol",
-    "label": "GPT 6.1 Sol",
+    "id": "gpt-6.2-sol",
+    "label": "GPT 6.2 Sol",
     "provider": "OpenAI",
     "note": "subscription",
     "efforts": [
@@ -1713,8 +1713,8 @@
     ]
    },
    {
-    "id": "gpt-6-astra",
-    "label": "GPT 6 Astra",
+    "id": "gpt-6.2-astra",
+    "label": "GPT 6.2 Astra",
     "provider": "OpenAI",
     "note": "subscription",
     "efforts": [
