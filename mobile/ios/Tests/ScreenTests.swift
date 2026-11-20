@@ -1440,6 +1440,9 @@ final class ScreenTests: XCTestCase {
             XCTFail("no text with \(words)")
             return nil
         }
+        // a press inside the last selection keeps it: clear it first, as a tap elsewhere does
+        for v in Tree.views(UITextView.self) where v.selectedRange.length > 0 { v.selectedTextRange = nil }
+        idle(0.4)
         settle()
         Finger.press(CGPoint(x: r.midX, y: r.midY), seconds: 1.0)
         idle(0.5)

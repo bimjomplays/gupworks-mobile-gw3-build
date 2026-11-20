@@ -14,6 +14,8 @@ import UIKit.UIGestureRecognizerSubclass
 @MainActor
 final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
     static let space = "chatScrollContent"
+    /// a229 diagnostics (tests turn it on): every move the keeper makes is printed
+    nonisolated(unsafe) static var trace = false
 
     private(set) var logic = ChatScroll()
     private weak var view: UIScrollView?
@@ -132,6 +134,9 @@ final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
 
     private func perform(_ move: ChatScroll.Move) {
         guard let sv = view, !fits else { return }
+        if move != .none, ProcessInfo.processInfo.environment["A229_TRACE"] != nil || ChatScrollKeeper.trace {
+            print("a229 keeper \(move) at \(sv.contentOffset.y) lowest \(lowest) anchor \(logic.anchor ?? "-") following \(logic.following) tracking \(sv.isTracking) decel \(sv.isDecelerating)")
+        }
         switch move {
         case .none:
             return

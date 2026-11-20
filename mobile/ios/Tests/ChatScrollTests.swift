@@ -134,14 +134,26 @@ final class ChatScrollTests: XCTestCase {
         // back down to the bottom while it still streams: letting go there follows again
         // (a held drag at a time doesn't catch up with a line every 0.4 s on the CI's simulator: the view is put a
         // little above the end, then real drags take it the rest of the way, past the end)
-        if let sv = chatScroll() {
+        ChatScrollKeeper.trace = true
+        defer { ChatScrollKeeper.trace = false }
+        let sv = chatScroll()
+        func note(_ what: String) {
+            guard let sv else { return }
+            print("a229 test \(what): offset \(sv.contentOffset.y) size \(sv.contentSize.height) bounds \(sv.bounds.height) newest \(newestStep(app)?.0 ?? 0)")
+        }
+        note("scrolled up")
+        if let sv {
             let i = sv.adjustedContentInset
             sv.setContentOffset(CGPoint(x: 0, y: sv.contentSize.height + i.bottom - sv.bounds.height - 250), animated: false)
         }
+        note("set near the end")
         spin(0.3)
-        for _ in 0..<4 {
+        note("0.3 s later")
+        for k in 0..<4 {
             scrollDown(app, by: 0.5)
+            note("drag \(k + 1)")
             spin(0.6)
+            note("drag \(k + 1) + 0.6 s")
             if let (_, r) = newestStep(app), r.maxY <= box(app).frame.minY + 4, r.minY > 120 { break }
         }
         let reached = newestStep(app)?.0 ?? 0
