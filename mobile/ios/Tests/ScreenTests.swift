@@ -2173,10 +2173,19 @@ final class ScreenTests: XCTestCase {
 
     private func position(_ app: App) -> String { el(app, "needsPosition").label }
 
-    /// an element of the card on screen (the cards beside it carry the same ids)
+    /// an element of the card on screen (the cards beside it carry the same ids); a tall card (pictures) scrolls up
+    /// to it first, as a finger would
     private func onCard(_ app: App, _ id: String) -> Element {
         let all = app.descendants(matching: .any).matching(identifier: id)
-        for i in 0..<all.count where all.element(boundBy: i).isHittable { return all.element(boundBy: i) }
+        for _ in 0..<5 {
+            for i in 0..<all.count where all.element(boundBy: i).isHittable { return all.element(boundBy: i) }
+            let cards = el(app, "needsCards")
+            cards.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+                .press(forDuration: 0.02, thenDragTo: cards.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)),
+                       withVelocity: .slow, thenHoldForDuration: 0.1)
+            sleep(1)
+        }
+        XCTFail("\(id) is on no card on screen")
         return all.firstMatch
     }
 

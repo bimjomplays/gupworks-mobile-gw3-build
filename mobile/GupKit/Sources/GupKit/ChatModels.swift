@@ -262,6 +262,19 @@ struct Outside: Codable, Equatable, Identifiable {
     var question: String?
     var options: [String]?
     var model: String?
+    /// an ask's id on the needs-you bar ("q3"; absent from an older PC)
+    var ask: String?
+
+    /// an ask card's answer as his message: "a21: Per project" for a thread's question
+    func words(for option: String) -> String {
+        [work ?? "", option].filter { !$0.isEmpty }.joined(separator: ": ")
+    }
+
+    /// which bar question the answer is for, when the PC said
+    func pick(for option: String) -> AskPick? {
+        guard let id = ask, !id.isEmpty else { return nil }
+        return AskPick(id: id, answer: option)
+    }
 
     struct FileChange: Codable, Equatable {
         var path: String

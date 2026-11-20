@@ -141,6 +141,27 @@ final class TalkAPITests: XCTestCase {
         XCTAssertEqual(obj?["files"] as? [String], ["/uploads/photo.jpg"])
     }
 
+    // The main chat's own card answers its one question: the send names the bar's id (/ask/answer on the PC);
+    // a message without it stays as before, and a card from an older PC (no id) sends plain words.
+    @MainActor
+    func testAskCardAnswerNamesItsQuestion() async throws {
+        let card = try JSONDecoder().decode(Outside.self, from: Data(#"{"type":"ask","id":"ask-c1","call":"c1","work":"a6","question":"Land?","options":["Yes","No"],"ask":"q3"}"#.utf8))
+        XCTAssertEqual(card.words(for: "Yes"), "a6: Yes")
+        XCTAssertEqual(card.pick(for: "Yes"), AskPick(id: "q3", answer: "Yes"))
+        let old = try JSONDecoder().decode(Outside.self, from: Data(#"{"type":"ask","id":"ask-c2","question":"Ship?","options":["Ship"]}"#.utf8))
+        XCTAssertEqual(old.words(for: "Ship"), "Ship")
+        XCTAssertNil(old.pick(for: "Ship"))
+        let body = OutgoingBody(clientId: "c-1", text: "a6: Yes", files: [], ask: card.pick(for: "Yes"))
+        let obj = try JSONSerialization.jsonObject(with: JSONEncoder().encode(body)) as? [String: Any]
+        XCTAssertEqual(obj?["ask"] as? [String: String], ["id": "q3", "answer": "Yes"])
+        let plain = try JSONSerialization.jsonObject(with: JSONEncoder().encode(OutgoingBody(clientId: "c-2", text: "Hi", files: []))) as? [String: Any]
+        XCTAssertNil(plain?["ask"])
+        let s = ChatStore(id: "00000000-0000-4000-8000-000000000001", pairing: nil, demo: false)
+        await s.send(text: "a6: Yes", attachments: [], ask: card.pick(for: "Yes"))
+        let kept = s.outbox.first?.ask
+        XCTAssertEqual(kept, AskPick(id: "q3", answer: "Yes"))  // kept for Retry
+    }
+
     func testRepliesDecode() throws {
         let send = #"{"ok":true,"new":true,"started":false,"queue":[{"clientId":"c-1","text":"Look","ts":5,"state":"queued","images":["/v1/media/a.b"]},{"clientId":"c-2","text":"","ts":6,"state":"failed","error":"not sent","files":["notes.txt"]}]}"#
         let r = try JSONDecoder().decode(SendReply.self, from: Data(send.utf8))

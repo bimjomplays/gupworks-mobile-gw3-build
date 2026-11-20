@@ -117,6 +117,14 @@ struct OutgoingBody: Codable, Equatable {
     var clientId: String
     var text: String
     var files: [String]
+    /// the main chat's own card answered: which of its questions (the PC takes it off the bar with /ask/answer)
+    var ask: AskPick? = nil
+}
+
+/// A main chat's question answered from its card in the chat: the bar's id ("q3") and the answer picked.
+struct AskPick: Codable, Equatable {
+    var id: String
+    var answer: String
 }
 
 /// One of the phone's messages the chat hasn't shown as a turn yet.

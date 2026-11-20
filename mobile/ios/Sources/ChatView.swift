@@ -401,7 +401,7 @@ struct ChatView: View {
         return MessageActions(
             rewind: rewind,
             btw: { text in s.put("/btw about \u{201C}\(MessageActions.quote(text))\u{201D}: ") },
-            reply: { text in Task { await s.send(text: text, attachments: []) } }
+            reply: { text, ask in Task { await s.send(text: text, attachments: [], ask: ask) } }
         )
     }
 
@@ -1481,9 +1481,8 @@ private struct AskCard: View {
                 FlowLayout(spacing: 8) {
                     ForEach(Array(options.enumerated()), id: \.offset) { i, o in
                         Button {
-                            let words = [item.work ?? "", o].filter { !$0.isEmpty }.joined(separator: ": ")
                             sent = o
-                            actions.reply(words)
+                            actions.reply(item.words(for: o), item.pick(for: o))
                         } label: {
                             Text(o)
                                 .font(.system(size: 16))

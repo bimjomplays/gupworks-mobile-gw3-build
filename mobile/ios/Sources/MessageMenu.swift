@@ -5,8 +5,8 @@ struct MessageActions {
     /// Rewind to here: nil while Claude works (the PC can't rewind then)
     var rewind: ((Turn) -> Void)? = nil
     var btw: (String) -> Void = { _ in }
-    /// sends words in this chat (the thread card's answers)
-    var reply: (String) -> Void = { _ in }
+    /// sends words in this chat (the thread card's answers), naming the bar's question when the card knows it
+    var reply: (String, AskPick?) -> Void = { _, _ in }
 
     /// a message cut to one line of about 80 characters, to quote in /btw or the rewind confirm
     static func quote(_ text: String, max: Int = 80) -> String {
