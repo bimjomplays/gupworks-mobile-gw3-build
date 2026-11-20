@@ -1465,7 +1465,7 @@ final class ScreenTests: XCTestCase {
                 return abs(f.midY - c.midY) < 14 && f.minX > c.maxX && f.width >= 16 && f.width < 80
                     && f.height >= 16 && f.height < 80 && v.isUserInteractionEnabled
             }
-            menuRow = row.map { "\(type(of: $0)) '\($0.accessibilityLabel ?? "")' \($0.convert($0.bounds, to: nil))" }
+            menuRow = row.map { "\(Swift.type(of: $0)) '\($0.accessibilityLabel ?? "")' \($0.convert($0.bounds, to: nil))" }
                 .joined(separator: "; ")
             guard let more = row.max(by: { $0.convert($0.bounds, to: nil).maxX < $1.convert($1.bounds, to: nil).maxX })
             else { break }
