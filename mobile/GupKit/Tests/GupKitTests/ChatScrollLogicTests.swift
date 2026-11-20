@@ -68,6 +68,7 @@ final class ChatScrollLogicTests: XCTestCase {
             keeper.touchDown(top: offset)
             offset = min(max(0, offset + d), bottomOffset)
             keeper.scrolled(top: offset)
+            keeper.moved(gap: gap)
             keeper.touchUp()
             apply(keeper.rest(top: offset, gap: gap))
         }
@@ -120,6 +121,40 @@ final class ChatScrollLogicTests: XCTestCase {
         XCTAssertTrue(c.keeper.following, "at the bottom after letting go")
         c.grow("r19", by: 80)
         XCTAssertEqual(c.gap, 0, accuracy: 0.01)
+    }
+
+    /// scrolled down to the bottom while the reply streams: a line arrives between reaching the bottom and the scroll
+    /// coming to rest, so the content's end is a little below the screen by then; letting go still follows again
+    func testReachingTheBottomWhileTextArrives() {
+        var c = Pretend(rows: 20)
+        c.drag(-400)
+        XCTAssertFalse(c.keeper.following)
+        c.keeper.touchDown(top: c.offset)
+        c.offset = c.bottomOffset
+        c.keeper.scrolled(top: c.offset)
+        c.keeper.moved(gap: c.gap)
+        c.grow("r19", by: 45)
+        c.keeper.touchUp()
+        XCTAssertEqual(c.keeper.rest(top: c.offset, gap: c.gap), .bottom(animated: true), "to the line that just came")
+        XCTAssertTrue(c.keeper.following)
+        c.apply(.bottom(animated: true))
+        c.grow("r19", by: 50)
+        XCTAssertEqual(c.gap, 0, accuracy: 0.01, "and following again")
+    }
+
+    /// reached the bottom, then pulled back up a little before letting go: not following
+    func testReachedTheBottomThenBackUp() {
+        var c = Pretend(rows: 20)
+        c.drag(-400)
+        c.keeper.touchDown(top: c.offset)
+        c.offset = c.bottomOffset
+        c.keeper.moved(gap: c.gap)
+        c.offset -= 120
+        c.keeper.scrolled(top: c.offset)
+        c.keeper.moved(gap: c.gap)
+        c.keeper.touchUp()
+        XCTAssertEqual(c.keeper.rest(top: c.offset, gap: c.gap), .none)
+        XCTAssertFalse(c.keeper.following)
     }
 
     func testAPushTowardTheBottomFromFollowing() {

@@ -126,9 +126,15 @@ final class ChatScrollTests: XCTestCase {
         XCTAssertGreaterThan(newestStep(app)?.0 ?? 0, newest + 3, "the reply went on streaming")
         stays(app, line, before, "streaming while scrolled up")
         App.current?.shot("a229-streaming-scrolled-up")
-        // back down to the bottom: it follows again
-        for _ in 0..<6 { scrollDown(app, by: 0.4) }
-        spin(1.5)
+        // back down to the bottom while it still streams: letting go there follows again
+        for _ in 0..<20 {
+            if let (_, r) = newestStep(app), r.maxY <= box(app).frame.minY + 4, r.minY > 120 { break }
+            scrollDown(app, by: 0.5)
+        }
+        let reached = newestStep(app)?.0 ?? 0
+        XCTAssertLessThan(reached, 75, "still streaming when the bottom was reached")
+        spin(2)
+        XCTAssertGreaterThan(newestStep(app)?.0 ?? 0, reached + 2, "more lines came")
         atBottom(app, "back at the bottom")
     }
 
@@ -219,8 +225,8 @@ final class ChatScrollTests: XCTestCase {
         let first = "The gallery feels slow on my phone"
         let h = app.frame.height
         for _ in 0..<40 {
-            // the chat's first message, as high as it goes: right under the top bar
-            if let r = rect(app, first), r.minY > 100, r.maxY < h * 0.7 { break }
+            // the chat's first message in view: near the top, so the older page is on its way, 2.5 s from now
+            if let r = rect(app, first), r.minY > 0, r.maxY < h * 0.7 { break }
             scrollUp(app, by: 0.35)
         }
         guard let before = rect(app, first) else { return XCTFail("the first message isn't in view") }

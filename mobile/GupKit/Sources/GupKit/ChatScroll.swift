@@ -30,6 +30,8 @@ struct ChatScroll {
     private var followedAtTouch = false
     private var topAtTouch = 0.0
     private var released = false
+    /// the finger (or the fling after it) last left the view at the bottom
+    private var leftAtBottom = false
 
     /// the rows' tops in the content
     private(set) var rows: [String: Double] = [:]
@@ -47,8 +49,16 @@ struct ChatScroll {
         }
         touching = true
         released = false
+        leftAtBottom = false
         following = false
         held = false
+    }
+
+    /// the view moved while a finger has it or right after one let go (a fling, a bounce): whether that motion left it
+    /// at the bottom (text arriving afterwards doesn't change that; it only moves the bottom)
+    mutating func moved(gap: Double) {
+        guard touching || released else { return }
+        leftAtBottom = gap <= Self.slack
     }
 
     /// the last finger left
@@ -64,9 +74,10 @@ struct ChatScroll {
     mutating func rest(top: Double, gap: Double) -> Move {
         guard released, !touching else { return .none }
         released = false
-        if gap <= Self.slack {
+        if gap <= Self.slack || leftAtBottom {
+            // at the bottom, or taken there by the finger while new text kept coming: follow again
             following = true
-            return gap > 0.5 ? .bottom(animated: false) : .none
+            return gap > 0.5 ? .bottom(animated: gap > Self.slack) : .none
         }
         if followedAtTouch && !held && top >= topAtTouch - Self.slack {
             following = true

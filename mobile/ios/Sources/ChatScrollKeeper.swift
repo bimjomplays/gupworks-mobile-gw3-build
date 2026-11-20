@@ -127,6 +127,7 @@ final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
 
     private func scrolled() {
         logic.scrolled(top: top)
+        logic.moved(gap: gap)
     }
 
     private func perform(_ move: ChatScroll.Move) {
