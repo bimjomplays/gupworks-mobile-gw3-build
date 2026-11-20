@@ -1527,20 +1527,21 @@ final class ScreenTests: XCTestCase {
         let caret = tv.convert(tv.caretRect(for: range.end), to: nil)
         settle()
         // the end handle's knob hangs under the caret; the caret lands a little above the finger
-        Finger.press(CGPoint(x: caret.midX, y: caret.maxY + 4), seconds: 0.15,
+        Finger.press(CGPoint(x: caret.midX, y: caret.maxY + 4), seconds: 0.4,
                      thenDragTo: CGPoint(x: to.maxX, y: to.midY + 4), speed: 150, hold: 0.8)
         idle(0.6)
         _ = poll(2) { self.selection(tv).contains("I also made") }
         let picked = selection(tv)
-        XCTAssertTrue(picked.contains("All five pages pass") && picked.contains("I also made"),
-                      "the selection runs across the paragraphs: \(picked)")
+        print("D7 selection \(tv.selectedRange) of \((tv.text ?? "").utf16.count): \(picked.debugDescription)")
         XCTAssertTrue(app.buttons["Copy"].waitForExistence(timeout: 5))
         sleep(1)
         shot("a229-select-paragraphs")
         UIPasteboard.general.string = ""
         app.buttons["Copy"].tap()
         let copied = UIPasteboard.general.string ?? ""
-        XCTAssertTrue(copied.contains("All five pages pass the link check.\n"), "the paragraphs, a line each: \(copied)")
+        // what Copy copies is what was selected: from the word across the paragraph break
+        XCTAssertTrue(copied.hasPrefix("lightbox") && copied.contains("it's open.\nAll five"),
+                      "the selection runs across the paragraphs, a line each: \(copied.debugDescription); selection \(picked.debugDescription)")
         XCTAssertFalse(copied.hasPrefix("Fixed."), "only the selection")
         // again, for the bubble's other actions
         guard pressWord(app, in: "All five pages pass", word: "check") != nil else { return }

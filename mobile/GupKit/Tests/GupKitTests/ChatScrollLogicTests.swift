@@ -188,6 +188,18 @@ final class ChatScrollLogicTests: XCTestCase {
         XCTAssertEqual(c.onScreen("r3"), read, accuracy: 0.01, "older turns come in above without moving the screen")
     }
 
+    /// the CI's older-page test (run 44788957270): the screen moved by the page's height a second time. The rows tell
+    /// their new tops one after another; after the first correction, rows further down still had their old tops and
+    /// one of them became the kept row, so its own report moved the offset again.
+    func testOlderTurnsLoadAboveMovesOnce() {
+        var c = Pretend(rows: 20)
+        c.drag(-710)
+        let read = c.onScreen("r6")
+        c.rows.insert(contentsOf: [(id: "o0", height: 250.0), (id: "o1", height: 270.0)], at: 0)
+        c.layout()
+        XCTAssertEqual(c.onScreen("r6"), read, accuracy: 0.01, "one correction, by the page's height")
+    }
+
     func testAboveChangingSizeWhileScrolledUp() {
         var c = Pretend(rows: 20)
         c.drag(-800)

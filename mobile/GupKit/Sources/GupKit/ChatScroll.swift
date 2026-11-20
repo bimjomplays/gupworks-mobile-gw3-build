@@ -38,6 +38,9 @@ struct ChatScroll {
     /// the row the reading line is in, and how far its top was from the reading line when the user left it there
     private(set) var anchor: String?
     private var anchorGap = 0.0
+    /// the reading line a correction asked for: when the view gets there it is that correction, not a scroll, and the
+    /// kept row stays (rows below it may not have told their new tops yet)
+    private var correctedTop: Double?
 
     // MARK: touches
 
@@ -111,6 +114,10 @@ struct ChatScroll {
 
     /// the view moved (the user, a correction, following): the row at the reading line becomes the one kept in place
     mutating func scrolled(top: Double) {
+        if let want = correctedTop {
+            correctedTop = nil
+            if abs(want - top) <= 0.5, anchor != nil { return }
+        }
         guard !rows.isEmpty else { anchor = nil; return }
         // the last row starting at or above the reading line, else the first row (the line is above all of them)
         var best: (id: String, top: Double)?
@@ -131,7 +138,9 @@ struct ChatScroll {
         if anchor == nil { scrolled(top: top) }
         guard !following, id == anchor else { return .none }
         let delta = (rowTop - anchorGap) - top
-        return abs(delta) > 0.5 ? .by(delta) : .none
+        guard abs(delta) > 0.5 else { return .none }
+        correctedTop = top + delta
+        return .by(delta)
     }
 
     /// a row left the chat (rewound, folded away): another one is picked at the next scroll
