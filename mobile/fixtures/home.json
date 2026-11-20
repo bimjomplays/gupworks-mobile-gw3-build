@@ -186,7 +186,7 @@
    "id": "00000002-1111-4222-8333-000000000002",
    "title": "Carrot picture",
    "state": "done",
-   "model": "GPT 6.1 Sol",
+   "model": "GPT 6.2 Sol",
    "provider": "OpenAI",
    "lastActive": 1791989200000,
    "pinned": true,

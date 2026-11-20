@@ -1,12 +1,10 @@
 import SwiftUI
-import UIKit
 
 /// What a long-press on a message (D7) and the thread card's answers can do; ChatView hands it down the turns.
 struct MessageActions {
     /// Rewind to here: nil while Claude works (the PC can't rewind then)
     var rewind: ((Turn) -> Void)? = nil
     var btw: (String) -> Void = { _ in }
-    var select: (String) -> Void = { _ in }
     /// sends words in this chat (the thread card's answers)
     var reply: (String) -> Void = { _ in }
 
@@ -44,78 +42,32 @@ extension EnvironmentValues {
     @Entry var messageActions = MessageActions()
 }
 
+/// D7, a229: a message's own actions. Its words select where they stand (ReplyText.swift) and the selection's bubble
+/// has Copy, Ask btw about it, Copy message and, on your own messages that are rewind points, Rewind to here. A
+/// message with no words (only pictures) keeps the press menu for Rewind to here.
 private struct MessageMenu: ViewModifier {
     let text: String
     let turn: Turn?
     @Environment(\.messageActions) private var actions
 
     func body(content: Content) -> some View {
-        content.contextMenu {
-            if let t = turn, let rewind = actions.rewind {
-                Button { rewind(t) } label: {
+        let rewind: (() -> Void)? = turn.flatMap { t in actions.rewind.map { r in { r(t) } } }
+        if text.isEmpty, let rewind {
+            content.contextMenu {
+                Button(action: rewind) {
                     Label("Rewind to here", systemImage: "arrow.uturn.backward")
                     Text("go back and edit this message")
                 }
             }
-            if !text.isEmpty {
-                Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }
-                Button("Ask btw about it", systemImage: "bubble.left") { actions.btw(text) }
-                Button("Select text", systemImage: "selection.pin.in.out") { actions.select(text) }
-            }
+        } else {
+            content.environment(\.messageMenuItems, MessageMenuItems(whole: text, rewind: rewind))
         }
     }
 }
 
 extension View {
-    /// D7: Rewind to here (your own messages that are rewind points), Copy, Ask btw about it, Select text
+    /// D7: the message's actions in its selection's bubble (Rewind to here on your own messages that are rewind points)
     func messageMenu(text: String, turn: Turn?) -> some View {
         modifier(MessageMenu(text: text, turn: turn))
-    }
-}
-
-struct SelectedText: Identifiable {
-    let id = UUID()
-    let text: String
-}
-
-/// Select text: the message in a page of its own, to pick any part of it and copy.
-struct SelectTextSheet: View {
-    let text: String
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            SelectableText(text: text)
-                .padding(.horizontal, 14)
-                .background(Theme.background)
-                .navigationTitle("Select text")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { dismiss() }.accessibilityIdentifier("doneSelecting")
-                    }
-                }
-        }
-    }
-}
-
-/// UITextView's own selection (handles, Copy, Look Up): SwiftUI's Text selects only the whole text.
-private struct SelectableText: UIViewRepresentable {
-    let text: String
-
-    func makeUIView(context: Context) -> UITextView {
-        let v = UITextView()
-        v.isEditable = false
-        v.isSelectable = true
-        v.backgroundColor = .clear
-        v.font = .systemFont(ofSize: 17)
-        v.textColor = UIColor(white: 0.9, alpha: 1)
-        v.textContainerInset = UIEdgeInsets(top: 16, left: 0, bottom: 24, right: 0)
-        v.accessibilityIdentifier = "selectText"
-        return v
-    }
-
-    func updateUIView(_ v: UITextView, context: Context) {
-        if v.text != text { v.text = text }
     }
 }

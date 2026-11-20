@@ -64,16 +64,21 @@ enum Inline {
     }
 }
 
-/// A reply's blocks, top to bottom.
+/// A reply's blocks, top to bottom. Paragraphs, headings and lists next to each other are one selectable text
+/// (a229, ReplyText.swift); code, quotes, tables, rules, pictures and mockup sets are pieces of their own.
 struct MarkdownView: View {
     let blocks: [MD]
     let base: URL?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // `i` stays the block's place in the whole reply: picture ids (ChatPhotos) count every block
-            ForEach(Array(blocks.enumerated()).filter { !$0.element.isFallback }, id: \.offset) { i, b in
-                block(b, at: i)
+            // `start` stays the block's place in the whole reply: picture ids (ChatPhotos) count every block
+            ForEach(MDPiece.split(blocks), id: \.start) { piece in
+                if piece.text {
+                    SelectableText(text: ReplyLook.flowing(piece.blocks))
+                } else if let b = piece.blocks.first {
+                    block(b, at: piece.start)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -82,26 +87,10 @@ struct MarkdownView: View {
     @ViewBuilder
     private func block(_ b: MD, at i: Int) -> some View {
         switch b.t {
-        case "p":
-            Text(Inline.text(b.text ?? ""))
-                .font(.system(size: 17))
-                .lineSpacing(5)
-                .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-        case "h":
-            Text(Inline.text(b.text ?? "", color: Theme.title))
-                .font(.system(size: (b.level ?? 3) <= 1 ? 22 : (b.level ?? 3) == 2 ? 20 : 17, weight: .semibold))
-                .padding(.top, 4)
-                .fixedSize(horizontal: false, vertical: true)
-        case "list":
-            ListBlock(items: b.items ?? [])
         case "quote":
             HStack(alignment: .top, spacing: 12) {
                 RoundedRectangle(cornerRadius: 1.5).fill(Color(hex: 0x3A3A3E)).frame(width: 3)
-                Text(Inline.text(b.text ?? "", color: ChatStyle.dim))
-                    .font(.system(size: 17))
-                    .lineSpacing(4)
-                    .fixedSize(horizontal: false, vertical: true)
+                SelectableText(text: ReplyLook.quote(b.text ?? ""))
             }
             .fixedSize(horizontal: false, vertical: true)
         case "code":
@@ -116,40 +105,6 @@ struct MarkdownView: View {
             if let ms = b.set { MockupSetView(mockup: ms, base: base, slot: i) }
         default:
             if let t = b.text { Text(t).font(.system(size: 17)).foregroundStyle(ChatStyle.body) }
-        }
-    }
-}
-
-private struct ListBlock: View {
-    let items: [MDItem]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(items.enumerated()), id: \.offset) { _, it in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    marker(it)
-                        .frame(minWidth: 18, alignment: .trailing)
-                    Text(Inline.text(it.text ?? ""))
-                        .font(.system(size: 17))
-                        .lineSpacing(4)
-                        .strikethrough(it.done == true, color: ChatStyle.dim)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.leading, CGFloat(it.level ?? 0) * 20)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func marker(_ it: MDItem) -> some View {
-        if let done = it.done {
-            Image(systemName: done ? "checkmark.square.fill" : "square")
-                .font(.system(size: 15))
-                .foregroundStyle(done ? ChatStyle.done : ChatStyle.dim)
-        } else if let n = it.n {
-            Text("\(n).").font(.system(size: 17)).foregroundStyle(ChatStyle.dim).monospacedDigit()
-        } else {
-            Text("\u{2022}").font(.system(size: 17)).foregroundStyle(ChatStyle.dim)
         }
     }
 }
@@ -188,11 +143,7 @@ struct CodePanel: View {
             .frame(height: 40)
             Rectangle().fill(ChatStyle.cardBorder).frame(height: 1)
             ScrollView(.horizontal, showsIndicators: false) {
-                Text(code)
-                    .font(.system(size: 14, design: .monospaced))
-                    .foregroundStyle(Color(hex: 0xD8D8E0))
-                    .lineSpacing(3)
-                    .textSelection(.enabled)
+                SelectableText(text: ReplyLook.code(code), fit: true)
                     .fixedSize(horizontal: true, vertical: true)
                     .padding(12)
             }
