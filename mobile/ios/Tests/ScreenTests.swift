@@ -1454,10 +1454,16 @@ final class ScreenTests: XCTestCase {
 
     /// a button of the selection bubble, paging the bubble with its arrow until it shows
     private func menuButton(_ app: App, _ label: String) -> Element {
-        let b = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
+        // (the arrow opens the rest as a list whose rows needn't be buttons)
+        let b = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
+        menuRow = ""
         for _ in 0..<4 where !b.waitForExistence(timeout: 2) {
             Tree.cache = nil
-            guard let copy = Tree.nodes(.button).first(where: { $0.label == "Copy" }) else { menuRow = "no Copy"; break }
+            guard let copy = Tree.nodes(.button).first(where: { $0.label == "Copy" }) else {
+                menuRow += " | no Copy; on screen: " + Tree.nodes().map { "\($0.kind) '\($0.label.prefix(30))'" }
+                    .joined(separator: ", ")
+                break
+            }
             let c = copy.frame
             // the page arrow: the rightmost small view on Copy's row, right of it (whatever its class or label)
             let row = Tree.views(UIView.self).filter { v in
@@ -1465,7 +1471,7 @@ final class ScreenTests: XCTestCase {
                 return abs(f.midY - c.midY) < 14 && f.minX > c.maxX && f.width >= 16 && f.width < 80
                     && f.height >= 16 && f.height < 80 && v.isUserInteractionEnabled
             }
-            menuRow = row.map { "\(Swift.type(of: $0)) '\($0.accessibilityLabel ?? "")' \($0.convert($0.bounds, to: nil))" }
+            menuRow += " | row: " + row.map { "\(Swift.type(of: $0)) '\($0.accessibilityLabel ?? "")' \($0.convert($0.bounds, to: nil))" }
                 .joined(separator: "; ")
             guard let more = row.max(by: { $0.convert($0.bounds, to: nil).maxX < $1.convert($1.bounds, to: nil).maxX })
             else { break }

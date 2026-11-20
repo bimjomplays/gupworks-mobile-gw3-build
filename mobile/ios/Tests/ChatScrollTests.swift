@@ -4,7 +4,7 @@ import UIKit
 
 /// a229: the chat goes only where the finger takes it. Scrolled up, or with a finger on the screen, nothing moves it
 /// (a reply streaming in, the keyboard, a fold opening above, older turns loading at the top); at the bottom, left
-/// alone, it follows new text. The demo's `-stream` reply grows a line every 0.4 s, `-long` is the same reply done,
+/// alone, it follows new text. The demo's `-stream` reply grows a line every 0.4 s (160 of them), `-long` is the same reply done,
 /// `-older` loads older pages at the top (ChatStore's demo).
 @MainActor
 final class ChatScrollTests: XCTestCase {
@@ -51,10 +51,15 @@ final class ChatScrollTests: XCTestCase {
         return nil
     }
 
+    /// the chat's own scroll view (the tallest; text views don't count)
+    private func chatScroll() -> UIScrollView? {
+        Tree.views(UIScrollView.self).filter { !($0 is UITextView) }.max { $0.contentSize.height < $1.contentSize.height }
+    }
+
     /// a line of the plan in the middle of the screen, to watch
     private func visibleStep(_ app: App) -> (String, CGRect)? {
         let h = app.frame.height
-        for n in 1...80 {
+        for n in 1...160 {
             let s = "Step \(n) of the plan"
             if let r = rect(app, s), r.minY > 170, r.maxY < h - 280 { return (s, r) }
         }
@@ -63,7 +68,7 @@ final class ChatScrollTests: XCTestCase {
 
     /// the newest line of the plan drawn so far
     private func newestStep(_ app: App) -> (Int, CGRect)? {
-        for n in stride(from: 80, through: 1, by: -1) {
+        for n in stride(from: 160, through: 1, by: -1) {
             if let r = rect(app, "Step \(n) of the plan") { return (n, r) }
         }
         return nil
@@ -132,7 +137,7 @@ final class ChatScrollTests: XCTestCase {
             scrollDown(app, by: 0.5)
         }
         let reached = newestStep(app)?.0 ?? 0
-        XCTAssertLessThan(reached, 75, "still streaming when the bottom was reached")
+        XCTAssertLessThan(reached, 155, "still streaming when the bottom was reached")
         spin(2)
         XCTAssertGreaterThan(newestStep(app)?.0 ?? 0, reached + 2, "more lines came")
         atBottom(app, "back at the bottom")
@@ -224,12 +229,14 @@ final class ChatScrollTests: XCTestCase {
         let app = open(["-long", "-older"])
         let first = "The gallery feels slow on my phone"
         let h = app.frame.height
+        // up until the chat is near its top (the older page is then on its way, 2.5 s later); stop right there
         for _ in 0..<40 {
-            // the chat's first message in view: near the top, so the older page is on its way, 2.5 s from now
-            if let r = rect(app, first), r.minY > 0, r.maxY < h * 0.7 { break }
-            scrollUp(app, by: 0.35)
+            if let sv = chatScroll(), sv.contentOffset.y + sv.adjustedContentInset.top < 300 { break }
+            scrollUp(app, by: 0.25)
         }
-        guard let before = rect(app, first) else { return XCTFail("the first message isn't in view") }
+        guard let before = rect(app, first), before.maxY > 0, before.minY < h else {
+            return XCTFail("the first message isn't in view: \(String(describing: rect(app, first)))")
+        }
         XCTAssertNil(rect(app, "Earlier question 2"), "no older turns yet")
         XCTAssertTrue(poll(6) { self.rect(app, "Earlier question 2") != nil }, "the older page loaded")
         spin(0.5)

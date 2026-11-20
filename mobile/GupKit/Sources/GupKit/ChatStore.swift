@@ -799,17 +799,17 @@ final class ChatStore {
                     rev: "demo-\(steps)")
     }
 
-    /// the demo's reply streams in, a line every 0.4 s for 80 lines, as the PC's turn events bring it
+    /// the demo's reply streams in, a line every 0.4 s for 160 lines (a minute: time to scroll away and back), as the PC's turn events bring it
     private func demoStream() {
         let start = Date().timeIntervalSince1970 * 1000
         status = ChatStatus(state: "working", ts: start, live: true, running: true)
         header?.state = "working"
         upsert([Self.demoPlan(steps: 0, at: start, working: true)])
         Task { [weak self] in
-            for n in 1...80 {
+            for n in 1...160 {
                 try? await Task.sleep(nanoseconds: 400_000_000)
                 guard let self, !Task.isCancelled else { return }
-                self.upsert([Self.demoPlan(steps: n, at: start, working: n < 80)])
+                self.upsert([Self.demoPlan(steps: n, at: start, working: n < 160)])
                 self.liveTick += 1
             }
             guard let self else { return }
