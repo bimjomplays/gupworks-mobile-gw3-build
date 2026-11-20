@@ -35,6 +35,7 @@
   "running": true,
   "state": "done",
   "pinned": false,
+  "onBar": false,
   "cache": {
    "at": 1791999100000,
    "ttlMin": 60

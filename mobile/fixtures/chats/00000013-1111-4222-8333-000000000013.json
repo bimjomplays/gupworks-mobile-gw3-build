@@ -34,7 +34,8 @@
   "folder": "/work/lumen-studio",
   "running": true,
   "state": "needs",
-  "pinned": false
+  "pinned": false,
+  "onBar": false
  },
  "status": {
   "state": "needs",

@@ -211,6 +211,18 @@ struct MainView: View {
         .environment(overview)
         .sensoryFeedback(.impact(weight: .light), trigger: opened)
         .sheet(isPresented: $showSettings) { SettingsView() }
+        // a230: the needs-you deck over everything (the chip in a chat, a notification, gupworks3://needs/<key>)
+        .fullScreenCover(isPresented: Binding(get: { model.openNeeds != nil },
+                                              set: { if !$0 { model.openNeeds = nil } })) {
+            NeedsDeckView(start: model.openNeeds ?? "") { item in openFromDeck(item) }
+                .environment(model)
+        }
+        .onChange(of: alerts.needs) { _, key in
+            // a needs-you notification was tapped: the deck at its card
+            guard let key else { return }
+            alerts.needs = nil
+            model.openNeeds = key
+        }
         .alert("That didn't work", isPresented: Binding(get: { model.actionError != nil },
                                                        set: { if !$0 { model.actionError = nil } })) {
             Button("OK", role: .cancel) {}
@@ -339,6 +351,13 @@ struct MainView: View {
         path = p
         onProjects = true
         close()
+    }
+
+    /// Open chat on a card (or a tap on its name): that chat on the main screen, which brings the card into view
+    private func openFromDeck(_ item: NeedItem) {
+        guard let r = NeedsRevealRequest(item) else { return }
+        model.reveal = r
+        pick(.chat(r.chatId, sheet: false))
     }
 
     private func go(_ p: Place) {

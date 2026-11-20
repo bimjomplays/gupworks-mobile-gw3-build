@@ -309,7 +309,12 @@ struct ChatView: View {
         // dim below lets them show through at the top instead, as in ChatGPT
         .scrollEdgeEffectHidden(true, for: .top)
         .overlay(alignment: .top) { TopDim() }
+        // a230 (Option 4): "5 need you ›" under the title in every chat; it opens the needs-you deck
+        .overlay(alignment: .top) {
+            NeedsChip().padding(.top, 6).animation(.easeOut(duration: 0.2), value: model.needsDeck.chip?.text)
+        }
         .toolbar { toolbar }
+        .task(id: "\(model.reveal?.chatId ?? "")|\(store.id)") { await revealCard() }
         .task(id: "\(phase == .active) \(store.id)") {
             if phase == .active { await store.run() }
         }
@@ -426,6 +431,29 @@ struct ChatView: View {
         store.showEdit(edit)
         let id = store.id
         Task { await model.edit(id, edit) }
+    }
+
+    private func onBar(_ on: Bool) {
+        let edit = ChatEdit(onBar: on)
+        store.showEdit(edit)
+        let id = store.id
+        Task { await model.edit(id, edit) }
+    }
+
+    /// a230: Open chat from the needs-you deck: the main chat's card asking it comes into view through the scroll
+    /// keeper (it holds there); a plain chat's question is its dialog at the end, where the chat opens anyway
+    private func revealCard() async {
+        guard let r = model.reveal, r.chatId == store.id else { return }
+        defer { if model.reveal == r { model.reveal = nil } }
+        guard let q = r.question else { return }
+        for _ in 0..<40 {
+            if let row = NeedsReveal.row(in: store.turns, question: q) {
+                try? await Task.sleep(nanoseconds: 150_000_000)  // its row tells the keeper its top
+                if scroll.show(row) { return }
+            }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            if Task.isCancelled { return }
+        }
     }
 
     private func archive() {
@@ -650,6 +678,12 @@ struct ChatView: View {
                     }
                     Button(pinned ? "Unpin" : "Pin to top", systemImage: pinned ? "pin.slash" : "pin", action: pin)
                     Button("Archive", systemImage: "archivebox", action: archive)
+                }
+                Section {
+                    // a230: its questions and permission asks wait on the needs-you bar (and the phone's deck)
+                    Toggle("On the needs-you bar", systemImage: "exclamationmark.circle",
+                           isOn: Binding(get: { store.header?.onBar ?? false }, set: { onBar($0) }))
+                        .accessibilityIdentifier("onBar")
                 }
                 Section {
                     Button("Delete\u{2026}", systemImage: "trash", role: .destructive) { confirmDelete = true }

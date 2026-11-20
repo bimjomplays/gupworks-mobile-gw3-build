@@ -34,7 +34,8 @@
   "folder": "/work/tunes",
   "running": false,
   "state": "done",
-  "pinned": false
+  "pinned": false,
+  "onBar": false
  },
  "status": {
   "state": "done",

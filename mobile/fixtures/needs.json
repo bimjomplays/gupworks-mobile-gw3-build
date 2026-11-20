@@ -1,0 +1,187 @@
+{
+ "items": [
+  {
+   "key": "ask:home-server-5e6f:q3",
+   "kind": "ask",
+   "source": "project",
+   "projectId": "home-server-5e6f",
+   "askId": "q3",
+   "chatId": "00000067-1111-4222-8333-000000000067",
+   "name": "Home server",
+   "title": "Add 32 GB of real swap?",
+   "question": "Add 32 GB of real swap on the SSD as a safety net?",
+   "summary": "Your PC only swaps to compressed RAM, so when that fills there is nothing behind it. A swap file on the SSD is used only after that.",
+   "options": [
+    {
+     "label": "Add disk swap",
+     "detail": "I prepare one script; you run it with your password. No reboot."
+    },
+    {
+     "label": "Leave it as is",
+     "detail": "Rely on sleeping chats, memory limits and the warning."
+    },
+    {
+     "label": "Do it later",
+     "detail": "Ask again in a week, once the new limits have run."
+    }
+   ],
+   "recommended": 0,
+   "other": true,
+   "since": 1791999280000,
+   "pictures": []
+  },
+  {
+   "key": "ask:lumen-studio:q7",
+   "kind": "ask",
+   "source": "project",
+   "projectId": "lumen-studio",
+   "askId": "q7",
+   "chatId": "00000066-1111-4222-8333-000000000066",
+   "name": "Lumen Studio website",
+   "title": "Ship the new gallery grid?",
+   "question": "Ship the new gallery grid?",
+   "summary": "a21 rebuilt the gallery as a grid: two columns on phones, three on desktop. Same photos, a 40% shorter page.",
+   "options": [
+    {
+     "label": "Ship the grid",
+     "detail": "Land a21 as it is."
+    },
+    {
+     "label": "Keep the list",
+     "detail": "Close a21 without landing it."
+    }
+   ],
+   "recommended": 0,
+   "other": true,
+   "since": 1791999520000,
+   "work": "a21",
+   "workTitle": "Gallery as a grid",
+   "pictures": [
+    {
+     "url": "demo:media/gallery-before.png",
+     "caption": "Before · One per row"
+    },
+    {
+     "url": "demo:media/gallery-after.png",
+     "caption": "After · The new grid"
+    }
+   ]
+  },
+  {
+   "key": "chat:00000009-1111-4222-8333-000000000009:5b1d0c2e9a41",
+   "kind": "permission",
+   "source": "chat",
+   "chatId": "00000009-1111-4222-8333-000000000009",
+   "name": "Gallery lightbox fix",
+   "title": "Run npm run build?",
+   "question": "Do you want to proceed?",
+   "summary": "",
+   "body": [
+    "npm run build"
+   ],
+   "options": [
+    {
+     "label": "Allow once",
+     "detail": "",
+     "n": 1
+    },
+    {
+     "label": "Always",
+     "detail": "",
+     "n": 2
+    },
+    {
+     "label": "Deny",
+     "detail": "",
+     "n": 3
+    }
+   ],
+   "recommended": -1,
+   "other": false,
+   "since": 1791999700000,
+   "sig": "5b1d0c2e9a41",
+   "pictures": []
+  },
+  {
+   "key": "ask:garden-planner-1a2b:q4",
+   "kind": "next",
+   "source": "project",
+   "projectId": "garden-planner-1a2b",
+   "askId": "q4",
+   "chatId": "00000065-1111-4222-8333-000000000065",
+   "name": "Garden planner",
+   "title": "What's next?",
+   "question": "The watering schedule is in. What's next?",
+   "summary": "a6 finished the watering schedule: each bed gets its days, and the plan prints on one page.",
+   "options": [
+    {
+     "label": "Frost alerts",
+     "detail": "Warn the night before a frost, from the weather service."
+    },
+    {
+     "label": "Seed inventory",
+     "detail": "From the Ideas note: what you have and what runs out."
+    },
+    {
+     "label": "Nothing for now",
+     "detail": "Leave the project quiet until you ask."
+    }
+   ],
+   "recommended": 0,
+   "other": true,
+   "since": 1791999820000,
+   "pictures": []
+  },
+  {
+   "key": "chat:00000003-1111-4222-8333-000000000003:c03e17d2b6f8",
+   "kind": "open",
+   "source": "chat",
+   "chatId": "00000003-1111-4222-8333-000000000003",
+   "name": "Recipe scaler",
+   "title": "Units and servings",
+   "question": "",
+   "summary": "",
+   "body": [],
+   "options": [],
+   "recommended": -1,
+   "other": false,
+   "since": 1791999940000,
+   "sig": "c03e17d2b6f8",
+   "pictures": []
+  },
+  {
+   "key": "ask:trip-planner-2c4e:q2",
+   "kind": "ask",
+   "source": "project",
+   "projectId": "trip-planner-2c4e",
+   "askId": "q2",
+   "chatId": "00000068-1111-4222-8333-000000000068",
+   "name": "Trip planner",
+   "title": "Which hotel?",
+   "question": "Which hotel for the second night?",
+   "summary": "",
+   "options": [
+    {
+     "label": "The one by the lake",
+     "detail": ""
+    },
+    {
+     "label": "The cheaper one",
+     "detail": ""
+    }
+   ],
+   "recommended": 0,
+   "other": true,
+   "since": 1791998200000,
+   "pictures": []
+  }
+ ],
+ "parked": [
+  {
+   "projectId": "trip-planner-2c4e",
+   "name": "Trip planner"
+  }
+ ],
+ "snoozed": {},
+ "dismissed": {}
+}

@@ -48,8 +48,9 @@ struct RootView: View {
             if model.isPaired { model.transfer.active = now == .active }
         }
         .onOpenURL { url in
-            // only the pairing screen takes links; once paired, unpair first in Settings
-            if !model.isPaired { model.incomingLink = url.absoluteString }
+            // only the pairing screen takes pairing links; once paired, unpair first in Settings. A paired phone
+            // takes gupworks3://needs/<key> (a230): the needs-you deck at that card
+            if !model.isPaired { model.incomingLink = url.absoluteString } else { _ = model.open(needsLink: url) }
         }
     }
 }

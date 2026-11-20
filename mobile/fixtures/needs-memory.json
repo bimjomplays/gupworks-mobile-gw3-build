@@ -1,0 +1,23 @@
+{
+ "key": "memory:m1791999900000",
+ "kind": "memory",
+ "source": "memory",
+ "name": "Memory",
+ "title": "Nearly full: 58 of 62 GB in use, swap 80%",
+ "question": "Memory is nearly full",
+ "summary": "Biggest: “Fix the build” (thread) 9.1 GB, Firefox 4.2 GB, “Gallery lightbox fix” 3.8 GB.",
+ "options": [
+  {
+   "label": "Sleep idle chats",
+   "detail": "Every chat that is safe to stop for now; each wakes when you open it."
+  },
+  {
+   "label": "Show memory",
+   "detail": "RAM, swap and what holds it, each chat with Sleep."
+  }
+ ],
+ "recommended": 0,
+ "other": false,
+ "since": 1791999900000,
+ "pictures": []
+}

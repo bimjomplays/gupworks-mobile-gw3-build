@@ -42,6 +42,7 @@ struct Home: Codable, Equatable {
     var archivedProjects: [ProjectRow]?  // the Projects filter's Archived (gw3-phone 0.9)
     var studioNeeds: [StudioNeed]?  // YouTube Studio video chats waiting on you (a180)
     var studio: ProjectRow?         // YouTube Studio as a row of the Projects list, id "studio" (gw3-phone 0.9.6)
+    var needs: NeedsState?          // the needs-you bar's items, snoozes and dismissals, shared with the desktop (a230)
 }
 
 extension Home {
@@ -172,6 +173,7 @@ struct ChatEdit: Codable, Equatable {
     var title: String?
     var pinned: Bool?
     var archived: Bool?
+    var onBar: Bool?        // "On the needs-you bar" (a230)
 }
 
 // MARK: slice 4: answering, picking, commands
@@ -448,6 +450,21 @@ final class APIClient {
     /// A new chat with its first message; the answer names it.
     func newChat(_ p: Pairing, _ m: NewChatBody) async throws -> NewChatReply {
         try await request(p.baseURL, "/v1/chats", token: p.token, method: "POST", encoding: m)
+    }
+
+    // MARK: the needs-you bar (a230)
+
+    /// answer, snooze, dismiss or park (`what`); the reply carries the bar's items again
+    func needs(_ p: Pairing, _ what: String, _ body: NeedsAction) async throws -> NeedsReply {
+        try await request(p.baseURL, "/v1/needs/\(what)", token: p.token, method: "POST", encoding: body, slow: true)
+    }
+
+    func memory(_ p: Pairing) async throws -> MemoryView {
+        try await request(p.baseURL, "/v1/memory", token: p.token)
+    }
+
+    func sleep(_ p: Pairing, _ body: SleepBody) async throws -> SleepReply {
+        try await request(p.baseURL, "/v1/memory/sleep", token: p.token, method: "POST", encoding: body, slow: true)
     }
 
     func editChat(_ p: Pairing, _ id: String, _ edit: ChatEdit) async throws {
@@ -1012,7 +1029,23 @@ enum Demo {
         h.studio = h.studio.map(move)
         h.archivedProjects = h.archivedProjects?.map(move)
         h.usage = h.usage.map { shiftResets($0, by: shift) }
+        h.needs = needs(shift: shift)
         return h
+    }
+
+    /// The needs-you bar's demo items (a230, docs/needs-phone-mockups round 1's example content), only with -needs:
+    /// `-needsMemory` adds the memory warning, `-needsParked` leaves only the parked project.
+    static func needs(shift: Double) -> NeedsState? {
+        guard args.contains("-needs") || args.contains("-needsMemory") || args.contains("-needsParked"),
+              var n: NeedsState = load("needs") else { return nil }
+        if args.contains("-needsMemory"), let m: NeedItem = load("needs-memory") {
+            n.items.append(m)
+        }
+        if args.contains("-needsParked") {
+            n.items = n.items.filter { n.parked.map(\.projectId).contains($0.projectId ?? "") }
+        }
+        n.items = n.items.map { var i = $0; i.since += shift; return i }
+        return n
     }
 
     /// meters' reset times moved by `ms`

@@ -53,6 +53,22 @@ final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
     /// the app is about to move what you look at (a fold opens, a jump to a message): stop following
     func hold() { logic.hold() }
 
+    /// a230: brings a row near the top of the screen (Open chat with the card in view) and holds there; a row at the
+    /// end stays following at the bottom. False until the row has told where it is.
+    @discardableResult
+    func show(_ id: String) -> Bool {
+        guard let sv = view else { return false }
+        if fits { return logic.rows[id] != nil }
+        guard let want = logic.reveal(id) else { return false }
+        let y = CGFloat(want) - sv.adjustedContentInset.top
+        if y >= lowest - CGFloat(ChatScroll.slack) {
+            perform(logic.follow())
+        } else {
+            sv.contentOffset.y = max(y, highest)
+        }
+        return true
+    }
+
     /// the content, the screen or the insets changed size (the keyboard, a rotation, new text)
     func resized() {
         guard let sv = view else { return }

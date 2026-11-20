@@ -34,7 +34,8 @@
   "folder": "/work/wallpapers",
   "running": true,
   "state": "working",
-  "pinned": false
+  "pinned": false,
+  "onBar": false
  },
  "status": {
   "state": "working",

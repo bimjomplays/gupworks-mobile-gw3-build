@@ -34,7 +34,8 @@
   "folder": "/work/invoices",
   "running": true,
   "state": "permission",
-  "pinned": false
+  "pinned": false,
+  "onBar": false
  },
  "status": {
   "state": "needs",

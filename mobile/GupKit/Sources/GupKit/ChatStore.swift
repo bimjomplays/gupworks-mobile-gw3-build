@@ -623,6 +623,7 @@ final class ChatStore {
         guard var h = header else { return }
         if let t = edit.title { h.title = t }
         if let p = edit.pinned { h.pinned = p }
+        if let b = edit.onBar { h.onBar = b }
         header = h
     }
 

@@ -74,6 +74,22 @@ final class ChatScrollLogicTests: XCTestCase {
         }
     }
 
+    /// a230: Open chat with the card in view: the card's row near the top, held there while text arrives below and
+    /// while rows above it change size
+    func testRevealHoldsTheCardInView() {
+        var c = Pretend(rows: 20)
+        XCTAssertNil(c.keeper.reveal("nope"), "a row that hasn't told its top")
+        let want = try! XCTUnwrap(c.keeper.reveal("r8"))
+        XCTAssertEqual(want, c.top("r8") - 12)
+        c.offset = want
+        c.keeper.scrolled(top: c.offset)
+        XCTAssertFalse(c.keeper.following)
+        c.grow("r19", by: 200)
+        XCTAssertEqual(c.onScreen("r8"), 12, accuracy: 0.01, "new text below doesn't move it")
+        c.grow("r2", by: 150)
+        XCTAssertEqual(c.onScreen("r8"), 12, accuracy: 0.01, "nor a row above changing size")
+    }
+
     func testFollowsAtTheBottom() {
         var c = Pretend(rows: 20)
         XCTAssertTrue(c.keeper.following)
