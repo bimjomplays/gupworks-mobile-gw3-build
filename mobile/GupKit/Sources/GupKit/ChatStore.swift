@@ -250,7 +250,7 @@ final class ChatStore {
 
     func loadOlder() async {
         guard more, !loadingOlder, let oldest = turns.first?.id else { return }
-        if demo { more = false; return }
+        if demo { return await demoLoadOlder() }
         guard let p = pairing else { return }
         loadingOlder = true
         defer { loadingOlder = false }
@@ -767,8 +767,80 @@ final class ChatStore {
         header?.usage = Demo.shiftResets(f.header.usage, by: shift)
         status = f.status
         turns = f.turns.turns.map { $0.shifted(shift) }
-        more = false
+        more = Demo.args.contains("-older")
         demoCards = f.cards.mapValues { $0.shifted(shift) }
+        if Demo.args.contains("-long") { upsert([Self.demoPlan(steps: 40, at: Date().timeIntervalSince1970 * 1000)]) }
+        if Demo.args.contains("-stream") { demoStream() }
+    }
+
+    // a229: what the scroll tests need: a long reply (`-long`), a reply that streams in (`-stream`), and older pages
+    // that load at the top (`-older`). Invented words only.
+
+    static let demoPlanPrompt = "Write the whole plan out, step by step."
+
+    /// one line of the made-up plan; lines differ in length so they wrap to different heights
+    static func demoStep(_ n: Int) -> String {
+        let tails = ["the walls get the warm grey and the trim stays white.",
+                     "check the light at noon and again in the evening before the second coat goes on, so the colour "
+                        + "reads the same in both.",
+                     "tape the window frames.",
+                     "the hall ceiling takes the paler mix; it makes the narrow part feel wider and keeps the "
+                        + "stairs bright without a lamp on."]
+        return "Step \(n) of the plan: " + tails[n % tails.count]
+    }
+
+    /// Claude's reply of `steps` lines, done (a turn of its own after the chat's)
+    static func demoPlan(steps: Int, at start: Double, working: Bool = false) -> Turn {
+        let md = (0..<steps).map { MD(t: "p", text: demoStep($0 + 1)) }
+        return Turn(id: working ? "demo-stream" : "demo-plan", kind: "prompt", start: start,
+                    state: working ? "working" : "done", prompt: Prompt(text: demoPlanPrompt),
+                    handle: working ? Handle(title: "Working", stats: "", since: start) : nil, open: false,
+                    blocks: steps == 0 ? [] : [Block(type: "text", id: "demo-plan-a", answer: true, md: md)],
+                    rev: "demo-\(steps)")
+    }
+
+    /// the demo's reply streams in, a line every 0.4 s for 80 lines, as the PC's turn events bring it
+    private func demoStream() {
+        let start = Date().timeIntervalSince1970 * 1000
+        status = ChatStatus(state: "working", ts: start, live: true, running: true)
+        header?.state = "working"
+        upsert([Self.demoPlan(steps: 0, at: start, working: true)])
+        Task { [weak self] in
+            for n in 1...80 {
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                guard let self, !Task.isCancelled else { return }
+                self.upsert([Self.demoPlan(steps: n, at: start, working: n < 80)])
+                self.liveTick += 1
+            }
+            guard let self else { return }
+            self.status = ChatStatus(state: "idle", ts: Date().timeIntervalSince1970 * 1000, live: true, running: true)
+            self.header?.state = "idle"
+        }
+    }
+
+    /// `-older`: three older pages, two turns each, 2.5 s after the top is reached (time to see where things were)
+    private var demoOlderPages = 0
+
+    private func demoLoadOlder() async {
+        guard Demo.args.contains("-older"), let first = turns.first else { more = false; return }
+        loadingOlder = true
+        defer { loadingOlder = false }
+        try? await Task.sleep(nanoseconds: 2_500_000_000)
+        demoOlderPages += 1
+        let page = demoOlderPages
+        let older = (0..<2).map { k -> Turn in
+            let n = page * 2 - k
+            let answer = Block(type: "text", id: "demo-old-a-\(n)", answer: true,
+                               md: [MD(t: "p", text: "Earlier answer \(n): the samples went up on the hall wall in "
+                                       + "three squares, side by side, and the middle one looked best in the "
+                                       + "morning light."),
+                                    MD(t: "p", text: "Earlier answer \(n), second part: the trim stays as it is.")])
+            return Turn(id: "demo-old-\(n)", kind: "prompt", start: first.start - Double(k + 1) * 60_000,
+                        state: "done", prompt: Prompt(text: "Earlier question \(n)"), open: false, blocks: [answer],
+                        rev: "demo")
+        }
+        upsert(older)
+        more = page < 3
     }
 }
 
