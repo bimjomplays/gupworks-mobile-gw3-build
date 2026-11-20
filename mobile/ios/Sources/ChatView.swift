@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// A step card's own screen, pushed from the chat.
 struct CardRoute: Hashable {
@@ -16,12 +17,11 @@ struct ChatView: View {
     @State private var usageOpen = false
     @State private var folds: [String: Bool] = [:]
     @State private var showDetails = false
-    @State private var position = ScrollPosition(edge: .bottom)
-    @State private var atBottom = true
+    /// a229: the chat moves only where the finger takes it, and follows new text at the bottom
+    @State private var scroll = ChatScrollKeeper()
     @State private var renaming = false
     @State private var newTitle = ""
     @State private var confirmDelete = false
-    @State private var selecting: SelectedText?
     // a121: a project's main chat (05) has its Overview (06-10) and settings (11); a thread's chat (07) its task
     @State private var project: ProjectStore?
     @State private var opensSheet: Bool
@@ -176,9 +176,12 @@ struct ChatView: View {
                     TaskCard(work: w) { showTask = true }
                         .padding(.top, 12)
                         .padding(.bottom, 4)
+                        .scrollRow("task")
                 }
                 ForEach(store.turns) { t in
                     TurnView(turn: t, base: store.baseURL, open: folds[t.id] ?? t.open, briefed: t.id == briefed) {
+                        // the fold opens below its row, which stays where it was tapped
+                        scroll.hold()
                         withAnimation(.easeInOut(duration: 0.2)) { folds[t.id] = !(folds[t.id] ?? t.open) }
                     }
                 }
@@ -213,39 +216,19 @@ struct ChatView: View {
             }
             .padding(.horizontal, 18)
             .padding(.bottom, 12)
+            .scrollContent(scroll)
         }
-        .defaultScrollAnchor(.bottom)
-        .scrollPosition($position)
+        // a229: it opens at the newest turn and follows new text (a running turn, Claude's question, pictures taking
+        // their room) only while at the bottom with no finger on it; scrolled up, nothing moves it (ChatScrollKeeper)
+        .keepsScroll(scroll)
         .onScrollGeometryChange(for: Bool.self) { g in
             g.contentOffset.y + g.contentInsets.top < 300
         } action: { _, nearTop in
             if nearTop { Task { await store.loadOlder() } }
         }
-        .onScrollGeometryChange(for: Bool.self) { g in
-            g.contentOffset.y + g.containerSize.height - g.contentInsets.bottom >= g.contentSize.height - 120
-        } action: { _, bottom in
-            atBottom = bottom
-        }
-        .onChange(of: store.turns.isEmpty) { _, empty in
-            // the first page: start at the newest turn (again once pictures have taken their room)
-            guard !empty else { return }
-            position.scrollTo(edge: .bottom)
-            Task {
-                try? await Task.sleep(nanoseconds: 300_000_000)
-                position.scrollTo(edge: .bottom)
-            }
-        }
         .onChange(of: store.outbox.count + store.waiting.count) { old, new in
-            // your own message: always to the bottom
-            if new > old { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
-        }
-        .onChange(of: store.dialog?.sig) { _, sig in
-            // Claude asks: its card is the newest thing, at the bottom
-            if sig != nil { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
-        }
-        .onChange(of: store.liveTick) {
-            // follow a running turn, unless you scrolled up to read
-            if atBottom { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
+            // your own message: to the bottom, following
+            if new > old { scroll.follow() }
         }
         .scrollDismissesKeyboard(.interactively)
         .background(Theme.background)
@@ -343,7 +326,6 @@ struct ChatView: View {
             .sheet(isPresented: $showDetails) {
                 ChatDetailsSheet(store: store)
             }
-            .sheet(item: $selecting) { (s: SelectedText) in SelectTextSheet(text: s.text) }
             .confirmationDialog(store.rewindDialog?.title ?? "Rewind", isPresented: rewindShown,
                                 titleVisibility: .visible) {
                 ForEach(rewindChoices) { (c: Dialog.Choice) in
@@ -414,7 +396,6 @@ struct ChatView: View {
         return MessageActions(
             rewind: rewind,
             btw: { text in s.put("/btw about \u{201C}\(MessageActions.quote(text))\u{201D}: ") },
-            select: { text in selecting = SelectedText(text: text) },
             reply: { text in Task { await s.send(text: text, attachments: []) } }
         )
     }
@@ -745,16 +726,20 @@ struct TurnView: View {
             if !briefed {
                 PromptView(turn: turn, base: base)
                     .environment(\.photoScope, ChatPhotos.promptScope(turn.id))
+                    .scrollRow("\(turn.id)/prompt")
             }
             if let h = turn.handle {
                 HandleRow(handle: h, open: open, turnId: turn.id, toggle: toggle)
                     .padding(.top, 10)
+                    .scrollRow("\(turn.id)/fold")
             }
             if lastAnswer == nil { outsideViews }
-            ForEach(Array(shown.enumerated()), id: \.offset) { _, item in
-                BlockView(block: item.block, base: base)
-                    .environment(\.photoScope, ChatPhotos.blockScope(turn.id, item.index))
-                if item.index == lastAnswer { outsideViews }
+            // by the block's place in the turn: a fold opening or closing keeps each block's own view (and row)
+            ForEach(shown.map { $0.index }, id: \.self) { i in
+                BlockView(block: turn.blocks[i], base: base)
+                    .environment(\.photoScope, ChatPhotos.blockScope(turn.id, i))
+                    .scrollRow("\(turn.id)/\(i)")
+                if i == lastAnswer { outsideViews }
             }
         }
         .padding(.top, 14)
@@ -776,6 +761,7 @@ struct TurnView: View {
     private var outsideViews: some View {
         ForEach(turn.outside ?? []) { o in
             OutsideView(item: o)
+                .scrollRow("\(turn.id)/outside/\(o.id)")
         }
     }
 }
@@ -856,11 +842,9 @@ struct Bubble: View {
                         if prompt.phone == true {
                             Image(systemName: "iphone").font(.system(size: 13)).foregroundStyle(.white.opacity(0.75))
                         }
-                        Text(text)
-                            .font(.system(size: 17))
-                            .lineSpacing(2)
-                            .foregroundStyle(.white)
-                            .fixedSize(horizontal: false, vertical: true)
+                        // a229: selectable where it stands (ReplyText.swift)
+                        SelectableText(text: ReplyLook.bubble(text), fit: true)
+                            .alignmentGuide(.firstTextBaseline) { _ in UIFont.systemFont(ofSize: 17).ascender }
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)

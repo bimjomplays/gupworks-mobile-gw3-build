@@ -1413,18 +1413,60 @@ final class ScreenTests: XCTestCase {
         XCTAssertEqual(field.value as? String, "/btw ")
     }
 
+    // MARK: a229: messages select where they stand; the message's actions are in the selection's bubble
+
+    /// the text view a message's words are drawn in
+    private func textView(_ app: App, _ words: String) -> UITextView? {
+        Tree.views(UITextView.self).first { $0.window != nil && ($0.text ?? "").contains(words) && $0.accessibilityIdentifier != "composer" }
+    }
+
+    /// where `words` are on screen in `tv` (the first line of them)
+    private func spot(_ tv: UITextView, _ words: String) -> CGRect? {
+        guard let r = (tv.text ?? "").range(of: words) else { return nil }
+        let ns = NSRange(r, in: tv.text ?? "")
+        guard let a = tv.position(from: tv.beginningOfDocument, offset: ns.location),
+              let b = tv.position(from: a, offset: ns.length), let range = tv.textRange(from: a, to: b) else { return nil }
+        return tv.convert(tv.firstRect(for: range), to: nil)
+    }
+
+    private func selection(_ tv: UITextView) -> String {
+        guard let r = Range(tv.selectedRange, in: tv.text ?? "") else { return "" }
+        return String((tv.text ?? "")[r])
+    }
+
+    /// presses a word of a message until it's selected and the selection's bubble shows
+    private func pressWord(_ app: App, in words: String, word: String) -> UITextView? {
+        guard let tv = textView(app, words), let r = spot(tv, word) else {
+            XCTFail("no text with \(words)")
+            return nil
+        }
+        settle()
+        Finger.press(CGPoint(x: r.midX, y: r.midY), seconds: 1.0)
+        idle(0.5)
+        XCTAssertTrue(poll(3) { tv.selectedRange.length > 0 }, "the press selected a word")
+        XCTAssertEqual(selection(tv), word)
+        return tv
+    }
+
+    /// a button of the selection's bubble (the bubble pages on when its actions don't fit)
+    private func menuButton(_ app: App, _ label: String) -> Element {
+        let b = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
+        for _ in 0..<3 where !b.waitForExistence(timeout: 2) {
+            let more = app.buttons.matching(NSPredicate(format: "label IN %@", ["Next", "More", "Forward", "Show More Items"])).firstMatch
+            guard more.exists else { break }
+            more.tap()
+        }
+        return b
+    }
+
     func testD7PressAndRewind() {
         let app = openChat(gallery, waitFor: "All five pages pass")
-        let bubble = find(app, "The lightbox opens behind the header")
-        XCTAssertTrue(bubble.waitForExistence(timeout: 5))
-        bubble.press(forDuration: 1.2)
-        let rewind = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Rewind to here'")).firstMatch
-        XCTAssertTrue(rewind.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Copy"].exists)
-        XCTAssertTrue(app.buttons["Ask btw about it"].exists)
-        XCTAssertTrue(app.buttons["Select text"].exists)
+        guard pressWord(app, in: "The lightbox opens behind the header", word: "lightbox") != nil else { return }
+        XCTAssertTrue(app.buttons["Copy"].waitForExistence(timeout: 5), "the system's Copy")
         sleep(1)
         shot("d7-press")
+        let rewind = menuButton(app, "Rewind to here")
+        XCTAssertTrue(rewind.exists, "your own message is a rewind point")
         rewind.tap()
         XCTAssertTrue(app.buttons["Restore conversation"].waitForExistence(timeout: 5))
         sleep(1)
@@ -1439,16 +1481,45 @@ final class ScreenTests: XCTestCase {
         shot("rewind-restored")
     }
 
-    func testD7AnswerSelectText() {
+    /// a reply: a press selects a word in place, the end handle drags it across the next paragraphs, Copy copies
+    /// just that; the bubble also has Ask btw about it and Copy message, and no Rewind (replies aren't rewind points)
+    func testD7ReplySelectsInPlace() {
         let app = openChat(gallery, waitFor: "All five pages pass")
-        find(app, "All five pages pass").press(forDuration: 1.2)
+        guard let tv = pressWord(app, in: "All five pages pass", word: "lightbox") else { return }
         XCTAssertTrue(app.buttons["Copy"].waitForExistence(timeout: 5))
-        XCTAssertFalse(find(app, "Rewind to here").exists, "Claude's replies aren't rewind points")
-        app.buttons["Select text"].tap()
-        XCTAssertTrue(el(app, "selectText").waitForExistence(timeout: 5))
+        XCTAssertTrue(menuButton(app, "Ask btw about it").exists)
         sleep(1)
-        shot("select-text")
-        app.buttons["doneSelecting"].tap()
+        shot("a229-select-word")
+        // the end handle, from the word to the last paragraph
+        guard let range = tv.selectedTextRange, let to = spot(tv, "close the lightbox") ?? spot(tv, "I also made Esc")
+        else { return XCTFail("no selection or no last paragraph") }
+        let caret = tv.convert(tv.caretRect(for: range.end), to: nil)
+        settle()
+        Finger.press(CGPoint(x: caret.midX, y: caret.maxY - 3), seconds: 0.15,
+                     thenDragTo: CGPoint(x: to.maxX - 2, y: to.midY), speed: 250, hold: 0.4)
+        idle(0.6)
+        let picked = selection(tv)
+        XCTAssertTrue(picked.contains("All five pages pass") && picked.contains("I also made"),
+                      "the selection runs across the paragraphs: \(picked)")
+        XCTAssertTrue(app.buttons["Copy"].waitForExistence(timeout: 5))
+        sleep(1)
+        shot("a229-select-paragraphs")
+        UIPasteboard.general.string = ""
+        app.buttons["Copy"].tap()
+        let copied = UIPasteboard.general.string ?? ""
+        XCTAssertTrue(copied.contains("All five pages pass the link check.\n"), "the paragraphs, a line each: \(copied)")
+        XCTAssertFalse(copied.hasPrefix("Fixed."), "only the selection")
+        // again, for the bubble's other actions
+        guard pressWord(app, in: "All five pages pass", word: "check") != nil else { return }
+        XCTAssertFalse(menuButton(app, "Rewind to here").exists, "Claude's replies aren't rewind points")
+        let whole = menuButton(app, "Copy message")
+        XCTAssertTrue(whole.exists)
+        whole.tap()
+        XCTAssertTrue((UIPasteboard.general.string ?? "").hasPrefix("Fixed. The lightbox"), "the whole reply")
+        guard pressWord(app, in: "All five pages pass", word: "link") != nil else { return }
+        menuButton(app, "Ask btw about it").tap()
+        let field = app.textFields["composer"].exists ? app.textFields["composer"] : app.textViews["composer"]
+        XCTAssertTrue(poll(5) { (field.value as? String ?? "") == "/btw about \u{201C}link\u{201D}: " }, "\(field.value ?? "")")
     }
 
     // MARK: slice 5: voice (the demo's PC hears "Also let a swipe down close the lightbox on phones.")

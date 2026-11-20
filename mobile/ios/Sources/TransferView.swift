@@ -18,8 +18,8 @@ struct TransferPage: View {
     @Environment(\.scenePhase) private var phase
     @State private var tab: Tab
     @State private var opener = TransferOpener()
-    @State private var position = ScrollPosition(edge: .bottom)
-    @State private var atBottom = true
+    /// a229: the chat moves only where the finger takes it, and follows new messages at the bottom
+    @State private var scroll = ChatScrollKeeper()
     @State private var jump: String?
     @Namespace private var pill
 
@@ -150,6 +150,7 @@ struct TransferPage: View {
                             .padding(.top, lines.contains(m.id) ? 0 :
                                         TransferLayout.spacing(m, after: i > 0 ? store.messages[i - 1] : nil))
                             .id(m.id)
+                            .scrollRow(m.id)
                     }
                     ForEach(store.outbox) { o in
                         OutboxBubble(message: o, store: store)
@@ -159,36 +160,22 @@ struct TransferPage: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 12)
+                .scrollContent(scroll)
             }
-            .defaultScrollAnchor(.bottom)
-            .scrollPosition($position)
+            // a229: as a chat (ChatScrollKeeper): it follows new messages only while at the bottom with no finger on it
+            .keepsScroll(scroll)
             .onScrollGeometryChange(for: Bool.self) { g in
                 g.contentOffset.y + g.contentInsets.top < 300
             } action: { _, nearTop in
                 if nearTop { Task { await store.loadOlder() } }
             }
-            .onScrollGeometryChange(for: Bool.self) { g in
-                g.contentOffset.y + g.containerSize.height - g.contentInsets.bottom >= g.contentSize.height - 120
-            } action: { _, bottom in
-                atBottom = bottom
-            }
-            .onChange(of: store.messages.isEmpty) { _, empty in
-                guard !empty, jump == nil else { return }
-                position.scrollTo(edge: .bottom)
-                Task {
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                    position.scrollTo(edge: .bottom)
-                }
-            }
             .onChange(of: store.outbox.count) { old, new in
-                if new > old { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
-            }
-            .onChange(of: store.liveTick) {
-                if atBottom { withAnimation(.easeOut(duration: 0.25)) { position.scrollTo(edge: .bottom) } }
+                if new > old { scroll.follow() }
             }
             .task(id: jump) {
                 // the Library's "Show in chat": to that message once the chat is on screen
                 guard let id = jump else { return }
+                scroll.hold()
                 try? await Task.sleep(nanoseconds: 150_000_000)
                 withAnimation(.easeOut(duration: 0.25)) { reader.scrollTo(id, anchor: .center) }
                 jump = nil
