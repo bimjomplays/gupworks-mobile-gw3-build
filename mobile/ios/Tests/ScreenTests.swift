@@ -2173,6 +2173,13 @@ final class ScreenTests: XCTestCase {
 
     private func position(_ app: App) -> String { el(app, "needsPosition").label }
 
+    /// an element of the card on screen (the cards beside it carry the same ids)
+    private func onCard(_ app: App, _ id: String) -> Element {
+        let all = app.descendants(matching: .any).matching(identifier: id)
+        for i in 0..<all.count where all.element(boundBy: i).isHittable { return all.element(boundBy: i) }
+        return all.firstMatch
+    }
+
     /// a sideways swipe across the cards (left: the next card)
     private func swipeCards(_ app: App, left: Bool) {
         let cards = el(app, "needsCards")
@@ -2210,7 +2217,7 @@ final class ScreenTests: XCTestCase {
         swipeCards(app, left: false)
         XCTAssertTrue(poll(5) { self.position(app) == "1 of 5" }, position(app))
         // one tap answers; the next card slides in
-        el(app, "needsAnswer-0").tap()
+        onCard(app, "needsAnswer-0").tap()
         XCTAssertTrue(poll(5) { self.position(app) == "1 of 4" }, position(app))
         XCTAssertTrue(find(app, "a21: Ship the new gallery grid?").waitForExistence(timeout: 5))
         XCTAssertTrue(el(app, "needsPicture").exists, "Before and After")
@@ -2223,7 +2230,7 @@ final class ScreenTests: XCTestCase {
         openDeck(app)
         swipeCards(app, left: true)
         XCTAssertTrue(poll(5) { self.position(app) == "2 of 5" }, position(app))
-        el(app, "needsSomethingElse").tap()
+        onCard(app, "needsSomethingElse").tap()
         let field = el(app, "needsOther")
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         XCTAssertTrue(hasFocus(field), "the keyboard is up")
