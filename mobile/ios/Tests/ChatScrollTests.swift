@@ -132,13 +132,13 @@ final class ChatScrollTests: XCTestCase {
         stays(app, line, before, "streaming while scrolled up")
         App.current?.shot("a229-streaming-scrolled-up")
         // back down to the bottom while it still streams: letting go there follows again
-        // (the demo adds a line every 0.4 s, faster than held drags on the CI's simulator move: the view is put just
-        // above the end, then real drags, one right after the other, take it past the end)
-        if let sv = chatScroll() {
-            let i = sv.adjustedContentInset
-            sv.setContentOffset(CGPoint(x: 0, y: sv.contentSize.height + i.bottom - sv.bounds.height - 120), animated: false)
-        }
-        for _ in 0..<6 {
+        // (the demo adds a line every 0.4 s, faster than held drags on the CI's simulator move: each try puts the
+        // view just above the end, then one real drag takes it past the end and lets go there)
+        for _ in 0..<5 {
+            if let sv = chatScroll() {
+                let i = sv.adjustedContentInset
+                sv.setContentOffset(CGPoint(x: 0, y: sv.contentSize.height + i.bottom - sv.bounds.height - 60), animated: false)
+            }
             scrollDown(app, by: 0.5)
             if let (_, r) = newestStep(app), r.maxY <= box(app).frame.minY + 4, r.minY > 120 { break }
         }

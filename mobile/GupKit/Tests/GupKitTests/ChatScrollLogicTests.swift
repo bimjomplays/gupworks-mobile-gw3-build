@@ -142,6 +142,27 @@ final class ChatScrollLogicTests: XCTestCase {
         XCTAssertEqual(c.gap, 0, accuracy: 0.01, "and following again")
     }
 
+    /// dragged past the end and let go: a line arrives while it bounces back, so the bounce's last steps are above the
+    /// new end; it was let go at the bottom, so it follows again
+    func testALineArrivesDuringTheBounce() {
+        var c = Pretend(rows: 20)
+        c.drag(-400)
+        c.keeper.touchDown(top: c.offset)
+        c.offset = c.bottomOffset + 80
+        c.keeper.scrolled(top: c.offset)
+        c.keeper.moved(gap: c.gap)
+        c.keeper.touchUp()
+        c.rows[19].height += 120
+        for _ in 0..<3 {
+            c.offset -= 10
+            c.keeper.scrolled(top: c.offset)
+            c.keeper.moved(gap: c.gap)
+        }
+        XCTAssertGreaterThan(c.gap, ChatScroll.slack)
+        XCTAssertEqual(c.keeper.rest(top: c.offset, gap: c.gap), .bottom(animated: true), "to the line that came")
+        XCTAssertTrue(c.keeper.following)
+    }
+
     /// reached the bottom, then pulled back up a little before letting go: not following
     func testReachedTheBottomThenBackUp() {
         var c = Pretend(rows: 20)

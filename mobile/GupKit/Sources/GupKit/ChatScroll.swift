@@ -58,10 +58,13 @@ struct ChatScroll {
     }
 
     /// the view moved while a finger has it or right after one let go (a fling, a bounce): whether that motion left it
-    /// at the bottom (text arriving afterwards doesn't change that; it only moves the bottom)
+    /// at the bottom (text arriving afterwards doesn't change that; it only moves the bottom). Once let go, reaching
+    /// the bottom counts for good: a bounce back from past the end may take its last steps above an end that a new
+    /// line just moved down, and nothing without a finger takes it back up.
     mutating func moved(gap: Double) {
         guard touching || released else { return }
-        leftAtBottom = gap <= Self.slack
+        let there = gap <= Self.slack
+        leftAtBottom = touching ? there : (leftAtBottom || there)
     }
 
     /// the last finger left
