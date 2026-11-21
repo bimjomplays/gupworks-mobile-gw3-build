@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var confirmUnpair = false
+    private let push = PushCenter.shared
 
     var body: some View {
         NavigationStack {
@@ -28,10 +29,18 @@ struct SettingsView: View {
                         Text("Forgets the PC's key on this phone. To also make the PC forget every phone, run gw3-phone revoke on the PC.")
                     }
                 }
+                // a233: whether the PC can push to this phone, in its words, and why this build can't when it can't
+                if model.pairing != nil, push.status != nil || push.problem != nil {
+                    Section("Notifications") {
+                        if let t = push.status?.text { Text(t).accessibilityIdentifier("pushStatus") }
+                        if let p = push.problem { Text(p).foregroundStyle(.secondary) }
+                    }
+                }
                 Section("App") {
                     LabeledContent("Version", value: Self.appVersion)
                 }
             }
+            .task { if let p = model.pairing, !model.demo { await push.refresh(p) } }
             .scrollContentBackground(.hidden)
             .background(Theme.background)
             .navigationTitle("Settings")

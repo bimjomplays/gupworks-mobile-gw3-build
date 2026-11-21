@@ -1,5 +1,6 @@
 import UIKit
 import XCTest
+import UserNotifications
 @testable import GupWorks3
 
 // UIKit and SwiftUI checks; the plain logic's tests are in mobile/GupKit/Tests (they run here too).
@@ -150,5 +151,38 @@ final class PhotoGridTests: XCTestCase {
         // asked how wide it likes to be: three 96 pt tiles, never one long row
         XCTAssertEqual(PhotoGrid.shape(count: 6, width: nil), .init(columns: 3, rows: 2, side: 96))
         XCTAssertEqual(PhotoGrid.shape(count: 6, width: .infinity), .init(columns: 3, rows: 2, side: 96))
+    }
+}
+
+/// a233: the notification categories the app registers (GupKit's PushCategory as UserNotifications objects), and the
+/// Info.plist bits push needs.
+@MainActor
+final class PushCenterTests: XCTestCase {
+    func testCategoriesAndTheirButtons() throws {
+        let cats = Dictionary(uniqueKeysWithValues: PushCenter.categories.map { ($0.identifier, $0) })
+        XCTAssertEqual(Set(cats.keys), Set(PushCategory.all.map(\.id)))
+        let ask = try XCTUnwrap(cats["gw3.ask.rec.other"])
+        XCTAssertEqual(ask.actions.map(\.identifier), ["gw3.rec", "gw3.other", "gw3.dismiss"])
+        XCTAssertEqual(ask.actions.map(\.title), ["Send recommended", "Something else…", "Dismiss"])
+        let other = try XCTUnwrap(ask.actions[1] as? UNTextInputNotificationAction)
+        XCTAssertEqual((other.textInputButtonTitle, other.textInputPlaceholder), ("Send", "Your answer"))
+        XCTAssertTrue(ask.actions[2].options.contains(.destructive))
+        let perm = try XCTUnwrap(cats["gw3.permission"])
+        XCTAssertEqual(perm.actions.map(\.title), ["Allow once", "Deny"])
+        // every button runs in the background and works from a locked phone and the watch
+        for c in cats.values {
+            for a in c.actions {
+                XCTAssertFalse(a.options.contains(.foreground), a.identifier)
+                XCTAssertFalse(a.options.contains(.authenticationRequired), a.identifier)
+            }
+        }
+        XCTAssertEqual(cats["gw3.open"]?.actions.count, 0)
+    }
+
+    func testInfoPlistWakesForTheSilentPush() {
+        let modes = Bundle.main.object(forInfoDictionaryKey: "UIBackgroundModes") as? [String] ?? []
+        XCTAssertTrue(modes.contains("remote-notification"))
+        XCTAssertTrue(modes.contains("audio"))
+        XCTAssertNotNil(Bundle.main.object(forInfoDictionaryKey: "GW3Team"))  // empty in this unsigned build
     }
 }

@@ -248,6 +248,11 @@ jobs:
           mkdir Payload
           cp -R "$app" Payload/
           zip -qry GupWorks3.ipa Payload
+      - name: Push entitlement (a233)
+        run: |
+          # the TestFlight job's ad hoc signing with push, tried on a copy (the ipa above stays unsigned)
+          cp -R "build/Build/Products/Release-iphoneos/$SCHEME.app" "$RUNNER_TEMP/push-check.app"
+          ./push-entitlements.sh "$RUNNER_TEMP/push-check.app" production
       - uses: actions/upload-artifact@v4
         with:
           name: GupWorks3-ipa
@@ -310,6 +315,12 @@ jobs:
             CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} archive > archive.log 2>&1 \
             || { grep -E "error:" archive.log | head -60; tail -40 archive.log; exit 1; }
+      - name: Push entitlement
+        if: steps.keys.outputs.ready == 'true'
+        run: |
+          # a233: the unsigned archive carries no entitlements; signed ad hoc with production push here, the export's
+          # re-signing keeps aps-environment (the App ID gets Push Notifications through automatic signing)
+          ./push-entitlements.sh "$RUNNER_TEMP/GupWorks3.xcarchive/Products/Applications/$SCHEME.app" production
       - name: Upload to TestFlight
         if: steps.keys.outputs.ready == 'true'
         run: |

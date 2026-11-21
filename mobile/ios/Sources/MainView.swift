@@ -223,6 +223,13 @@ struct MainView: View {
             alerts.needs = nil
             model.openNeeds = key
         }
+        .onAppear {
+            // a233: the tap that launched the app came before this screen was there to see it change
+            if let key = alerts.needs {
+                alerts.needs = nil
+                model.openNeeds = key
+            }
+        }
         .alert("That didn't work", isPresented: Binding(get: { model.actionError != nil },
                                                        set: { if !$0 { model.actionError = nil } })) {
             Button("OK", role: .cancel) {}

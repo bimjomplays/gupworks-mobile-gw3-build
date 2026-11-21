@@ -10,7 +10,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.9.13"
+    MARKETING_VERSION: "0.9.12"
     CURRENT_PROJECT_VERSION: "1"
 # Hammer: real touches (taps, drags, long presses, pinches) inside the unit-test process, for the screen tests
 # (Tests/ScreenDriver.swift); XCTest's own event synthesizer only works from a UI-test bundle
@@ -47,8 +47,12 @@ targets:
         # upright only, except the video player (AppDelegate's mask in VideoPlayer.swift)
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft,
                                            UIInterfaceOrientationLandscapeRight]
-        # picture in picture keeps a video playing outside the app
-        UIBackgroundModes: [audio]
+        # picture in picture keeps a video playing outside the app; remote-notification (a233): gw3-phone's silent
+        # push wakes the app for a moment to take back a notification answered elsewhere
+        UIBackgroundModes: [audio, remote-notification]
+        # a233: the Apple team the build is signed for (empty in the unsigned CI builds); gw3-phone signs its push
+        # tokens for that team when the PC's APNs config.json (beside its key) names none
+        GW3Team: $(DEVELOPMENT_TEAM)
         UIRequiredDeviceCapabilities: [arm64]
         ITSAppUsesNonExemptEncryption: false
         # the pairing QR holds a gupworks3://pair link, so the iPhone camera app can open it here too
@@ -80,6 +84,9 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.gupworks3.phone
         PRODUCT_NAME: GupWorks3
+        # a233: push (aps-environment). Used when the app is signed by Xcode; the TestFlight job signs the archive with
+        # production push itself before the export (mobile/ios/push-entitlements.sh)
+        CODE_SIGN_ENTITLEMENTS: GupWorks3.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_PREVIEWS: "YES"
