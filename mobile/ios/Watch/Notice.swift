@@ -7,14 +7,11 @@ import WatchKit
 /// real answers (the iPhone's notification can only say "Send recommended"). The first button is the recommended
 /// answer, which a double tap presses on a notification (watchOS 10.1+); on a command it is Deny. Each button opens
 /// the app, where the answer shows Sent with its 5 s Undo before it goes (WatchStore.respond).
-final class NoticeController: WKUserNotificationHostingController<NoticeView> {
-    private var card: WatchCard?
-    private var title = ""
-    private var text = ""
+final class NoticeController: WKUserNotificationHostingController<NoticeBody> {
+    // WKUserNotificationHostingController has no setNeedsBodyUpdate (CI run 44865801797): the body watches this
+    private let shown = NoticeShown()
 
-    override var body: NoticeView {
-        NoticeView(card: card, title: title, text: text, now: WatchStore.shared.pcNow)
-    }
+    override var body: NoticeBody { NoticeBody(shown: shown) }
 
     override func didReceive(_ notification: UNNotification) {
         let content = notification.request.content
@@ -22,16 +19,31 @@ final class NoticeController: WKUserNotificationHostingController<NoticeView> {
         let pushed = WatchNotice.item(info)
         let item = pushed ?? WatchStore.shared.item(info["needs"] as? String)
         if let pushed { WatchStore.shared.adopt(pushed) }
-        card = item.map(WatchCard.init)
-        title = content.title
-        text = content.body
+        let card = item.map(WatchCard.init)
+        shown.card = card
+        shown.title = content.title
+        shown.text = content.body
         notificationActions = card.map { c in
             WatchNotice.buttons(c).map { b in
                 UNNotificationAction(identifier: b.id, title: b.title,
                                      options: b.destructive ? [.foreground, .destructive] : [.foreground])
             }
         } ?? notificationActions
-        setNeedsBodyUpdate()
+    }
+}
+
+/// What the notification shows, filled in by didReceive after the body is first asked for.
+final class NoticeShown: ObservableObject {
+    @Published var card: WatchCard?
+    @Published var title = ""
+    @Published var text = ""
+}
+
+struct NoticeBody: View {
+    @ObservedObject var shown: NoticeShown
+
+    var body: some View {
+        NoticeView(card: shown.card, title: shown.title, text: shown.text, now: WatchStore.shared.pcNow)
     }
 }
 

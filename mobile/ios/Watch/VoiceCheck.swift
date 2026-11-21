@@ -5,7 +5,6 @@ import SwiftUI
 /// still waits out the 5 s Undo.
 struct VoiceCheck: View {
     @Environment(WatchStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
     let draft: VoiceDraft
     @State private var words = ""
 
@@ -72,9 +71,8 @@ struct VoiceCheck: View {
                     .accessibilityIdentifier("watchVoiceAgain")
                     Button {
                         if let s = WatchSend.words(words, on: card, at: store.now) {
-                            store.voice = nil
+                            store.voice = nil  // closes this screen; the Sent banner and its Undo show on the deck
                             store.send(s)
-                            dismiss()
                         }
                     } label: {
                         HStack(spacing: 5) {

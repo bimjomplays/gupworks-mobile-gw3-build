@@ -76,8 +76,8 @@ final class WatchLink: NSObject, WCSessionDelegate {
         guard let s = watchReady, let base = PairingStore.load()?.baseURL else { return }
         for link in links {
             guard let url = MediaLink.url(link, base: base),
-                  let (data, _) = try? await URLSession.shared.data(from: url),
-                  let image = UIImage(data: data) else { continue }
+                  let got = try? await URLSession.shared.data(from: url),
+                  let image = UIImage(data: got.0) else { continue }
             let px = (image.size.width * image.scale, image.size.height * image.scale)
             let fit = WatchRelay.fit(width: px.0, height: px.1)
             let format = UIGraphicsImageRendererFormat()
