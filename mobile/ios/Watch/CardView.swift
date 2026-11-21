@@ -193,13 +193,15 @@ struct AnswerRow: View {
         VStack(alignment: .leading, spacing: 2) {
             if answer.recommended {
                 HStack(spacing: 4) {
-                    Text("Recommended")
+                    Text("Recommended").layoutPriority(1)
                     if doubleTap {
                         Spacer(minLength: 4)
                         Image(systemName: Look.hand)
                         Text("double tap")
                     }
                 }
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(Look.recTag)
             }
@@ -249,16 +251,18 @@ struct Thumbnails: View {
     private func thumb(_ pic: NeedItem.Picture, expand: Bool) -> some View {
         let _ = store.picturesChanged
         return ZStack(alignment: .topTrailing) {
-            Group {
-                if let img = store.image(pic.url) {
-                    Image(uiImage: img).resizable().aspectRatio(contentMode: .fill)
-                } else {
-                    Rectangle().fill(Look.row).overlay(ProgressView())
+            // a filled picture reports its own width; laid over a clear box it can't widen the card (CI run 44866334361)
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 68)
+                .overlay {
+                    if let img = store.image(pic.url) {
+                        Image(uiImage: img).resizable().scaledToFill()
+                    } else {
+                        Rectangle().fill(Look.row).overlay(ProgressView())
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 68)
-            .clipped()
+                .clipped()
             if expand {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
                     .font(.system(size: 11, weight: .semibold))

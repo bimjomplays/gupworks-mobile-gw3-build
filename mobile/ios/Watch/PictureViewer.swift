@@ -4,7 +4,6 @@ import SwiftUI
 /// place, the caption from the ask on top, ✕ back to the card.
 struct PictureViewer: View {
     @Environment(WatchStore.self) private var store
-    @Environment(\.dismiss) private var dismiss
     let open: PictureOpen
     @State private var index = 0
     @State private var zoom = 1.0
@@ -48,19 +47,8 @@ struct PictureViewer: View {
         }
         .overlay(alignment: .top) {
             VStack(spacing: 8) {
-                HStack {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .bold))
-                            .frame(width: 30, height: 30)
-                            .background(Circle().fill(.black.opacity(0.78)))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Close")
-                    .accessibilityIdentifier("watchPictureClose")
-                    Spacer()
-                }
-                .padding(.leading, 22)
+                // the sheet's own close button sits top left (a second one of ours doubled it)
+                Color.clear.frame(height: 30)
                 if let c = pic?.caption, !c.isEmpty {
                     caption(c)
                         .padding(.horizontal, 10)

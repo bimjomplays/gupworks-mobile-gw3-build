@@ -30,9 +30,21 @@ struct VoiceCheck: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("watchVoiceSay")
                 } else {
-                    TextField("Your answer", text: $words, axis: .vertical)
-                        .textFieldStyle(.plain)
+                    // the words in full, wrapped (watchOS draws a TextField on one cut line); the field under them
+                    // takes the tap and opens the system's input with the words in it to fix
+                    Text("\u{201C}\(words)\u{201D}")
                         .font(.system(size: 16, weight: .medium))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.trailing, 14)
+                        .allowsHitTesting(false)
+                        .background {
+                            TextField("Your answer", text: $words)
+                                .textFieldStyle(.plain)
+                                .foregroundStyle(.clear)
+                                .tint(.clear)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
                         .overlay(alignment: .bottomTrailing) {
