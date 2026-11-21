@@ -2177,9 +2177,15 @@ final class ScreenTests: XCTestCase {
     /// to it first, as a finger would
     private func onCard(_ app: App, _ id: String) -> Element {
         let all = app.descendants(matching: .any).matching(identifier: id)
+        let cards = el(app, "needsCards")
         for _ in 0..<5 {
-            for i in 0..<all.count where all.element(boundBy: i).isHittable { return all.element(boundBy: i) }
-            let cards = el(app, "needsCards")
+            // inside the cards' own box: below it, the tap would land on Snooze · Open chat · Dismiss (SwiftUI's one
+            // hosting view makes isHittable true there too)
+            let box = cards.frame.insetBy(dx: 0, dy: 8)
+            for i in 0..<all.count {
+                let f = all.element(boundBy: i).frame
+                if box.contains(CGPoint(x: f.midX, y: f.midY)) { return all.element(boundBy: i) }
+            }
             cards.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
                 .press(forDuration: 0.02, thenDragTo: cards.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)),
                        withVelocity: .slow, thenHoldForDuration: 0.1)
