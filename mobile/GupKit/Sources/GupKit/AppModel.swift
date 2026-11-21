@@ -77,7 +77,13 @@ final class AppModel {
     }
 
     func unpair() {
-        if !demo, let p = pairing { Routes.shared.forget(p.baseURL) }
+        if !demo, let p = pairing {
+            Routes.shared.forget(p.baseURL)
+            // a233: no more pushes to this phone, and its answer-only token goes
+            AnswerPassStore.clear()
+            let api = self.api
+            Task { try? await api.unregisterPush(p) }
+        }
         if !demo { PairingStore.clear() }
         pairing = nil
         home = nil

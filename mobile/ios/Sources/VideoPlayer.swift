@@ -139,7 +139,24 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         _ = StudioAlerts.shared  // catches a tap on a Studio notification that launched the app
+        PushCenter.shared.start()  // a233: the notification buttons, and this phone's push token for the PC
         return true
+    }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
+        PushCenter.shared.got(token: token)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        PushCenter.shared.failed(error)
+    }
+
+    /// gw3-phone's silent push: an item was answered or dismissed elsewhere, so its notification goes
+    nonisolated func application(_ application: UIApplication,
+                                 didReceiveRemoteNotification info: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
+        guard let r = PushPayload.removal(info) else { return .noData }
+        await PushCenter.shared.takeBack(gone: r.gone, live: r.live)
+        return .newData
     }
 
     func application(_ application: UIApplication,

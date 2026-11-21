@@ -63,12 +63,33 @@ final class ChatScrollLogicTests: XCTestCase {
             layout()
         }
 
+        /// a finger that's down moves the view to `to` (UIKit doesn't clamp while it has it: past the end is a bounce)
+        mutating func finger(to: Double) {
+            offset = to
+            keeper.scrolled(top: offset)
+            keeper.moved(top: offset, gap: gap)
+        }
+
+        /// the last finger lets go with no fling; the view does what the rest says
+        mutating func letGo() -> ChatScroll.Move {
+            keeper.touchUp()
+            let m = keeper.rest(top: offset, gap: gap)
+            apply(m)
+            return m
+        }
+
+        /// a line of the reply arrives (the newest row grows)
+        mutating func line(_ h: Double = 65) {
+            rows[rows.count - 1].height += h
+            layout()
+        }
+
         /// a drag that moves the content up by `d` (negative: older text comes into view), then lets go with no fling
         mutating func drag(_ d: Double) {
-            keeper.touchDown(top: offset)
+            keeper.touchDown(top: offset, gap: gap)
             offset = min(max(0, offset + d), bottomOffset)
             keeper.scrolled(top: offset)
-            keeper.moved(gap: gap)
+            keeper.moved(top: offset, gap: gap)
             keeper.touchUp()
             apply(keeper.rest(top: offset, gap: gap))
         }
@@ -115,7 +136,7 @@ final class ChatScrollLogicTests: XCTestCase {
 
     func testAFingerResting() {
         var c = Pretend(rows: 20)
-        c.keeper.touchDown(top: c.offset)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
         let read = c.onScreen("r17")
         c.grow("r19", by: 120)
         XCTAssertEqual(c.onScreen("r17"), read, accuracy: 0.01, "nothing moves under the finger")
@@ -145,10 +166,10 @@ final class ChatScrollLogicTests: XCTestCase {
         var c = Pretend(rows: 20)
         c.drag(-400)
         XCTAssertFalse(c.keeper.following)
-        c.keeper.touchDown(top: c.offset)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
         c.offset = c.bottomOffset
         c.keeper.scrolled(top: c.offset)
-        c.keeper.moved(gap: c.gap)
+        c.keeper.moved(top: c.offset, gap: c.gap)
         c.grow("r19", by: 45)
         c.keeper.touchUp()
         XCTAssertEqual(c.keeper.rest(top: c.offset, gap: c.gap), .bottom(animated: true), "to the line that just came")
@@ -163,16 +184,16 @@ final class ChatScrollLogicTests: XCTestCase {
     func testALineArrivesDuringTheBounce() {
         var c = Pretend(rows: 20)
         c.drag(-400)
-        c.keeper.touchDown(top: c.offset)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
         c.offset = c.bottomOffset + 80
         c.keeper.scrolled(top: c.offset)
-        c.keeper.moved(gap: c.gap)
+        c.keeper.moved(top: c.offset, gap: c.gap)
         c.keeper.touchUp()
         c.rows[19].height += 120
         for _ in 0..<3 {
             c.offset -= 10
             c.keeper.scrolled(top: c.offset)
-            c.keeper.moved(gap: c.gap)
+            c.keeper.moved(top: c.offset, gap: c.gap)
         }
         XCTAssertGreaterThan(c.gap, ChatScroll.slack)
         XCTAssertEqual(c.keeper.rest(top: c.offset, gap: c.gap), .bottom(animated: true), "to the line that came")
@@ -183,12 +204,12 @@ final class ChatScrollLogicTests: XCTestCase {
     func testReachedTheBottomThenBackUp() {
         var c = Pretend(rows: 20)
         c.drag(-400)
-        c.keeper.touchDown(top: c.offset)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
         c.offset = c.bottomOffset
-        c.keeper.moved(gap: c.gap)
+        c.keeper.moved(top: c.offset, gap: c.gap)
         c.offset -= 120
         c.keeper.scrolled(top: c.offset)
-        c.keeper.moved(gap: c.gap)
+        c.keeper.moved(top: c.offset, gap: c.gap)
         c.keeper.touchUp()
         XCTAssertEqual(c.keeper.rest(top: c.offset, gap: c.gap), .none)
         XCTAssertFalse(c.keeper.following)
@@ -197,7 +218,7 @@ final class ChatScrollLogicTests: XCTestCase {
     func testAPushTowardTheBottomFromFollowing() {
         // following, a drag toward the bottom that ends in a bounce (the content grew meanwhile): follows on
         var c = Pretend(rows: 20)
-        c.keeper.touchDown(top: c.offset)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
         c.grow("r19", by: 300)
         c.offset += 50
         c.keeper.scrolled(top: c.offset)
@@ -207,13 +228,128 @@ final class ChatScrollLogicTests: XCTestCase {
 
     func testASmallDragUpFromFollowingStops() {
         var c = Pretend(rows: 20)
-        c.keeper.touchDown(top: c.offset)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
         c.grow("r19", by: 200)
         c.offset -= 60
         c.keeper.scrolled(top: c.offset)
         c.keeper.touchUp()
         XCTAssertEqual(c.keeper.rest(top: c.offset, gap: c.gap), .none, "he pulled up to read: it stays")
         XCTAssertFalse(c.keeper.following)
+    }
+
+    // MARK: a236: back to the bottom while the reply streams
+
+    /// the finger reaches the end, a line arrives under it, and the finger goes on a little (still toward the end,
+    /// now short of the new end) before letting go: it was taken to the bottom, so it follows. Before a236 any
+    /// motion after the line forgot the bottom (the CI's flaky "back at the bottom", run 44822162078).
+    func testALineArrivesUnderTheFingerAtTheBottom() {
+        var c = Pretend(rows: 20)
+        c.drag(-400)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
+        c.finger(to: c.bottomOffset)
+        c.line(120)
+        c.finger(to: c.offset + 20)
+        XCTAssertGreaterThan(c.gap, ChatScroll.reach)
+        XCTAssertEqual(c.letGo(), .bottom(animated: true), "to the line that came")
+        XCTAssertTrue(c.keeper.following)
+        c.line()
+        XCTAssertEqual(c.gap, 0, accuracy: 0.01, "and following again")
+    }
+
+    /// the same with a thumb that only trembles by a point (up) after the line came
+    func testAThumbTremblingAtTheBottom() {
+        var c = Pretend(rows: 20)
+        c.drag(-400)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
+        c.finger(to: c.bottomOffset + 30)   // a little past the end
+        c.line(120)
+        c.finger(to: c.offset - 1)
+        XCTAssertEqual(c.letGo(), .bottom(animated: true))
+        XCTAssertTrue(c.keeper.following)
+    }
+
+    /// reached the bottom, a line came, then pulled back up to read: not following
+    func testALineArrivesThenPulledBackUp() {
+        var c = Pretend(rows: 20)
+        c.drag(-400)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
+        c.finger(to: c.bottomOffset)
+        c.line()
+        c.finger(to: c.offset - 30)
+        XCTAssertEqual(c.letGo(), .none)
+        XCTAssertFalse(c.keeper.following)
+    }
+
+    /// dragged down toward an end that keeps moving and let go 20-60 pt short of it (a thumb's miss): follows
+    func testLandingJustShortOfAMovingEnd() {
+        for short in [20.0, 40.0, ChatScroll.reach] {
+            var c = Pretend(rows: 20)
+            c.drag(-400)
+            c.keeper.touchDown(top: c.offset, gap: c.gap)
+            c.finger(to: c.offset + 200)
+            c.line()
+            c.finger(to: c.bottomOffset - short)
+            XCTAssertEqual(c.letGo(), .bottom(animated: true), "\(short) pt short")
+            XCTAssertTrue(c.keeper.following, "\(short) pt short")
+        }
+        var up = Pretend(rows: 20)
+        up.drag(-200)
+        up.keeper.touchDown(top: up.offset, gap: up.gap)
+        up.finger(to: up.bottomOffset - 400)
+        up.line()
+        up.finger(to: up.bottomOffset - 30 - 65)
+        up.finger(to: up.bottomOffset - 30)
+        XCTAssertEqual(up.letGo(), .bottom(animated: true), "down again toward the end after going up: follows")
+    }
+
+    /// the same with a fling that runs out short of the end after the finger left
+    func testAFlingRunsOutJustShortOfAMovingEnd() {
+        var c = Pretend(rows: 20)
+        c.drag(-400)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
+        c.finger(to: c.offset + 100)
+        c.keeper.touchUp()
+        c.line()
+        for _ in 0..<8 {
+            c.offset += 40
+            c.keeper.scrolled(top: c.offset)
+            c.keeper.moved(top: c.offset, gap: c.gap)
+        }
+        XCTAssertTrue(c.gap > ChatScroll.slack && c.gap <= ChatScroll.reach, "gap \(c.gap)")
+        XCTAssertEqual(c.keeper.rest(top: c.offset, gap: c.gap), .bottom(animated: true))
+    }
+
+    /// further short than a thumb's miss, or no text arrived during the drag (an end that holds still is reached
+    /// exactly), or the drag went up: it stays where it was let go, as before
+    func testLandingShortStaysOtherwise() {
+        var far = Pretend(rows: 20)
+        far.drag(-400)
+        far.keeper.touchDown(top: far.offset, gap: far.gap)
+        far.finger(to: far.offset + 100)
+        far.line()
+        far.finger(to: far.bottomOffset - ChatScroll.reach - 15)
+        XCTAssertEqual(far.letGo(), .none, "further than a thumb's miss")
+
+        var still = Pretend(rows: 20)
+        still.drag(-400)
+        still.keeper.touchDown(top: still.offset, gap: still.gap)
+        still.finger(to: still.bottomOffset - 30)
+        XCTAssertEqual(still.letGo(), .none, "no text came: 30 pt above an end that holds still is where he stopped")
+
+        var back = Pretend(rows: 20)
+        back.drag(-400)
+        back.keeper.touchDown(top: back.offset, gap: back.gap)
+        back.finger(to: back.bottomOffset - 10)
+        back.line(20)
+        back.finger(to: back.offset - 20)
+        XCTAssertLessThanOrEqual(back.gap, ChatScroll.reach)
+        XCTAssertEqual(back.letGo(), .none, "went down, then back up to read")
+
+        var held = Pretend(rows: 20)
+        held.drag(-30)
+        held.keeper.touchDown(top: held.offset, gap: held.gap)
+        held.line(10)
+        XCTAssertEqual(held.letGo(), .none, "a finger only resting near the end doesn't take following up")
     }
 
     func testOlderTurnsLoadAbove() {
@@ -250,14 +386,14 @@ final class ChatScrollLogicTests: XCTestCase {
     func testAFoldOpenedAtTheBottomStaysWhereTapped() {
         var c = Pretend(rows: 20)
         // a tap on the newest turn's fold: the app holds the chat, then the fold opens below its row
-        c.keeper.touchDown(top: c.offset)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
         c.keeper.touchUp()
         c.keeper.hold()
         let row = c.onScreen("r18")
         c.grow("r18", by: 500)
         XCTAssertEqual(c.onScreen("r18"), row, accuracy: 0.01, "the fold's row doesn't move")
         XCTAssertEqual(c.keeper.rest(top: c.offset, gap: c.gap), .none, "the tap's letting go doesn't take following up again")
-        c.keeper.touchDown(top: c.offset)
+        c.keeper.touchDown(top: c.offset, gap: c.gap)
         c.keeper.touchUp()
         XCTAssertEqual(c.keeper.rest(top: c.offset, gap: c.gap), .none, "nor does another tap")
         c.drag(10_000)
@@ -312,5 +448,32 @@ final class MDPieceTests: XCTestCase {
         XCTAssertEqual(pieces[0].blocks.compactMap(\.text), ["A", "B"])
         XCTAssertEqual(MDPiece.split([MD(t: "code", code: "c"), MD(t: "p", text: "old", fallback: true),
                                       MD(t: "media", items: [])]).map(\.start), [0, 2])
+    }
+}
+
+/// a236: the demo reply a test steps line by line (`-stream -stepped`) instead of racing its timer
+@MainActor
+final class DemoStreamTests: XCTestCase {
+    override func tearDown() { Demo.args = ProcessInfo.processInfo.arguments }
+
+    func testSteppedStreamGrowsOnlyWhenAsked() async throws {
+        Demo.args = ["-demo", "-stream", "-stepped"]
+        let s = ChatStore(id: "00000009-1111-4222-8333-000000000009", pairing: nil, demo: true)
+        await s.run()
+        XCTAssertTrue(ChatStore.demoStreaming === s)
+        XCTAssertTrue(s.working)
+        func lines() -> Int { s.turns.last?.blocks.first?.md?.count ?? 0 }
+        XCTAssertEqual(lines(), 0)
+        try await Task.sleep(nanoseconds: 600_000_000)
+        XCTAssertEqual(lines(), 0, "no timer")
+        let tick = s.liveTick
+        s.demoStreamNext(3)
+        XCTAssertEqual(lines(), 3)
+        XCTAssertEqual(s.liveTick, tick + 3, "a turn event each")
+        XCTAssertEqual(s.turns.last?.blocks.first?.md?.last?.text, ChatStore.demoStep(3))
+        s.demoStreamNext(500)
+        XCTAssertEqual(lines(), ChatStore.demoStreamTotal)
+        XCTAssertFalse(s.working, "done after the last line")
+        XCTAssertEqual(s.turns.last?.state, "done")
     }
 }

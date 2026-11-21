@@ -1,9 +1,10 @@
 import SwiftUI
 import UserNotifications
 
-/// A Studio video chat's question as a phone notification (a180). The app has no push yet (mobile-app-plan slice 7),
-/// so these are local notifications posted when the PC's home list shows a new question while the app runs; a tap
-/// opens the video (MainView reads `open`).
+/// A Studio video chat's question as a phone notification (a180): local notifications posted when the PC's home list
+/// shows a new question while the app runs; a tap opens the video (MainView reads `open`). Also the app's one
+/// notification delegate: a needs-you push (a233, PushCenter) opens the deck at its card when tapped, and its
+/// buttons answer in the background.
 @Observable
 @MainActor
 final class StudioAlerts: NSObject, UNUserNotificationCenterDelegate {
@@ -59,6 +60,19 @@ final class StudioAlerts: NSObject, UNUserNotificationCenterDelegate {
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse,
                                             withCompletionHandler done: @escaping () -> Void) {
         let info = response.notification.request.content.userInfo
+        // a233: a button on a needs-you push answers right here, without opening the app
+        let words = (response as? UNTextInputNotificationResponse)?.userText
+        if let action = PushAction.from(action: response.actionIdentifier, info: info, text: words) {
+            Task { @MainActor in
+                await PushCenter.shared.perform(action)
+                done()
+            }
+            return
+        }
+        if response.actionIdentifier != UNNotificationDefaultActionIdentifier {
+            done()  // "Something else…" sent empty, a dismissal: nothing to open
+            return
+        }
         if let pid = info["studioProject"] as? String, let vid = info["studioVideo"] as? String {
             Task { @MainActor in StudioAlerts.shared.open = .video(pid, vid, stage: nil) }
         } else if let key = info["needs"] as? String {

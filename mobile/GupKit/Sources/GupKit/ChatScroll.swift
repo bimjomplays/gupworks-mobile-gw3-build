@@ -4,7 +4,9 @@ import Foundation
 ///
 /// The chat follows the newest text only while it sits at the bottom with no finger on it. A finger on the chat
 /// stops following at once; letting go at the bottom (or where following left it, after only holding or tapping)
-/// takes it up again. Scrolled away from the bottom, nothing moves what is on screen: content growing or shrinking
+/// takes it up again. a236: so does letting go after the finger reached the bottom while text kept arriving (the
+/// end moving on under the finger doesn't undo that; only taking it back up does), and letting go within `reach` of
+/// an end that moved during the gesture after taking the chat toward it (a thumb's miss of a moving end). Scrolled away from the bottom, nothing moves what is on screen: content growing or shrinking
 /// below stays below, and content changing size above the line being read (older turns loading, a picture getting
 /// its size, a fold) is made up for by moving the offset by the same amount, so that line stays put.
 ///
@@ -14,6 +16,8 @@ import Foundation
 struct ChatScroll {
     /// within this many points of the bottom counts as at the bottom
     static let slack = 8.0
+    /// a236: let go this close to an end that moved meanwhile, coming down toward it, counts as reaching it
+    static let reach = 60.0
 
     enum Move: Equatable {
         case none
@@ -29,6 +33,10 @@ struct ChatScroll {
     private(set) var held = false
     private var followedAtTouch = false
     private var topAtTouch = 0.0
+    /// a236: the content's end as a reading line (top + gap) when the finger came down; text arriving moves it
+    private var endAtTouch = 0.0
+    /// a236: the lowest reading line the finger or its fling took the view to since it came down or last was at the bottom
+    private var deepest = 0.0
     private var released = false
     /// the finger (or the fling after it) last left the view at the bottom
     private var leftAtBottom = false
@@ -45,10 +53,12 @@ struct ChatScroll {
     // MARK: touches
 
     /// a finger came down on the chat (`top`: the reading line now)
-    mutating func touchDown(top: Double) {
+    mutating func touchDown(top: Double, gap: Double) {
         if !touching {
             followedAtTouch = following && !held
             topAtTouch = top
+            endAtTouch = top + gap
+            deepest = top
         }
         touching = true
         released = false
@@ -58,13 +68,20 @@ struct ChatScroll {
     }
 
     /// the view moved while a finger has it or right after one let go (a fling, a bounce): whether that motion left it
-    /// at the bottom (text arriving afterwards doesn't change that; it only moves the bottom). Once let go, reaching
-    /// the bottom counts for good: a bounce back from past the end may take its last steps above an end that a new
-    /// line just moved down, and nothing without a finger takes it back up.
-    mutating func moved(gap: Double) {
+    /// at the bottom. Text arriving afterwards doesn't change that; it only moves the bottom: a finger that reached
+    /// the bottom and goes on (or trembles) while lines come is still there for this; only taking the view back up
+    /// by more than `slack` leaves it. Once let go, reaching the bottom counts for good: a bounce back from past the
+    /// end may take its last steps above an end that a new line just moved down, and nothing without a finger takes
+    /// it back up.
+    mutating func moved(top: Double, gap: Double) {
         guard touching || released else { return }
-        let there = gap <= Self.slack
-        leftAtBottom = touching ? there : (leftAtBottom || there)
+        if gap <= Self.slack {
+            leftAtBottom = true
+            deepest = top
+            return
+        }
+        deepest = max(deepest, top)
+        if touching && deepest - top > Self.slack { leftAtBottom = false }
     }
 
     /// the last finger left
@@ -84,6 +101,12 @@ struct ChatScroll {
             // at the bottom, or taken there by the finger while new text kept coming: follow again
             following = true
             return gap > 0.5 ? .bottom(animated: gap > Self.slack) : .none
+        }
+        // a236: taken down toward an end that moved meanwhile (text kept arriving) and let go just short of it
+        if top + gap > endAtTouch + 0.5, gap <= Self.reach, top > topAtTouch + Self.slack,
+           max(deepest, top) - top <= Self.slack {
+            following = true
+            return .bottom(animated: true)
         }
         if followedAtTouch && !held && top >= topAtTouch - Self.slack {
             following = true
