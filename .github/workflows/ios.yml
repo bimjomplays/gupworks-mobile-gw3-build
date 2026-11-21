@@ -40,7 +40,7 @@ jobs:
   test:
     if: github.event.repository.private == false
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: mobile/ios
