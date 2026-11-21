@@ -41,9 +41,8 @@ struct VoiceCheck: View {
                         .background {
                             TextField("Your answer", text: $words)
                                 .textFieldStyle(.plain)
-                                .foregroundStyle(.clear)
-                                .tint(.clear)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .opacity(0.02)  // unseen (its own grey pill showed through) but still takes the tap
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)

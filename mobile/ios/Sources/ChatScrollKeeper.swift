@@ -97,7 +97,7 @@ final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
     // MARK: touches
 
     fileprivate func touchDown() {
-        logic.touchDown(top: top)
+        logic.touchDown(top: top, gap: gap)
     }
 
     fileprivate func touchUp() {
@@ -143,7 +143,7 @@ final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
 
     private func scrolled() {
         logic.scrolled(top: top)
-        logic.moved(gap: gap)
+        logic.moved(top: top, gap: gap)
     }
 
     private func perform(_ move: ChatScroll.Move) {
