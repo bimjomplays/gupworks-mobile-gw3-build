@@ -83,17 +83,23 @@ final class PushCenter {
         Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision").flatMap { try? Data(contentsOf: $0) }
     }
 
-    /// A notification's button, in the background: one request to the PC. When it doesn't go through, a
-    /// notification says so (a tap on it opens the card, as the original's would).
-    func perform(_ action: PushAction) async {
+    /// A notification's button (or the watch's answer, a234), in the background: one request to the PC. When it
+    /// doesn't go through, a notification says so (a tap on it opens the card, as the original's would) unless
+    /// `tell` is false (the watch shows it itself). Returns why it didn't go, nil when it did.
+    @discardableResult
+    func perform(_ action: PushAction, tell: Bool = true) async -> String? {
         guard let c = PushAnswerer.credentials(pass: AnswerPassStore.load(), pairing: PairingStore.load()) else {
-            await tell(action, "Open GupWorks to answer: this phone can't reach its key right now.")
-            return
+            let why = "Open GupWorks to answer: this phone can't reach its key right now."
+            if tell { await self.tell(action, why) }
+            return why
         }
         do {
             try await api.perform(action, base: c.base, token: c.token)
+            return nil
         } catch {
-            await tell(action, "Your answer didn't reach the PC: \(APIError.from(error).message)")
+            let why = "Your answer didn't reach the PC: \(APIError.from(error).message)"
+            if tell { await self.tell(action, why) }
+            return why
         }
     }
 

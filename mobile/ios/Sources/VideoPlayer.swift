@@ -140,6 +140,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
                      didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         _ = StudioAlerts.shared  // catches a tap on a Studio notification that launched the app
         PushCenter.shared.start()  // a233: the notification buttons, and this phone's push token for the PC
+        WatchLink.shared.start()  // a234: the watch app's list and answers go through this phone
         return true
     }
 
@@ -156,6 +157,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
                                  didReceiveRemoteNotification info: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
         guard let r = PushPayload.removal(info) else { return .noData }
         await PushCenter.shared.takeBack(gone: r.gone, live: r.live)
+        await WatchLink.shared.takeBack(gone: r.gone, live: r.live)  // a234: off the watch too
         return .newData
     }
 

@@ -47,9 +47,10 @@ struct RootView: View {
         }
         // a233: a fresh list takes back the notifications of items no longer waiting (missed silent pushes)
         .onChange(of: model.home?.needs) { _, needs in
-            guard needs != nil, !model.demo else { return }
+            guard let needs, !model.demo else { return }
             let live = Set(model.needsDeck.waiting.map(\.key))
             Task { await PushCenter.shared.takeBack(live: live) }
+            WatchLink.shared.update(needs, pcNow: model.pcNow)  // a234: the watch's list follows the PC's
         }
         .onChange(of: phase) { _, now in
             if model.isPaired { model.transfer.active = now == .active }

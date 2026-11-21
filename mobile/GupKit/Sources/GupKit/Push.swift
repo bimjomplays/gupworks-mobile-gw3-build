@@ -49,28 +49,53 @@ enum PushCategory {
     }
 }
 
-/// What a notification's button does: one request to gw3-phone's needs-you routes, the same ones the deck uses.
+/// What a notification's button (or the watch, a234) does: one request to gw3-phone's needs-you routes, the same
+/// ones the deck uses. All of them work with the answer-only token (gw3_push.ANSWER_ROUTES).
 enum PushAction: Equatable {
     case answer(key: String, option: Int)
     case text(key: String, words: String)
     case dismiss(key: String)
+    case snooze(key: String)
+    case park(project: String, parked: Bool)
 
     var key: String {
         switch self {
-        case .answer(let k, _), .text(let k, _), .dismiss(let k): return k
+        case .answer(let k, _), .text(let k, _), .dismiss(let k), .snooze(let k): return k
+        case .park(let p, _): return "park:\(p)"
         }
     }
 
     var path: String {
-        if case .dismiss = self { return "/v1/needs/dismiss" }
-        return "/v1/needs/answer"
+        switch self {
+        case .dismiss: return "/v1/needs/dismiss"
+        case .snooze: return "/v1/needs/snooze"
+        case .park: return "/v1/needs/park"
+        case .answer, .text: return "/v1/needs/answer"
+        }
     }
 
     var body: NeedsAction {
         switch self {
         case .answer(let k, let o): return NeedsAction(key: k, option: o)
         case .text(let k, let w): return NeedsAction(key: k, text: w)
-        case .dismiss(let k): return NeedsAction(key: k)
+        case .dismiss(let k), .snooze(let k): return NeedsAction(key: k)
+        case .park(let p, let parked): return NeedsAction(projectId: p, parked: parked)
+        }
+    }
+
+    /// What the watch handed over (a234); nil for Open on iPhone, which the iPhone shows itself.
+    init?(_ s: WatchSend) {
+        switch s.what {
+        case .answer:
+            if let o = s.option { self = .answer(key: s.key, option: o) }
+            else if let t = s.text, !t.isEmpty { self = .text(key: s.key, words: t) }
+            else { return nil }
+        case .snooze: self = .snooze(key: s.key)
+        case .dismiss: self = .dismiss(key: s.key)
+        case .park:
+            guard let p = s.projectId, !p.isEmpty else { return nil }
+            self = .park(project: p, parked: s.parked ?? false)
+        case .open: return nil
         }
     }
 
@@ -86,6 +111,9 @@ enum PushAction: Equatable {
         case PushCategory.deny.id: return index("deny").map { .answer(key: key, option: $0) }
         case PushCategory.sleep.id: return .answer(key: key, option: index("sleep") ?? 0)
         case PushCategory.dismiss.id: return .dismiss(key: key)
+        case let a where a.hasPrefix(WatchNotice.optionPrefix):
+            // the watch's own notification buttons (a234), should the watch hand a tap to the iPhone
+            return Int(a.dropFirst(WatchNotice.optionPrefix.count)).flatMap { $0 >= 0 ? .answer(key: key, option: $0) : nil }
         case PushCategory.other.id:
             let words = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             return words.isEmpty ? nil : .text(key: key, words: String(words.prefix(4000)))

@@ -6,11 +6,13 @@ options:
   bundleIdPrefix: app.gupworks3
   deploymentTarget:
     iOS: "26.0"
+    # a234: the watch app; double tap on the recommended answer needs watchOS 11 (a plain tap before)
+    watchOS: "10.0"
   createIntermediateGroups: true
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.9.13"
+    MARKETING_VERSION: "0.9.14"
     CURRENT_PROJECT_VERSION: "1"
 # Hammer: real touches (taps, drags, long presses, pinches) inside the unit-test process, for the screen tests
 # (Tests/ScreenDriver.swift); XCTest's own event synthesizer only works from a UI-test bundle
@@ -32,6 +34,9 @@ targets:
       - path: ../fixtures
         type: folder
         buildPhase: resources
+    dependencies:
+      # a234: the watch app ships inside the iPhone app (the same TestFlight build)
+      - target: GupWorksWatch
     info:
       path: Sources/Info.plist
       properties:
@@ -95,6 +100,43 @@ targets:
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"
         CODE_SIGN_IDENTITY: ""
+  # a234: the Apple Watch app (docs/watch-mockups/round2 Option 7): the needs-you cards on the wrist. A companion: its
+  # list and answers go through the iPhone app (WatchConnectivity, ios/Sources/WatchLink.swift). It compiles only the
+  # two GupKit files it needs (Watch.swift's rules and Needs.swift's models).
+  GupWorksWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - Watch
+      - path: ../GupKit/Sources/GupKit
+        includes: [Needs.swift, Watch.swift]
+      # the demo the simulator's screenshots show (invented, as round 1 and 2's mockups)
+      - path: ../fixtures/watch
+        type: folder
+        buildPhase: resources
+    info:
+      path: Watch/Info.plist
+      properties:
+        CFBundleDisplayName: GupWorks
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: app.gupworks3.phone
+        WKRunsIndependentlyOfCompanionApp: false
+        UIUserInterfaceStyle: Dark
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.gupworks3.phone.watchkitapp
+        PRODUCT_NAME: GupWorksWatch
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "4"
+        SKIP_INSTALL: "YES"
+        ENABLE_PREVIEWS: "YES"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGN_IDENTITY: ""
   GupWorks3Tests:
     type: bundle.unit-test
     platform: iOS
@@ -124,6 +166,13 @@ targets:
         TEST_TARGET_NAME: GupWorks3
         CODE_SIGNING_ALLOWED: "NO"
 schemes:
+  # a234: the watch app alone, for the watch simulator's screenshots (CI's "Watch screens")
+  GupWorksWatch:
+    build:
+      targets:
+        GupWorksWatch: all
+    run:
+      config: Debug
   GupWorks3:
     build:
       targets:

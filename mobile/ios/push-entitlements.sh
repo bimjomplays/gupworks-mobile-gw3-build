@@ -13,6 +13,11 @@ cat > "$ent" <<PLIST
   <key>aps-environment</key><string>$env</string>
 </dict></plist>
 PLIST
+# a234: the watch app inside is signed first (ad hoc, no push of its own: the iPhone's notifications reach the watch),
+# else the outer signature refuses the unsigned code nested in it; the export re-signs both
+for nested in "$app"/Watch/*.app "$app"/PlugIns/*.app; do
+  if [ -d "$nested" ]; then codesign --force --sign - --generate-entitlement-der "$nested"; fi
+done
 codesign --force --sign - --entitlements "$ent" --generate-entitlement-der "$app"
 got=$(codesign -d --entitlements - --xml "$app" 2>/dev/null || codesign -d --entitlements - "$app" 2>/dev/null)
 rm -f "$ent"
