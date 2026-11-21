@@ -14,6 +14,7 @@ import Foundation
 struct ChatScroll {
     /// within this many points of the bottom counts as at the bottom
     static let slack = 8.0
+    static let reach = 60.0
 
     enum Move: Equatable {
         case none
@@ -29,9 +30,9 @@ struct ChatScroll {
     private(set) var held = false
     private var followedAtTouch = false
     private var topAtTouch = 0.0
-    private var released = false
+    private(set) var released = false
     /// the finger (or the fling after it) last left the view at the bottom
-    private var leftAtBottom = false
+    private(set) var leftAtBottom = false
 
     /// the rows' tops in the content
     private(set) var rows: [String: Double] = [:]
@@ -45,7 +46,7 @@ struct ChatScroll {
     // MARK: touches
 
     /// a finger came down on the chat (`top`: the reading line now)
-    mutating func touchDown(top: Double) {
+    mutating func touchDown(top: Double, gap: Double) {
         if !touching {
             followedAtTouch = following && !held
             topAtTouch = top
@@ -61,7 +62,7 @@ struct ChatScroll {
     /// at the bottom (text arriving afterwards doesn't change that; it only moves the bottom). Once let go, reaching
     /// the bottom counts for good: a bounce back from past the end may take its last steps above an end that a new
     /// line just moved down, and nothing without a finger takes it back up.
-    mutating func moved(gap: Double) {
+    mutating func moved(top: Double, gap: Double) {
         guard touching || released else { return }
         let there = gap <= Self.slack
         leftAtBottom = touching ? there : (leftAtBottom || there)

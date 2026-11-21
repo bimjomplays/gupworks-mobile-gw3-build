@@ -803,22 +803,44 @@ final class ChatStore {
                     rev: "demo-\(steps)")
     }
 
-    /// the demo's reply streams in, a line every 0.4 s for 160 lines (a minute: time to scroll away and back), as the PC's turn events bring it
+    /// the demo's reply streams in, a line every 0.4 s for 160 lines (a minute: time to scroll away and back), as the PC's turn events bring it.
+    /// a236: with `-stepped` it grows only when a test asks (`demoStreamNext`), so the test steps it instead of racing a timer.
     private func demoStream() {
         let start = Date().timeIntervalSince1970 * 1000
         status = ChatStatus(state: "working", ts: start, live: true, running: true)
         header?.state = "working"
         upsert([Self.demoPlan(steps: 0, at: start, working: true)])
+        demoStreamStart = start
+        demoStreamLines = 0
+        if Demo.args.contains("-stepped") {
+            Self.demoStreaming = self
+            return
+        }
         Task { [weak self] in
-            for n in 1...160 {
+            for _ in 1...Self.demoStreamTotal {
                 try? await Task.sleep(nanoseconds: 400_000_000)
                 guard let self, !Task.isCancelled else { return }
-                self.upsert([Self.demoPlan(steps: n, at: start, working: n < 160)])
-                self.liveTick += 1
+                self.demoStreamNext()
             }
-            guard let self else { return }
-            self.status = ChatStatus(state: "idle", ts: Date().timeIntervalSince1970 * 1000, live: true, running: true)
-            self.header?.state = "idle"
+        }
+    }
+
+    static let demoStreamTotal = 160
+    /// a236: the chat whose `-stepped` demo reply waits for `demoStreamNext`
+    static weak var demoStreaming: ChatStore?
+    @ObservationIgnored private var demoStreamStart = 0.0
+    @ObservationIgnored private(set) var demoStreamLines = 0
+
+    /// the demo reply's next `k` lines arrive, as one turn event each; after the last one the turn is done
+    func demoStreamNext(_ k: Int = 1) {
+        for _ in 0..<k where demoStreamLines < Self.demoStreamTotal {
+            demoStreamLines += 1
+            upsert([Self.demoPlan(steps: demoStreamLines, at: demoStreamStart, working: demoStreamLines < Self.demoStreamTotal)])
+            liveTick += 1
+            if demoStreamLines == Self.demoStreamTotal {
+                status = ChatStatus(state: "idle", ts: Date().timeIntervalSince1970 * 1000, live: true, running: true)
+                header?.state = "idle"
+            }
         }
     }
 

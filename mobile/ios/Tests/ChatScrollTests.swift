@@ -23,6 +23,7 @@ final class ChatScrollTests: XCTestCase {
                 print("SCREEN at the failure of \(name):\n\(app.debugDescription)")
             }
             App.current?.close()
+            ChatScrollKeeper.trace = false
             Timing.report(name, Date().timeIntervalSince(started))
         }
     }
@@ -118,8 +119,103 @@ final class ChatScrollTests: XCTestCase {
         App.current?.shot("a229-following")
     }
 
-    /// scrolled up while the reply streams in: the line being read stays where it is
+    // MARK: a236: the reply stepped by the test (`-stream -stepped`), not raced
+
+    /// opens the gallery chat with the demo reply waiting for the test, and lets its first `first` lines in
+    private func openStepped(_ first: Int) -> App {
+        ChatStore.demoStreaming = nil
+        ChatScrollKeeper.trace = true
+        let app = App(["-open", gallery, "-stream", "-stepped"], test: self)
+        XCTAssertTrue(app.descendants(matching: .any)["chatTitle"].waitForExistence(timeout: 20))
+        XCTAssertTrue(poll(10) { ChatStore.demoStreaming != nil }, "the demo reply waits for the test")
+        lines(first)
+        XCTAssertTrue(poll(15) { self.rect(app, "Step \(first) of the plan") != nil }, "the plan shows")
+        spin(0.5)
+        return app
+    }
+
+    /// the reply's next `k` lines arrive, then a moment for the chat to lay them out
+    private func lines(_ k: Int) {
+        ChatStore.demoStreaming?.demoStreamNext(k)
+        spin(0.4)
+    }
+
+    /// the lowest offset (the content's end at the bottom of the screen) and how far the end is below the screen
+    private func lowest(_ sv: UIScrollView) -> CGFloat {
+        sv.contentSize.height + sv.adjustedContentInset.bottom - sv.bounds.height
+    }
+
+    private func gap(_ sv: UIScrollView) -> CGFloat { lowest(sv) - sv.contentOffset.y }
+
+    /// the finger that's down moves up by `dy` points (the content goes up, toward its end), slowly, then holds still
+    private func fingerUp(by dy: CGFloat, _ app: App, _ p: inout CGPoint) {
+        p.y -= dy
+        XCTAssertNoThrow(try app.fingers?.fingerMove(to: p, duration: max(0.1, Double(abs(dy)) / 400)))
+        spin(0.3)
+    }
+
+    /// scrolled up while the reply streams in: the line being read stays where it is. Then back to the bottom with a
+    /// finger while it still streams: the finger reaches the end, lines arrive under it, it goes on a little toward
+    /// the end (now short of the new end) and lets go: it follows again.
     func testStreamingWhileScrolledUp() {
+        let app = openStepped(20)
+        atBottom(app, "opened while streaming")
+        scrollUp(app)
+        spin(0.5)
+        guard let (line, before) = visibleStep(app) else { return XCTFail("no line of the plan on screen") }
+        lines(6)
+        XCTAssertEqual(ChatStore.demoStreaming?.demoStreamLines, 26, "the reply went on streaming")
+        stays(app, line, before, "streaming while scrolled up")
+        App.current?.shot("a229-streaming-scrolled-up")
+
+        guard let sv = chatScroll(), app.fingers != nil else { return XCTFail("no chat scroll view or no touches") }
+        sv.setContentOffset(CGPoint(x: 0, y: lowest(sv) - 120), animated: false)
+        spin(0.3)
+        var p = CGPoint(x: app.frame.width - 12, y: app.frame.height * 0.7)
+        XCTAssertNoThrow(try app.fingers?.fingerDown(at: p))
+        spin(0.1)
+        fingerUp(by: 240, app, &p)
+        XCTAssertLessThanOrEqual(gap(sv), ChatScroll.slack, "the finger took it to the end (or past it)")
+        lines(4)
+        XCTAssertGreaterThan(gap(sv), ChatScroll.reach, "the end moved on under the finger")
+        fingerUp(by: 20, app, &p)
+        let short = gap(sv)
+        XCTAssertNoThrow(try app.fingers?.fingerUp())
+        spin(1)
+        lines(3)
+        atBottom(app, "back at the bottom (let go \(short) pt above the end after reaching it)")
+        lines(3)
+        atBottom(app, "and following")
+    }
+
+    /// dragged down toward the end while lines arrive, and let go a thumb's miss (about 35 pt) above it: follows
+    func testLandsJustShortWhileStreaming() {
+        let app = openStepped(20)
+        scrollUp(app)
+        spin(0.5)
+        guard let sv = chatScroll(), app.fingers != nil else { return XCTFail("no chat scroll view or no touches") }
+        sv.setContentOffset(CGPoint(x: 0, y: lowest(sv) - 300), animated: false)
+        spin(0.3)
+        var p = CGPoint(x: app.frame.width - 12, y: app.frame.height * 0.7)
+        XCTAssertNoThrow(try app.fingers?.fingerDown(at: p))
+        spin(0.1)
+        fingerUp(by: 160, app, &p)
+        lines(2)
+        fingerUp(by: gap(sv) - 35, app, &p)
+        let short = gap(sv)
+        XCTAssertTrue(short > ChatScroll.slack && short <= ChatScroll.reach, "let go \(short) pt above the end")
+        XCTAssertNoThrow(try app.fingers?.fingerUp())
+        spin(1)
+        lines(3)
+        atBottom(app, "let go \(short) pt above the moving end")
+        lines(3)
+        atBottom(app, "and following")
+    }
+
+    /// a236 (one traced run, then removed): the old timed version that raced the demo stream
+    func testStreamingRaceTrace() {
+        ChatScrollKeeper.trace = true
+        defer { ChatScrollKeeper.trace = false }
         let app = open(["-stream"])
         // enough of the plan to fill the screen above the box
         XCTAssertTrue(poll(15) { self.rect(app, "Step 16 of the plan") != nil })
