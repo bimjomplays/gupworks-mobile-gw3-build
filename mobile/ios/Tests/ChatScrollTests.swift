@@ -4,8 +4,10 @@ import UIKit
 
 /// a229: the chat goes only where the finger takes it. Scrolled up, or with a finger on the screen, nothing moves it
 /// (a reply streaming in, the keyboard, a fold opening above, older turns loading at the top); at the bottom, left
-/// alone, it follows new text. The demo's `-stream` reply grows a line every 0.4 s (160 of them), `-long` is the same reply done,
-/// `-older` loads older pages at the top (ChatStore's demo).
+/// alone, it follows new text. The demo's `-stream` reply grows a line every 0.4 s (160 of them); with `-stepped` it
+/// grows only when the test lets lines in (`lines(k)`), so a test that needs a line at an exact moment (under a finger
+/// at the bottom) steps it instead of racing the timer (a236). `-long` is the same reply done, `-older` loads older
+/// pages at the top (ChatStore's demo).
 @MainActor
 final class ChatScrollTests: XCTestCase {
     private nonisolated(unsafe) var started = Date()
@@ -23,7 +25,6 @@ final class ChatScrollTests: XCTestCase {
                 print("SCREEN at the failure of \(name):\n\(app.debugDescription)")
             }
             App.current?.close()
-            ChatScrollKeeper.trace = false
             Timing.report(name, Date().timeIntervalSince(started))
         }
     }
@@ -124,7 +125,6 @@ final class ChatScrollTests: XCTestCase {
     /// opens the gallery chat with the demo reply waiting for the test, and lets its first `first` lines in
     private func openStepped(_ first: Int) -> App {
         ChatStore.demoStreaming = nil
-        ChatScrollKeeper.trace = true
         let app = App(["-open", gallery, "-stream", "-stepped"], test: self)
         XCTAssertTrue(app.descendants(matching: .any)["chatTitle"].waitForExistence(timeout: 20))
         XCTAssertTrue(poll(10) { ChatStore.demoStreaming != nil }, "the demo reply waits for the test")
@@ -146,6 +146,10 @@ final class ChatScrollTests: XCTestCase {
     }
 
     private func gap(_ sv: UIScrollView) -> CGFloat { lowest(sv) - sv.contentOffset.y }
+
+    /// where the back-to-the-bottom drags start: the middle, low on the screen (at the right edge a finger takes the
+    /// scroll indicator and scrubs the chat the other way: a236's first CI run)
+    private func start(_ app: App) -> CGPoint { CGPoint(x: app.frame.width * 0.5, y: app.frame.height * 0.75) }
 
     /// the finger that's down moves up by `dy` points (the content goes up, toward its end), slowly, then holds still
     private func fingerUp(by dy: CGFloat, _ app: App, _ p: inout CGPoint) {
@@ -171,7 +175,7 @@ final class ChatScrollTests: XCTestCase {
         guard let sv = chatScroll(), app.fingers != nil else { return XCTFail("no chat scroll view or no touches") }
         sv.setContentOffset(CGPoint(x: 0, y: lowest(sv) - 120), animated: false)
         spin(0.3)
-        var p = CGPoint(x: app.frame.width - 12, y: app.frame.height * 0.7)
+        var p = start(app)
         XCTAssertNoThrow(try app.fingers?.fingerDown(at: p))
         spin(0.1)
         fingerUp(by: 240, app, &p)
@@ -194,12 +198,12 @@ final class ChatScrollTests: XCTestCase {
         scrollUp(app)
         spin(0.5)
         guard let sv = chatScroll(), app.fingers != nil else { return XCTFail("no chat scroll view or no touches") }
-        sv.setContentOffset(CGPoint(x: 0, y: lowest(sv) - 300), animated: false)
+        sv.setContentOffset(CGPoint(x: 0, y: lowest(sv) - 250), animated: false)
         spin(0.3)
-        var p = CGPoint(x: app.frame.width - 12, y: app.frame.height * 0.7)
+        var p = start(app)
         XCTAssertNoThrow(try app.fingers?.fingerDown(at: p))
         spin(0.1)
-        fingerUp(by: 160, app, &p)
+        fingerUp(by: 120, app, &p)
         lines(2)
         fingerUp(by: gap(sv) - 35, app, &p)
         let short = gap(sv)
@@ -210,39 +214,6 @@ final class ChatScrollTests: XCTestCase {
         atBottom(app, "let go \(short) pt above the moving end")
         lines(3)
         atBottom(app, "and following")
-    }
-
-    /// a236 (one traced run, then removed): the old timed version that raced the demo stream
-    func testStreamingRaceTrace() {
-        ChatScrollKeeper.trace = true
-        defer { ChatScrollKeeper.trace = false }
-        let app = open(["-stream"])
-        // enough of the plan to fill the screen above the box
-        XCTAssertTrue(poll(15) { self.rect(app, "Step 16 of the plan") != nil })
-        scrollUp(app)
-        spin(0.5)
-        guard let (line, before) = visibleStep(app) else { return XCTFail("no line of the plan on screen") }
-        let newest = newestStep(app)?.0 ?? 0
-        spin(2.5)
-        XCTAssertGreaterThan(newestStep(app)?.0 ?? 0, newest + 3, "the reply went on streaming")
-        stays(app, line, before, "streaming while scrolled up")
-        App.current?.shot("a229-streaming-scrolled-up")
-        // back down to the bottom while it still streams: letting go there follows again
-        // (the demo adds a line every 0.4 s, faster than held drags on the CI's simulator move: each try puts the
-        // view just above the end, then one real drag takes it past the end and lets go there)
-        for _ in 0..<5 {
-            if let sv = chatScroll() {
-                let i = sv.adjustedContentInset
-                sv.setContentOffset(CGPoint(x: 0, y: sv.contentSize.height + i.bottom - sv.bounds.height - 60), animated: false)
-            }
-            scrollDown(app, by: 0.5)
-            if let (_, r) = newestStep(app), r.maxY <= box(app).frame.minY + 4, r.minY > 120 { break }
-        }
-        let reached = newestStep(app)?.0 ?? 0
-        XCTAssertLessThan(reached, 155, "still streaming when the bottom was reached")
-        spin(2)
-        XCTAssertGreaterThan(newestStep(app)?.0 ?? 0, reached + 2, "more lines came")
-        atBottom(app, "back at the bottom")
     }
 
     /// a finger resting on the chat (no drag) while the reply streams in: nothing moves under it; let go at the

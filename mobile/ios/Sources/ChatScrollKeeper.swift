@@ -14,15 +14,6 @@ import UIKit.UIGestureRecognizerSubclass
 @MainActor
 final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
     static let space = "chatScrollContent"
-    /// a236 diagnostics for one CI run (the streaming test turns it on): the gesture's steps and the rest's decision
-    nonisolated(unsafe) static var trace = false
-
-    private func note(_ what: String) {
-        guard Self.trace, let sv = view else { return }
-        print(String(format: "a236 %@: offset %.1f lowest %.1f gap %.1f size %.1f tracking %d decel %d following %d left %d released %d",
-                     what, sv.contentOffset.y, lowest, gap, sv.contentSize.height, sv.isTracking ? 1 : 0,
-                     sv.isDecelerating ? 1 : 0, logic.following ? 1 : 0, logic.leftAtBottom ? 1 : 0, logic.released ? 1 : 0))
-    }
 
     private(set) var logic = ChatScroll()
     private weak var view: UIScrollView?
@@ -81,7 +72,6 @@ final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
     /// the content, the screen or the insets changed size (the keyboard, a rotation, new text)
     func resized() {
         guard let sv = view else { return }
-        if logic.touching || logic.released { note("resized") }
         // content that shrank leaves UIKit's offset past its end (it doesn't clamp): back to the end, unless a finger
         // or a bounce has it
         if !sv.isTracking, !sv.isDecelerating, sv.contentOffset.y > lowest + 0.5 {
@@ -93,10 +83,7 @@ final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
     /// SwiftUI says the scroll came to rest
     func settled() {
         guard let sv = view, !sv.isTracking, !sv.isDecelerating else { return }
-        let was = logic.released
-        let m = logic.rest(top: top, gap: gap)
-        if was { note("rest -> \(m)") }
-        perform(m)
+        perform(logic.rest(top: top, gap: gap))
     }
 
     func row(_ id: String, top rowTop: CGFloat) {
@@ -111,12 +98,10 @@ final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
 
     fileprivate func touchDown() {
         logic.touchDown(top: top, gap: gap)
-        note("down")
     }
 
     fileprivate func touchUp() {
         logic.touchUp()
-        note("up")
         // a fling or a bounce starts as the finger lifts; SwiftUI's idle phase says when it ends
         DispatchQueue.main.async { [weak self] in self?.settled() }
     }
@@ -158,9 +143,7 @@ final class ChatScrollKeeper: NSObject, UIGestureRecognizerDelegate {
 
     private func scrolled() {
         logic.scrolled(top: top)
-        let left = logic.leftAtBottom
         logic.moved(top: top, gap: gap)
-        if logic.leftAtBottom != left { note("moved, left at bottom \(logic.leftAtBottom)") }
     }
 
     private func perform(_ move: ChatScroll.Move) {
