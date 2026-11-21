@@ -152,8 +152,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     /// gw3-phone's silent push: an item was answered or dismissed elsewhere, so its notification goes
-    func application(_ application: UIApplication,
-                     didReceiveRemoteNotification info: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
+    nonisolated func application(_ application: UIApplication,
+                                 didReceiveRemoteNotification info: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
         guard let r = PushPayload.removal(info) else { return .noData }
         await PushCenter.shared.takeBack(gone: r.gone, live: r.live)
         return .newData
