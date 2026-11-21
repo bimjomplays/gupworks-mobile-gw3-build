@@ -95,7 +95,7 @@ enum PushAction: Equatable {
         case .park:
             guard let p = s.projectId, !p.isEmpty else { return nil }
             self = .park(project: p, parked: s.parked ?? false)
-        case .open: return nil
+        case .open, .say: return nil  // a235: words for a main chat go by the chat route, not a needs-you one
         }
     }
 

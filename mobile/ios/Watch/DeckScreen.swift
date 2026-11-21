@@ -215,6 +215,7 @@ struct EmptyDeck: View {
                 .font(.system(size: 13))
                 .foregroundStyle(Look.summary)
                 .multilineTextAlignment(.center)
+            if paired { RunningLink().padding(.top, 6) }
         }
         .padding(.horizontal, 8)
     }

@@ -91,6 +91,8 @@ struct ProjectRow: Codable, Equatable, Identifiable {
     var needs: Int
     var permission: Int
     var working: Int
+    /// gw3-phone 0.9.9: threads being checked (the watch's Running screen); nil from an older PC
+    var checking: Int? = nil
     var paused: Bool
     var mainChatId: String?
     // gw3-phone 0.9: the project's icon and colour (ProjectLook), its last activity and when it was made (ms)

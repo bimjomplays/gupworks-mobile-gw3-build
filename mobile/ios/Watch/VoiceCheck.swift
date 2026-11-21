@@ -8,15 +8,20 @@ struct VoiceCheck: View {
     let draft: VoiceDraft
     @State private var words = ""
 
+    private var prompt: String { draft.projectId == nil ? "Your answer" : "Your words" }
+
     var body: some View {
         let card = store.card(draft.key) ?? store.item(draft.key).map(WatchCard.init)
+        // a235: words for a project's main chat (the Running screen's mic) have no card: who gets them is the project
+        let project = draft.projectId.flatMap { store.glance.project($0) }
+        let ready = project != nil || card != nil
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
-                if let card {
+                if ready {
                     HStack(spacing: 5) {
                         Image(systemName: "mic").font(.system(size: 12))
-                        (Text("To ") + Text(card.source).fontWeight(.semibold).foregroundColor(Look.threadID)
-                            + Text(card.threadId.map { " · \($0)" } ?? ""))
+                        (Text("To ") + Text(project?.name ?? card?.source ?? "").fontWeight(.semibold).foregroundColor(Look.threadID)
+                            + Text(project != nil ? " · main chat" : card?.threadId.map { " · \($0)" } ?? ""))
                             .lineLimit(1)
                     }
                     .font(.system(size: 13))
@@ -24,7 +29,7 @@ struct VoiceCheck: View {
                     .accessibilityIdentifier("watchVoiceTo")
                 }
                 if words.isEmpty {
-                    TextFieldLink(prompt: Text("Your answer")) {
+                    TextFieldLink(prompt: Text(prompt)) {
                         PillLabel(title: "Say it", icon: "mic.fill", fill: Look.blue)
                     } onSubmit: { words = $0 }
                     .buttonStyle(.plain)
@@ -39,7 +44,7 @@ struct VoiceCheck: View {
                         .padding(.trailing, 14)
                         .allowsHitTesting(false)
                         .background {
-                            TextField("Your answer", text: $words)
+                            TextField(prompt, text: $words)
                                 .textFieldStyle(.plain)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .opacity(0.02)  // unseen (its own grey pill showed through) but still takes the tap
@@ -65,11 +70,11 @@ struct VoiceCheck: View {
             }
             .padding(.horizontal, 2)
         }
-        .navigationTitle("Your answer")
+        .navigationTitle(draft.projectId == nil ? "Your answer" : "Your words")
         .overlay(alignment: .bottom) {
-            if let card, !words.isEmpty {
+            if ready, !words.isEmpty {
                 HStack(spacing: 6) {
-                    TextFieldLink(prompt: Text("Your answer")) {
+                    TextFieldLink(prompt: Text(prompt)) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.system(size: 18, weight: .medium))
                             .foregroundStyle(.white)
@@ -81,7 +86,10 @@ struct VoiceCheck: View {
                     .accessibilityLabel("Say it again")
                     .accessibilityIdentifier("watchVoiceAgain")
                     Button {
-                        if let s = WatchSend.words(words, on: card, at: store.now) {
+                        if let project {
+                            store.say = nil  // closes this screen; the Sent banner and its Undo show on Running
+                            store.sendWords(words, to: project)
+                        } else if let card, let s = WatchSend.words(words, on: card, at: store.now) {
                             store.voice = nil  // closes this screen; the Sent banner and its Undo show on the deck
                             store.send(s)
                         }

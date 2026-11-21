@@ -48,6 +48,7 @@ struct WaitingList: View {
                         .background(RoundedRectangle(cornerRadius: 16).fill(Look.row))
                     }
                 }
+                RunningLink().padding(.top, 6)
             }
             .padding(.horizontal, 2)
         }

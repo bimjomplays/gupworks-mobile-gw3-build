@@ -12,7 +12,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.9.14"
+    MARKETING_VERSION: "0.9.15"
     CURRENT_PROJECT_VERSION: "1"
 # Hammer: real touches (taps, drags, long presses, pinches) inside the unit-test process, for the screen tests
 # (Tests/ScreenDriver.swift); XCTest's own event synthesizer only works from a UI-test bundle
@@ -114,6 +114,11 @@ targets:
       - path: ../fixtures/watch
         type: folder
         buildPhase: resources
+      # a235: the complication's two pictures, which the app also draws for its demo's screenshot
+      - Complication/ComplicationViews.swift
+    dependencies:
+      # a235: the complication, a WidgetKit extension inside the watch app
+      - target: GupWorksWatchWidget
     info:
       path: Watch/Info.plist
       properties:
@@ -128,11 +133,42 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.gupworks3.phone.watchkitapp
         PRODUCT_NAME: GupWorksWatch
+        # a235: the App Group the complication's data goes through (WatchFace.group)
+        CODE_SIGN_ENTITLEMENTS: GupWorksWatch.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         TARGETED_DEVICE_FAMILY: "4"
         SKIP_INSTALL: "YES"
         ENABLE_PREVIEWS: "YES"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGN_IDENTITY: ""
+  # a235: the complication (docs/watch-mockups/round1 shared-1-complication): a WidgetKit extension in the watch app. It
+  # compiles the same two GupKit files and reads what the watch app keeps in the App Group.
+  GupWorksWatchWidget:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - Complication
+      - Watch/Look.swift
+      - path: ../GupKit/Sources/GupKit
+        includes: [Needs.swift, Watch.swift]
+    info:
+      path: Complication/Info.plist
+      properties:
+        CFBundleDisplayName: GupWorks
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.gupworks3.phone.watchkitapp.complication
+        PRODUCT_NAME: GupWorksWatchWidget
+        CODE_SIGN_ENTITLEMENTS: GupWorksWatchWidget.entitlements
+        TARGETED_DEVICE_FAMILY: "4"
+        SKIP_INSTALL: "YES"
         CODE_SIGN_STYLE: Automatic
         CODE_SIGNING_ALLOWED: "NO"
         CODE_SIGNING_REQUIRED: "NO"

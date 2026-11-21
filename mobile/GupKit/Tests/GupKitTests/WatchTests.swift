@@ -321,4 +321,155 @@ final class WatchTests: XCTestCase {
         XCTAssertEqual(c.head(now: now), "Home server · 12m")
         XCTAssertNil(WatchNotice.item(["needs": "x", "gw3": ["kind": "ask"]]), "an older PC sends no card")
     }
+
+    // MARK: what is running (a235)
+
+    func testGlanceSaysWorkingCheckingOrIdleInTheProjectsOrder() {
+        let l = demo.list(now: 0, memory: false)
+        let g = WatchGlance(l.projects)
+        XCTAssertEqual(g.rows.map(\.project.name),
+                       ["Home server", "Lumen Studio website", "Garden planner", "YouTube Studio"])
+        XCTAssertEqual(g.rows.map(\.text), ["2 working", "1 checking", "idle", "1 working"])
+        XCTAssertEqual(g.rows.map(\.state), [.working, .checking, .idle, .working])
+        XCTAssertEqual(WatchGlance.words(working: 2, checking: 1), "2 working \u{B7} 1 checking")
+        XCTAssertTrue(WatchGlance(nil).isEmpty, "an iPhone that sends no projects yet")
+    }
+
+    func testListsFromBeforeTheGlanceStillDecode() throws {
+        var l = demo.list(now: 0, memory: false)
+        l.projects = nil
+        let data = try JSONEncoder().encode(l)
+        XCTAssertFalse(String(data: data, encoding: .utf8)!.contains("projects"))
+        XCTAssertEqual(try JSONDecoder().decode(WatchRelay.List.self, from: data), l)
+        let again: WatchRelay.List? = WatchRelay.decode(WatchRelay.listKey, WatchRelay.encode(WatchRelay.listKey, demo.list))
+        XCTAssertEqual(again?.projects?.count, 4)
+    }
+
+    func testProjectRowsBecomeTheWatchsProjects() {
+        let home = Home(now: 0, projects: [ProjectRow(id: "p1", name: "Lumen", state: "working", detail: "", needs: 0,
+                                                      permission: 0, working: 1, checking: 2, paused: false,
+                                                      mainChatId: "c1")],
+                        setups: [], chats: [], archivedCount: 0,
+                        studio: ProjectRow(id: "studio", name: "YouTube Studio", state: "idle", detail: "", needs: 0,
+                                           permission: 0, working: 0, paused: false, mainChatId: nil))
+        XCTAssertEqual(WatchProject.list(home), [WatchProject(id: "p1", name: "Lumen", working: 1, checking: 2, main: true),
+                                                  WatchProject(id: "studio", name: "YouTube Studio", working: 0,
+                                                               checking: 0, main: false)])
+        XCTAssertNil(WatchProject.list(nil))
+    }
+
+    func testWordsForAMainChatWaitOutTheUndoLikeAnswers() throws {
+        let home = demo.list.projects![0]
+        let s = try XCTUnwrap(WatchSend.say("  Please wait until the backup is done  ", to: home, at: 100))
+        XCTAssertEqual(s.what, .say)
+        XCTAssertEqual(s.projectId, "home-server-5e6f")
+        XCTAssertEqual(s.text, "Please wait until the backup is done")
+        XCTAssertTrue(s.undoable)
+        XCTAssertEqual(s.headline, "Sent to Home server")
+        XCTAssertEqual(s.detail, "\u{201C}Please wait until the backup is done\u{201D}")
+        var box = WatchOutbox()
+        box.add(s)
+        XCTAssertEqual(box.left(now: 100), 5)
+        XCTAssertTrue(box.ready.isEmpty, "nothing leaves the watch during the Undo")
+        XCTAssertEqual(box.undo()?.id, s.id)
+        box.tick(now: 200)
+        XCTAssertTrue(box.ready.isEmpty, "an undone send never goes")
+        box.add(s)
+        box.tick(now: 105.5)
+        XCTAssertEqual(box.ready.map(\.id), [s.id])
+    }
+
+    func testNothingIsSentEmptyOrToAProjectWithoutAMainChat() {
+        let l = demo.list.projects!
+        XCTAssertNil(WatchSend.say("   ", to: l[0], at: 0))
+        XCTAssertNil(WatchSend.say("hello", to: l[3], at: 0), "YouTube Studio has no main chat")
+        XCTAssertEqual(WatchSend.say(String(repeating: "x", count: 5000), to: l[0], at: 0)?.text?.count, 4000)
+    }
+
+    func testASayTravelsAsOneJSONValueAndIsNotANeedsAction() throws {
+        let s = try XCTUnwrap(WatchSend.say("hi", to: demo.list.projects![0], at: 1))
+        let back: WatchSend? = WatchRelay.decode(WatchRelay.sendKey, WatchRelay.encode(WatchRelay.sendKey, s))
+        XCTAssertEqual(back, s)
+        XCTAssertNil(PushAction(s), "the needs-you routes never carry it")
+    }
+
+    // MARK: the complication (a235)
+
+    func testFaceShowsTheCountAndTheOldestOne() {
+        let l = demo.list(now: 1000, memory: false)
+        let c = WatchComplication(l, now: 1000)
+        XCTAssertEqual(c.count, 5)
+        XCTAssertEqual(c.headline, "5 NEED YOU")
+        XCTAssertEqual(c.source, "Home server")
+        XCTAssertEqual(c.title, "Add 32 GB of real swap?")
+        XCTAssertEqual(c.wait, "12m")
+        XCTAssertEqual(c.tone, .violet)
+        XCTAssertEqual(c.ring, 0.3, accuracy: 0.001)
+        XCTAssertFalse(c.isEmpty)
+    }
+
+    func testFaceTurnsAmberForAPermissionAndRedForMemory() {
+        var l = demo.list(now: 1000, memory: false)
+        l.needs.items.removeAll { $0.key.hasPrefix("ask:") }
+        let perm = WatchComplication(l, now: 1000)
+        XCTAssertEqual(perm.tone, .amber)
+        XCTAssertEqual(perm.count, 2)
+        let mem = WatchComplication(demo.list(now: 1000, memory: true), now: 1000)
+        XCTAssertEqual(mem.tone, .red)
+        XCTAssertEqual(mem.count, 6)
+        XCTAssertEqual(mem.source, "Home server", "the face names the oldest question, not the memory warning")
+        var only = demo.list(now: 1000, memory: true)
+        only.needs.items = [demo.memory]
+        let m = WatchComplication(only, now: 1000)
+        XCTAssertEqual(m.count, 1)
+        XCTAssertEqual(m.tone, .red)
+        XCTAssertEqual(m.source, "The PC")
+        XCTAssertEqual(m.title, "Memory nearly full")
+        XCTAssertEqual(m.headline, "1 NEEDS YOU")
+    }
+
+    func testFaceSaysNothingNeedsYouAndFollowsTheClockAndTheOutbox() {
+        let none = WatchComplication(nil, now: 1000)
+        XCTAssertTrue(none.isEmpty)
+        XCTAssertEqual(none.headline, "Open GupWorks", "no list from the iPhone yet is not \"nothing\"")
+        XCTAssertFalse(none.known)
+        var quiet = demo.list(now: 1000, memory: false)
+        quiet.needs.items = []
+        let q = WatchComplication(quiet, now: 1000)
+        XCTAssertEqual(q.headline, "Nothing needs you")
+        XCTAssertTrue(q.known)
+        XCTAssertEqual(none.tone, .grey)
+        XCTAssertNil(none.source)
+        XCTAssertEqual(none.ring, 0)
+        let l = demo.list(now: 1000, memory: false)
+        XCTAssertEqual(WatchComplication(l, now: 1000 + 3 * 60).wait, "15m", "the wait ticks with the watch's clock")
+        // answered on the wrist a moment ago: the count drops before the PC's list does
+        let c = WatchComplication(l, now: 1000, off: ["ask:home-server-5e6f:q3"])
+        XCTAssertEqual(c.count, 4)
+        XCTAssertEqual(c.source, "Lumen Studio website")
+    }
+
+    func testTheFaceOpensTheCards() {
+        XCTAssertEqual(WatchComplication.url.absoluteString, "gupworksw://cards")
+    }
+
+    func testTheWatchAppHandsTheFaceItsDataAndSaysWhenToReload() throws {
+        let suite = "gw3.watch.face.test"
+        let d = try XCTUnwrap(UserDefaults(suiteName: suite))
+        d.removePersistentDomain(forName: suite)
+        defer { d.removePersistentDomain(forName: suite) }
+        XCTAssertEqual(WatchFace.load(d), WatchFace.Saved(list: nil, off: []))
+        let l = demo.list(now: 1000, memory: false)
+        XCTAssertTrue(WatchFace.save(list: l, off: [], now: 1000, d), "nothing waited, now five do")
+        let got = WatchFace.load(d)
+        XCTAssertNil(got.list?.projects, "the face never draws the projects")
+        XCTAssertEqual(WatchComplication(got.list, now: 1000).count, 5)
+        XCTAssertFalse(WatchFace.save(list: l, off: [], now: 1000, d), "the same list again changes nothing")
+        var older = l
+        older.at += 60  // a list that only differs in its clock: the face looks the same
+        XCTAssertFalse(WatchFace.save(list: older, off: [], now: 1000, d))
+        XCTAssertTrue(WatchFace.save(list: older, off: ["ask:home-server-5e6f:q3"], now: 1000, d),
+                      "answered on the wrist: the count drops")
+        XCTAssertEqual(WatchComplication(WatchFace.load(d).list, now: 1000, off: Set(WatchFace.load(d).off)).count, 4)
+    }
 }

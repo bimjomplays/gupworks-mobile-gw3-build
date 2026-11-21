@@ -37,8 +37,8 @@ final class WatchLink: NSObject, WCSessionDelegate {
     }
 
     /// A fresh list from the PC (the app in front follows it live): the watch gets it.
-    func update(_ needs: NeedsState, pcNow: Double) {
-        send(WatchRelay.List(needs: needs, pcNow: pcNow, at: Date().timeIntervalSince1970))
+    func update(_ needs: NeedsState, pcNow: Double, projects: [WatchProject]?) {
+        send(WatchRelay.List(needs: needs, pcNow: pcNow, at: Date().timeIntervalSince1970, projects: projects))
     }
 
     /// gw3-phone's silent push: an item was answered or dismissed elsewhere, so it leaves the watch too.
@@ -62,7 +62,7 @@ final class WatchLink: NSObject, WCSessionDelegate {
     /// The PC's list now when this phone can read its pairing (unlocked), else the last one the watch got.
     private func freshList() async -> WatchRelay.List? {
         if let p = PairingStore.load(), let h = try? await api.home(p), let n = h.needs {
-            let l = WatchRelay.List(needs: n, pcNow: h.now, at: Date().timeIntervalSince1970)
+            let l = WatchRelay.List(needs: n, pcNow: h.now, at: Date().timeIntervalSince1970, projects: WatchProject.list(h))
             send(l)
             return l
         }
@@ -108,6 +108,11 @@ final class WatchLink: NSObject, WCSessionDelegate {
             await openOnPhone(s)
             return nil
         }
+        if s.what == .say {
+            let error = await sayToMainChat(s, queued: queued)
+            if error != nil { UserDefaults.standard.set(done.filter { $0 != s.id }, forKey: Self.doneKey) }
+            return error
+        }
         guard let action = PushAction(s) else { return "The watch sent something this iPhone doesn't know." }
         let error = await PushCenter.shared.perform(action, tell: queued)
         if error != nil {
@@ -122,6 +127,40 @@ final class WatchLink: NSObject, WCSessionDelegate {
             _ = await freshList()
         }
         return error
+    }
+
+    /// a235: words from the Running screen's mic, as his own message to that project's main chat. The iPhone finds the
+    /// main chat itself from the PC's project list (the watch names only the project), and sends with the pairing's
+    /// own token, so a locked iPhone says so: the words can't go until it is unlocked.
+    private func sayToMainChat(_ s: WatchSend, queued: Bool) async -> String? {
+        let words = (s.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let project = s.projectId, !words.isEmpty else { return "The watch sent something this iPhone doesn't know." }
+        let why: String
+        if let p = PairingStore.load() {
+            do {
+                let home = try await api.home(p)
+                guard let chat = home.listed.first(where: { $0.id == project })?.mainChatId, !chat.isEmpty else {
+                    return "That project has no main chat to tell."
+                }
+                _ = try await api.send(p, chat: chat, OutgoingBody(clientId: s.id, text: words, files: []))
+                return nil
+            } catch {
+                why = "Your words didn't reach the PC: \(APIError.from(error).message)"
+            }
+        } else {
+            why = "Unlock your iPhone, then say it again: it can't send words to a chat while it is locked."
+        }
+        if queued { await notifyNotSent(s, why) }
+        return why
+    }
+
+    private func notifyNotSent(_ s: WatchSend, _ text: String) async {
+        let n = UNMutableNotificationContent()
+        n.title = "Not sent to \(s.to)"
+        n.body = text
+        n.sound = .default
+        try? await UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: "gw3-failed-\(s.key)", content: n, trigger: nil))
     }
 
     /// "Open on iPhone": a notification on this phone that opens the deck at the card (several questions, tabs).
