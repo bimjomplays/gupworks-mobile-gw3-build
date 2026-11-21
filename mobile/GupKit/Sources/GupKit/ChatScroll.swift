@@ -108,6 +108,14 @@ struct ChatScroll {
         followedAtTouch = false
     }
 
+    /// a230: Open chat with the card in view: the reading line that puts this row a little below the top, and the chat
+    /// holds there (nil until the row has told its top)
+    mutating func reveal(_ id: String, margin: Double = 12) -> Double? {
+        guard let t = rows[id] else { return nil }
+        hold()
+        return max(0, t - margin)
+    }
+
     // MARK: geometry
 
     /// the content, the screen or their insets changed size: following stays at the bottom

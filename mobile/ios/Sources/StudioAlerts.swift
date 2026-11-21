@@ -11,6 +11,8 @@ final class StudioAlerts: NSObject, UNUserNotificationCenterDelegate {
 
     /// the video a tapped notification asks for
     var open: StudioRoute?
+    /// a230: a needs-you notification's item (userInfo "needs": the item's key): the deck opens at that card
+    var needs: String?
 
     @ObservationIgnored private var asked = false
     @ObservationIgnored private let seenKey = "gw3.studio.notified"
@@ -59,6 +61,8 @@ final class StudioAlerts: NSObject, UNUserNotificationCenterDelegate {
         let info = response.notification.request.content.userInfo
         if let pid = info["studioProject"] as? String, let vid = info["studioVideo"] as? String {
             Task { @MainActor in StudioAlerts.shared.open = .video(pid, vid, stage: nil) }
+        } else if let key = info["needs"] as? String {
+            Task { @MainActor in StudioAlerts.shared.needs = key }
         }
         done()
     }

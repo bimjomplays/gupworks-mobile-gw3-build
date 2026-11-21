@@ -2152,4 +2152,200 @@ final class ScreenTests: XCTestCase {
         sleep(1)
         shot("studio-28-chat")
     }
+
+    // MARK: a230: the needs-you deck (docs/needs-phone-mockups/round1, Option 4)
+
+    private let wallpaper = "00000001-1111-4222-8333-000000000001"
+    private let lumenMain = "00000066-1111-4222-8333-000000000066"
+
+    /// a chat with the demo's needs-you items (fixtures/needs.json) and its chip
+    private func needsChat(_ extra: [String] = [], chat id: String? = nil) -> App {
+        let app = launch(["-needs", "-open", id ?? wallpaper] + extra)
+        XCTAssertTrue(el(app, "needsChip").waitForExistence(timeout: 20), "the chip under the title")
+        return app
+    }
+
+    /// the chip, then the deck at its first card
+    private func openDeck(_ app: App) {
+        el(app, "needsChip").tap()
+        XCTAssertTrue(el(app, "needsPosition").waitForExistence(timeout: 10))
+    }
+
+    private func position(_ app: App) -> String { el(app, "needsPosition").label }
+
+    /// an element of the card on screen (the cards beside it carry the same ids); a tall card (pictures) scrolls up
+    /// to it first, as a finger would
+    private func onCard(_ app: App, _ id: String) -> Element {
+        let all = app.descendants(matching: .any).matching(identifier: id)
+        let cards = el(app, "needsCards")
+        for _ in 0..<5 {
+            // inside the cards' own box: below it, the tap would land on Snooze · Open chat · Dismiss (SwiftUI's one
+            // hosting view makes isHittable true there too)
+            let box = cards.frame.insetBy(dx: 0, dy: 8)
+            for i in 0..<all.count {
+                let f = all.element(boundBy: i).frame
+                if box.contains(CGPoint(x: f.midX, y: f.midY)) { return all.element(boundBy: i) }
+            }
+            cards.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75))
+                .press(forDuration: 0.02, thenDragTo: cards.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)),
+                       withVelocity: .slow, thenHoldForDuration: 0.1)
+            sleep(1)
+        }
+        XCTFail("\(id) is on no card on screen")
+        return all.firstMatch
+    }
+
+    /// a sideways swipe across the cards (left: the next card)
+    private func swipeCards(_ app: App, left: Bool) {
+        let cards = el(app, "needsCards")
+        let a = cards.coordinate(withNormalizedOffset: CGVector(dx: left ? 0.85 : 0.15, dy: 0.3))
+        let b = cards.coordinate(withNormalizedOffset: CGVector(dx: left ? 0.15 : 0.85, dy: 0.3))
+        a.press(forDuration: 0.02, thenDragTo: b, withVelocity: Velocity(rawValue: 1500), thenHoldForDuration: 0)
+        sleep(1)
+    }
+
+    func testNeedsDeck1Chip() {
+        let plain = launch(["-open", wallpaper])
+        XCTAssertTrue(plain.descendants(matching: .any)["chatTitle"].waitForExistence(timeout: 20))
+        XCTAssertFalse(el(plain, "needsChip").exists, "nothing waiting: no chip")
+        let app = needsChat()
+        XCTAssertTrue(el(app, "needsChip").label.contains("5 need you"))
+        sleep(1)
+        shot("needs-deck-1-chip")
+    }
+
+    func testNeedsDeck2Cards() {
+        let app = needsChat()
+        openDeck(app)
+        XCTAssertEqual(position(app), "1 of 5")
+        XCTAssertTrue(find(app, "Add 32 GB of real swap on the SSD as a safety net?").exists)
+        XCTAssertTrue(find(app, "Recommended").exists)
+        XCTAssertTrue(find(app, "Home server").exists)
+        for id in ["needsSnooze", "needsOpenChat", "needsDismiss", "needsClose", "needsAll", "needsSomethingElse"] {
+            XCTAssertTrue(el(app, id).exists, id)
+        }
+        sleep(1)
+        shot("needs-deck-2-question")
+        // swipe: the next card, and back
+        swipeCards(app, left: true)
+        XCTAssertTrue(poll(5) { self.position(app) == "2 of 5" }, position(app))
+        swipeCards(app, left: false)
+        XCTAssertTrue(poll(5) { self.position(app) == "1 of 5" }, position(app))
+        // one tap answers; the next card slides in
+        onCard(app, "needsAnswer-0").tap()
+        XCTAssertTrue(poll(5) { self.position(app) == "1 of 4" }, position(app))
+        XCTAssertTrue(find(app, "a21: Ship the new gallery grid?").waitForExistence(timeout: 5))
+        XCTAssertTrue(el(app, "needsPicture").exists, "Before and After")
+        sleep(1)
+        shot("needs-deck-3-pictures")
+    }
+
+    func testNeedsDeck4SomethingElse() {
+        let app = needsChat()
+        openDeck(app)
+        swipeCards(app, left: true)
+        XCTAssertTrue(poll(5) { self.position(app) == "2 of 5" }, position(app))
+        onCard(app, "needsSomethingElse").tap()
+        let field = el(app, "needsOther")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertTrue(hasFocus(field), "the keyboard is up")
+        XCTAssertTrue("\(field.value ?? "")".hasPrefix("a21: "), "a thread's question starts with its id")
+        field.typeText("ship it, but keep the list on phones")
+        sleep(1)
+        XCTAssertTrue(el(app, "needsOtherSend").isHittable, "above the keyboard")
+        shot("needs-deck-4-something-else")
+        el(app, "needsOtherSend").tap()
+        XCTAssertTrue(poll(5) { self.position(app).hasSuffix("of 4") }, position(app))
+        XCTAssertFalse(find(app, "Ship the new gallery grid?").exists)
+    }
+
+    func testNeedsDeck5Memory() {
+        let app = needsChat(["-needsMemory"])
+        openDeck(app)
+        XCTAssertEqual(position(app), "1 of 6")
+        // the red memory warning: Sleep idle chats, Show memory, Dismiss until it fills again
+        el(app, "needsAll").tap()
+        el(app, "needsRow-memory:m1791999900000").tap()
+        XCTAssertTrue(find(app, "Nearly full: 58 of 62 GB in use").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Sleep idle chats").exists)
+        XCTAssertTrue(el(app, "needsShowMemory").exists)
+        sleep(1)
+        shot("needs-deck-5-memory")
+        el(app, "needsShowMemory").tap()
+        XCTAssertTrue(el(app, "memorySleepAll").waitForExistence(timeout: 10))
+        XCTAssertTrue(find(app, "Memory is nearly full").exists)
+        sleep(1)
+        shot("needs-deck-6-memory-sheet")
+        el(app, "memorySleepAll").tap()
+        XCTAssertTrue(find(app, "1 chat put to sleep").waitForExistence(timeout: 5))
+    }
+
+    func testNeedsDeck7List() {
+        let app = needsChat()
+        openDeck(app)
+        el(app, "needsAll").tap()
+        XCTAssertTrue(el(app, "needsList").waitForExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Waiting · 5").exists)
+        XCTAssertTrue(find(app, "Parked · 1").exists)
+        XCTAssertTrue(find(app, "Several answers: open the chat").exists)
+        XCTAssertEqual(el(app, "needsRow-ask:home-server-5e6f:q3").value.map { "\($0)" }, "Current card")
+        sleep(1)
+        shot("needs-deck-7-list")
+        // a row jumps to its card
+        el(app, "needsRow-chat:00000009-1111-4222-8333-000000000009:5b1d0c2e9a41").tap()
+        XCTAssertTrue(poll(5) { self.position(app) == "3 of 5" }, position(app))
+        XCTAssertTrue(find(app, "Allow once").exists, "a chat's permission")
+        sleep(1)
+        shot("needs-deck-8-permission")
+        // Bring back: the parked project's question joins the waiting ones
+        el(app, "needsAll").tap()
+        el(app, "needsBringBack-trip-planner-2c4e").tap()
+        XCTAssertTrue(find(app, "Waiting · 6").waitForExistence(timeout: 5))
+        XCTAssertFalse(find(app, "Parked · 1").exists)
+    }
+
+    func testNeedsDeck9OnlyParked() {
+        let app = needsChat(["-needsParked"])
+        XCTAssertTrue(el(app, "needsChip").label.contains("1 parked"))
+        sleep(1)
+        shot("needs-deck-9-parked-chip")
+        el(app, "needsChip").tap()
+        XCTAssertTrue(el(app, "needsList").waitForExistence(timeout: 5), "only parked: the chip opens the list")
+        XCTAssertTrue(el(app, "needsBringBack-trip-planner-2c4e").exists)
+    }
+
+    func testNeedsDeck10SnoozeDismissAndLinks() {
+        let app = needsChat()
+        // a notification's userInfo "needs" opens the deck at its card
+        StudioAlerts.shared.needs = "ask:garden-planner-1a2b:q4"
+        XCTAssertTrue(el(app, "needsPosition").waitForExistence(timeout: 10))
+        XCTAssertTrue(poll(5) { self.position(app) == "4 of 5" }, position(app))
+        XCTAssertTrue(find(app, "What's next?").exists)
+        el(app, "needsSnooze").tap()
+        XCTAssertTrue(poll(5) { self.position(app) == "4 of 4" }, position(app))
+        el(app, "needsDismiss").tap()
+        XCTAssertTrue(poll(5) { self.position(app) == "3 of 3" }, position(app))
+        el(app, "needsClose").tap()
+        XCTAssertTrue(el(app, "needsPosition").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(el(app, "needsChip").label.contains("3 need you"))
+        // gupworks3://needs/<key>
+        XCTAssertTrue(app.model.open(needsLink: URL(string: "gupworks3://needs/ask:lumen-studio:q7")!))
+        XCTAssertTrue(poll(5) { self.el(app, "needsPosition").exists && self.position(app) == "2 of 3" })
+    }
+
+    func testNeedsDeck11OpenChat() {
+        let app = needsChat()
+        openDeck(app)
+        swipeCards(app, left: true)
+        XCTAssertTrue(poll(5) { self.position(app) == "2 of 5" }, position(app))
+        el(app, "needsOpenChat").tap()
+        XCTAssertTrue(el(app, "needsPosition").waitForNonExistence(timeout: 5))
+        XCTAssertTrue(find(app, "Lumen").waitForExistence(timeout: 10))
+        // the main chat's open ask card in view
+        let card = el(app, "ask")
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        XCTAssertTrue(poll(5) { card.isHittable }, "the card is on screen")
+        sleep(1)
+        shot("needs-deck-11-open-chat")
+    }
 }

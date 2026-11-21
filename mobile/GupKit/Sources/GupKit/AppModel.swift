@@ -9,7 +9,24 @@ import UIKit
 @MainActor
 final class AppModel {
     private(set) var pairing: Pairing?
-    private(set) var home: Home?
+    private(set) var home: Home? {
+        didSet {
+            if let h = home {
+                // the PC's clock for wait times and snoozes; keys the PC no longer lists need no bridging
+                pcSkew = h.now - Date().timeIntervalSince1970 * 1000
+                let listed = Set(h.needs?.items.map(\.key) ?? [])
+                needsDropped = needsDropped.filter { listed.contains($0) }
+            }
+        }
+    }
+    /// the PC's milliseconds minus the phone's, as of the last list
+    private(set) var pcSkew: Double = 0
+    /// items answered, snoozed or dismissed here a moment ago: off the deck until the PC's next list (a230)
+    private(set) var needsDropped: Set<String> = []
+    /// a notification or gupworks3://needs/<key> asks for the deck at that card ("" : the deck's first card)
+    var openNeeds: String?
+    /// Open chat from the deck: the chat that should bring this question's card into view once it shows (a230)
+    var reveal: NeedsRevealRequest?
     private(set) var hello: Hello?
     private(set) var error: APIError?
     private(set) var loading = false
@@ -441,6 +458,106 @@ final class AppModel {
         h.chats = change(h.chats)
         h.archivedCount += archived
         home = h
+    }
+}
+
+// MARK: the needs-you bar (a230): the card deck's state and what its buttons do
+extension AppModel {
+    var pcNow: Double { Date().timeIntervalSince1970 * 1000 + pcSkew }
+
+    var needsDeck: NeedsDeck { NeedsDeck(home?.needs, now: pcNow, dropped: needsDropped) }
+
+    /// gupworks3://needs/<key> (or a notification's userInfo "needs"): open the deck at that card
+    func open(needsLink url: URL) -> Bool {
+        guard url.scheme == "gupworks3", url.host == "needs" else { return false }
+        openNeeds = String(url.path.drop { $0 == "/" }).removingPercentEncoding ?? ""
+        return true
+    }
+
+    /// One tap on an answer (`option`) or "Something else…" (`text`). True when the PC took it; the card leaves at once
+    /// and comes back with an error if not. Memory's Show memory is the caller's sheet.
+    @discardableResult
+    func answer(need item: NeedItem, option: Int? = nil, text: String? = nil) async -> Bool {
+        let stays = item.kind == "memory"  // the warning stays while memory is full (Sleep idle chats moves its numbers)
+        if !stays { needsDropped.insert(item.key) }
+        return await needsAction("answer", NeedsAction(key: item.key, option: option, text: text), item: item, drop: !stays)
+    }
+
+    @discardableResult
+    func snooze(need item: NeedItem) async -> Bool {
+        needsDropped.insert(item.key)
+        return await needsAction("snooze", NeedsAction(key: item.key), item: item, drop: true)
+    }
+
+    @discardableResult
+    func dismiss(need item: NeedItem) async -> Bool {
+        needsDropped.insert(item.key)
+        return await needsAction("dismiss", NeedsAction(key: item.key), item: item, drop: true)
+    }
+
+    /// Bring back (or Park) a project: its questions come back to the deck
+    @discardableResult
+    func park(project id: String, _ parked: Bool) async -> Bool {
+        await needsAction("park", NeedsAction(projectId: id, parked: parked), item: nil, drop: false)
+    }
+
+    private func needsAction(_ what: String, _ body: NeedsAction, item: NeedItem?, drop: Bool) async -> Bool {
+        if demo {
+            applyLocally(what, body)
+            return true
+        }
+        guard let p = pairing else { return false }
+        do {
+            let r = try await api.needs(p, what, body)
+            if let n = r.needs, var h = home {
+                h.needs = n
+                home = h
+            }
+            return true
+        } catch {
+            if let item { needsDropped.remove(item.key) }
+            actionError = APIError.from(error).message
+            return false
+        }
+    }
+
+    /// The demo's PC: what the real one would list after the action
+    private func applyLocally(_ what: String, _ b: NeedsAction) {
+        guard var h = home, var n = h.needs else { return }
+        let now = pcNow
+        switch what {
+        case "answer":
+            if let k = b.key, !k.hasPrefix("memory:") { n.items.removeAll { $0.key == k } }
+        case "dismiss":
+            if let k = b.key { n.dismissed[k] = now; n.items.removeAll { $0.key == k && !k.hasPrefix("memory:") } }
+        case "snooze":
+            if let k = b.key { n.snoozed[k] = now + 3_600_000 }
+        case "park":
+            if let id = b.projectId {
+                n.parked.removeAll { $0.projectId == id }
+                if b.parked == true, let name = n.items.first(where: { $0.projectId == id })?.name {
+                    n.parked.append(ParkedProject(projectId: id, name: name))
+                }
+            }
+        default: break
+        }
+        h.needs = n
+        home = h
+    }
+
+    func memory() async throws -> MemoryView {
+        if demo, let m: MemoryView = Demo.load("memory") { return m }
+        guard let p = pairing else { throw APIError.notPaired }
+        return try await api.memory(p)
+    }
+
+    func sleep(_ body: SleepBody) async throws -> SleepReply {
+        if demo {
+            return body.all == true ? SleepReply(sleptChats: ["00000003-1111-4222-8333-000000000003"], awakeCount: 3)
+                : SleepReply(chat: body.chatId, sleptOne: true)
+        }
+        guard let p = pairing else { throw APIError.notPaired }
+        return try await api.sleep(p, body)
     }
 }
 

@@ -35,6 +35,8 @@ struct Outgoing: Identifiable, Equatable {
     var turnsBefore: Set<String> = []
     /// how the send's answer listed it (queued or sent): drawn as that until the stream says more
     var listed: QueueItem?
+    /// the ask card's question it answers
+    var ask: AskPick?
 
     var id: String { clientId }
 }
@@ -281,10 +283,11 @@ final class ChatStore {
 
     /// Sends a message: photos and files go up first, then the words naming them. A new chat is made by its first
     /// message. Nothing is lost on a failed send: the bubble stays with Retry.
-    func send(text: String, attachments: [Attachment]) async {
+    func send(text: String, attachments: [Attachment], ask: AskPick? = nil) async {
         let words = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !words.isEmpty || !attachments.isEmpty else { return }
-        let m = Outgoing(clientId: UUID().uuidString.lowercased(), text: words, attachments: attachments)
+        var m = Outgoing(clientId: UUID().uuidString.lowercased(), text: words, attachments: attachments)
+        m.ask = ask
         outbox.append(m)
         liveTick += 1
         await deliver(m.clientId)
@@ -310,7 +313,7 @@ final class ChatStore {
                 m.attachments[i].uploaded = up.path
                 update(clientId) { $0.attachments[i].uploaded = up.path }
             }
-            let body = OutgoingBody(clientId: clientId, text: m.text, files: m.attachments.compactMap(\.uploaded))
+            let body = OutgoingBody(clientId: clientId, text: m.text, files: m.attachments.compactMap(\.uploaded), ask: m.ask)
             if isNew {
                 let pick = newPick
                 let made = try await api.newChat(p, NewChatBody(clientId: clientId, text: body.text, files: body.files,
@@ -623,6 +626,7 @@ final class ChatStore {
         guard var h = header else { return }
         if let t = edit.title { h.title = t }
         if let p = edit.pinned { h.pinned = p }
+        if let b = edit.onBar { h.onBar = b }
         header = h
     }
 

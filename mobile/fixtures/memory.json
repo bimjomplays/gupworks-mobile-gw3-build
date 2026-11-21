@@ -1,0 +1,98 @@
+{
+ "ts": 1792000000000,
+ "levelName": "full",
+ "availPct": 6.4,
+ "swapPct": 80.2,
+ "ram": {
+  "total": 66571993088,
+  "used": 62277025792,
+  "available": 4291967296
+ },
+ "swap": {
+  "total": 66571993088,
+  "used": 53687091200,
+  "zram": {
+   "size": 66571993088,
+   "used": 53687091200,
+   "ram": 18253611008
+  },
+  "disk": null
+ },
+ "gupworks": {
+  "total": 22548578304,
+  "chats": 20401094656,
+  "count": 14
+ },
+ "asleep": 6,
+ "chats": [
+  {
+   "chat": "00000074-2222-4222-8333-000000000074",
+   "name": "Fix the build",
+   "kind": "worker",
+   "kindLabel": "thread",
+   "project": "lumen-studio",
+   "used": 9771050598,
+   "ram": 6651199308,
+   "swap": 3111851289,
+   "nearLimit": false
+  },
+  {
+   "chat": "00000009-1111-4222-8333-000000000009",
+   "name": "Gallery lightbox fix",
+   "kind": "chat",
+   "kindLabel": "chat",
+   "project": null,
+   "used": 4080218931,
+   "ram": 2251857830,
+   "swap": 1825361100,
+   "nearLimit": false
+  },
+  {
+   "chat": "00000066-1111-4222-8333-000000000066",
+   "name": "Lumen Studio website main chat",
+   "kind": "main",
+   "kindLabel": "main chat",
+   "project": "lumen-studio",
+   "used": 1503238553,
+   "ram": 966367641,
+   "swap": 536870912,
+   "nearLimit": false
+  },
+  {
+   "chat": "00000003-1111-4222-8333-000000000003",
+   "name": "Recipe scaler",
+   "kind": "chat",
+   "kindLabel": "chat",
+   "project": null,
+   "used": 858993459,
+   "ram": 536870912,
+   "swap": 322122547,
+   "nearLimit": false
+  }
+ ],
+ "others": [
+  {
+   "label": "Firefox",
+   "used": 4501715660
+  },
+  {
+   "label": "Plasma desktop",
+   "used": 1610612736
+  }
+ ],
+ "warning": {
+  "id": "m1791999900000",
+  "ts": 1791999900000,
+  "text": "Biggest: “Fix the build” (thread) 9.1 GB, Firefox 4.2 GB, “Gallery lightbox fix” 3.8 GB."
+ },
+ "lastSleep": null,
+ "stopped": [],
+ "stale": false,
+ "level": 2,
+ "thresholds": {
+  "tightAvail": 20,
+  "tightSwap": 50,
+  "fullAvail": 10,
+  "fullSwap": 75
+ }
+}
