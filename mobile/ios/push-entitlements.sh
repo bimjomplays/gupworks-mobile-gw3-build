@@ -15,7 +15,26 @@ cat > "$ent" <<PLIST
 PLIST
 # a234: the watch app inside is signed first (ad hoc, no push of its own: the iPhone's notifications reach the watch),
 # else the outer signature refuses the unsigned code nested in it; the export re-signs both
-for nested in "$app"/Watch/*.app "$app"/PlugIns/*.app; do
+# a235: the complication (a WidgetKit extension inside the watch app) and the watch app share the App Group the
+# complication's data goes through, so both carry it (the export keeps what is signed in, and Apple's automatic signing
+# gives the two App IDs the group); the extension is signed before the app that holds it
+group="$(mktemp -t gw3-group-XXXXXX).entitlements"
+cat > "$group" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.security.application-groups</key><array><string>group.app.gupworks3.phone</string></array>
+</dict></plist>
+PLIST
+for watch in "$app"/Watch/*.app; do
+  [ -d "$watch" ] || continue
+  for ext in "$watch"/PlugIns/*.appex; do
+    if [ -d "$ext" ]; then codesign --force --sign - --entitlements "$group" --generate-entitlement-der "$ext"; fi
+  done
+  codesign --force --sign - --entitlements "$group" --generate-entitlement-der "$watch"
+done
+rm -f "$group"
+for nested in "$app"/PlugIns/*.app; do
   if [ -d "$nested" ]; then codesign --force --sign - --generate-entitlement-der "$nested"; fi
 done
 codesign --force --sign - --entitlements "$ent" --generate-entitlement-der "$app"

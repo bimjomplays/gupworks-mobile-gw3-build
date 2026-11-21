@@ -193,7 +193,13 @@
    "dismissed": {}
   },
   "pcNow": 1792000000000,
-  "at": 0
+  "at": 0,
+  "projects": [
+   {"id": "home-server-5e6f", "name": "Home server", "working": 2, "checking": 0, "main": true},
+   {"id": "lumen-studio", "name": "Lumen Studio website", "working": 0, "checking": 1, "main": true},
+   {"id": "garden-planner-1a2b", "name": "Garden planner", "working": 0, "checking": 0, "main": true},
+   {"id": "studio", "name": "YouTube Studio", "working": 1, "checking": 0, "main": false}
+  ]
  },
  "memory": {
   "key": "memory:m1791999990000",

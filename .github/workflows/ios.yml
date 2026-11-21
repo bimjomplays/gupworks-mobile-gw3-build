@@ -179,6 +179,12 @@ jobs:
           shot watch-s2-waiting-list -screen list -memory
           shot watch-s3-memory-warning -screen memory -memory
           shot watch-s4-open-on-iphone -screen phone
+          # a235: the complication (drawn on a mock face: the simulator can't put one on a face by script) and Running
+          shot watch-c1-complication -screen complication
+          shot watch-c2-complication-empty -screen complication-empty
+          shot watch-r1-running -screen running
+          shot watch-r2-running-voice -screen running-voice
+          shot watch-r3-running-sent -screen running-sent
           # the watch's own notification view, from a push as gw3-phone sends it (invented demo text)
           xcrun simctl terminate "$udid" "$id" > /dev/null 2>&1 || true
           xcrun simctl launch "$udid" com.apple.Carousel > /dev/null 2>&1 || true

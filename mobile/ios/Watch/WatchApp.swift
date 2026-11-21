@@ -15,6 +15,10 @@ struct GupWorksWatchApp: App {
             Group {
                 if store.demo && store.screen == "notification" {
                     NoticePreview()
+                } else if store.demo && store.screen.hasPrefix("running") {
+                    NavigationStack { RunningScreen() }  // a235: the Running screen's demo states
+                } else if store.demo && store.screen == "complication" {
+                    FacePreview()
                 } else {
                     DeckScreen()
                 }
@@ -22,6 +26,10 @@ struct GupWorksWatchApp: App {
             .environment(store)
             .tint(Look.light)
             .task { store.start() }
+            // a235: a tap on the watch face's complication (WatchComplication.url) opens the cards
+            .onOpenURL { url in
+                if url == WatchComplication.url { store.openCards() }
+            }
         }
         // the categories gw3-phone names (gw3_push.category, GupKit PushCategory): each gets the card's own view
         WKNotificationScene(controller: NoticeController.self, category: "gw3.ask.rec.other")
@@ -43,6 +51,22 @@ final class WatchDelegate: NSObject, WKApplicationDelegate, UNUserNotificationCe
 
     func applicationDidBecomeActive() {
         Task { @MainActor in WatchStore.shared.refresh() }
+    }
+
+    /// a235: the iPhone's list reaches the watch while the app is in the background (WatchConnectivity wakes it for
+    /// the system's context transfer); the store takes it and keeps the complication's data current, then the task ends
+    func handle(_ backgroundTasks: Set<WKRefreshBackgroundTask>) {
+        for task in backgroundTasks {
+            if task is WKWatchConnectivityRefreshBackgroundTask {
+                nonisolated(unsafe) let done = task
+                Task { @MainActor in
+                    await WatchStore.shared.settle()
+                    done.setTaskCompletedWithSnapshot(false)
+                }
+            } else {
+                task.setTaskCompletedWithSnapshot(false)
+            }
+        }
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,

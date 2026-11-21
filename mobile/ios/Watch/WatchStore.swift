@@ -4,11 +4,14 @@ import SwiftUI
 import UIKit
 import WatchConnectivity
 import WatchKit
+import WidgetKit
 
 /// What the voice check screen holds: the card and the words as heard (empty: say them first).
 struct VoiceDraft: Identifiable, Equatable {
     var key: String
     var words: String
+    /// a235: words for this project's main chat (the Running screen's mic) rather than an answer on a card
+    var projectId: String? = nil
     var id: String { key }
 }
 
@@ -35,6 +38,10 @@ final class WatchStore: NSObject, WCSessionDelegate {
     var currentKey: String?
     var showList = false
     var voice: VoiceDraft?
+    /// a235: the Running screen's mic: the check screen for words to a project's main chat
+    var say: VoiceDraft?
+    /// words that didn't reach the main chat: one tap brings the check screen back with them
+    var sayFailed: VoiceDraft?
     var picture: PictureOpen?
     /// why the last send didn't reach the PC
     var problem: String?
@@ -69,6 +76,18 @@ final class WatchStore: NSObject, WCSessionDelegate {
         }
     }
 
+    /// Waits (at most 8 s) until WatchConnectivity has delivered what it was holding for this app, so a background
+    /// wake for the iPhone's list is not ended before the list, and with it the complication's data, is in.
+    func settle() async {
+        start()
+        guard !demo, WCSession.isSupported() else { return }
+        var waited = 0
+        while waited < 32, WCSession.default.activationState != .activated || WCSession.default.hasContentPending {
+            try? await Task.sleep(for: .milliseconds(250))
+            waited += 1
+        }
+    }
+
     private func loadDemo() {
         guard let url = Bundle.main.url(forResource: "needs", withExtension: "json", subdirectory: "watch"),
               let data = try? Data(contentsOf: url),
@@ -87,6 +106,12 @@ final class WatchStore: NSObject, WCSessionDelegate {
         }
         if screen == "list" { currentKey = key("ask:home"); showList = true }
         if screen == "voice", let k = currentKey { voice = VoiceDraft(key: k, words: d.words) }
+        if screen == "running-voice", let p = glance.rows.first?.project {
+            say = VoiceDraft(key: "say:\(p.id)", words: d.words, projectId: p.id)
+        }
+        if screen == "running-sent", let p = glance.rows.first?.project, let w = WatchSend.say(d.words, to: p, at: now) {
+            send(w)  // the demo doesn't count down: the Undo stays up for the screenshot
+        }
         if screen == "picture-full", let k = currentKey { picture = PictureOpen(key: k, index: 1) }
         if screen == "answered", let c = card(currentKey), let a = c.primary {
             send(.answer(a, on: c, at: now))  // the demo doesn't count down: the Undo stays up for the screenshot
@@ -108,7 +133,26 @@ final class WatchStore: NSObject, WCSessionDelegate {
 
     var deck: WatchDeck { WatchDeck(list?.needs, now: pcNow, off: outbox.off) }
 
+    /// a235: the Running screen's rows
+    var glance: WatchGlance { WatchGlance(list?.projects) }
+
     func card(_ key: String?) -> WatchCard? { deck.cards.first { $0.key == key } }
+
+    /// a235: a tap on the watch face's complication: the cards, from the top, with nothing else open over them
+    func openCards() {
+        showList = false
+        voice = nil
+        say = nil
+        picture = nil
+        if let first = deck.cards.first { select(first.key) }
+    }
+
+    /// a235: words for a project's main chat, after the check screen's Send; they wait out the 5 s Undo
+    func sendWords(_ words: String, to p: WatchProject) {
+        guard let s = WatchSend.say(words, to: p, at: now) else { return }
+        sayFailed = nil
+        send(s)
+    }
 
     /// the card shown: the chosen one while it waits, else the one in its place
     var current: WatchCard? {
@@ -196,8 +240,10 @@ final class WatchStore: NSObject, WCSessionDelegate {
     /// Undo: nothing went, the card is back on screen.
     func undo() {
         guard let s = outbox.undo() else { return }
-        currentKey = s.key
-        lastIndex = deck.index(of: s.key)
+        if s.what != .say {
+            currentKey = s.key
+            lastIndex = deck.index(of: s.key)
+        }
         save()
     }
 
@@ -262,6 +308,9 @@ final class WatchStore: NSObject, WCSessionDelegate {
         }
         if let error {
             outbox.failed(s.key)
+            if s.what == .say, let p = s.projectId {
+                sayFailed = VoiceDraft(key: s.key, words: s.text ?? "", projectId: p)
+            }
             problem = error
             WKInterfaceDevice.current().play(.failure)
         }
@@ -338,6 +387,14 @@ final class WatchStore: NSObject, WCSessionDelegate {
     private func save() {
         guard !demo, let data = try? JSONEncoder().encode(Saved(list: list, outbox: outbox, queued: queued)) else { return }
         try? data.write(to: stateFile, options: .atomic)
+        updateFace()
+    }
+
+    /// a235: the complication's data goes to the App Group the widget extension reads; the face reloads only when
+    /// what it shows changed (the count, its colour, the oldest one), so the system's reload budget is kept.
+    private func updateFace() {
+        guard WatchFace.save(list: list, off: outbox.off, now: now, UserDefaults(suiteName: WatchFace.group)) else { return }
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func load() {
@@ -347,6 +404,7 @@ final class WatchStore: NSObject, WCSessionDelegate {
         queued = s.queued
         currentKey = deck.cards.first?.key
         if outbox.holding != nil { tick() }
+        updateFace()
     }
 
     // MARK: WCSessionDelegate

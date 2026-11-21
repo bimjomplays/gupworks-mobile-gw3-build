@@ -61,6 +61,8 @@ struct WatchCard: Equatable, Identifiable {
     var sleep: Answer?
     /// the waiting list's line: "a21: Ship the new gallery grid?", "Memory nearly full"
     var listTitle: String
+    /// the same without the thread: "Ship the new gallery grid?" (the complication's second line, a235)
+    var title: String
 
     var id: String { key }
 
@@ -68,6 +70,8 @@ struct WatchCard: Equatable, Identifiable {
         key = item.key
         source = item.kind == "memory" ? "The PC" : item.name
         listTitle = item.kind == "memory" ? "Memory nearly full" : item.listTitle
+        title = item.kind == "memory" ? "Memory nearly full"
+            : item.kind == "open" && item.sig != nil ? "Several answers: open the chat" : item.title
         chat = item.source == "chat"
         projectId = item.projectId
         since = item.since
@@ -196,7 +200,7 @@ struct WatchDeck: Equatable {
 /// One thing the watch asks of the PC. Answers, snoozes and dismissals wait out the Undo first; Bring back and Open on
 /// iPhone go at once.
 struct WatchSend: Codable, Equatable, Identifiable {
-    enum What: String, Codable { case answer, snooze, dismiss, park, open }
+    enum What: String, Codable { case answer, snooze, dismiss, park, open, say }
 
     var id: String
     var what: What
@@ -230,13 +234,22 @@ struct WatchSend: Codable, Equatable, Identifiable {
                          at: at)
     }
 
-    /// waits out the Undo (everything that answers or takes a card off)
-    var undoable: Bool { what == .answer || what == .snooze || what == .dismiss }
+    /// Words for a project's main chat (a235, the Running screen's mic), as he left them on the check screen. Only
+    /// a project that has a main chat takes them; the iPhone finds that chat itself from `projectId`.
+    static func say(_ text: String, to p: WatchProject, at: Double) -> WatchSend? {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, p.main else { return nil }
+        return WatchSend(what: .say, key: "say:\(p.id)", text: String(t.prefix(4000)), projectId: p.id, to: p.name,
+                         label: "\u{201C}\(t)\u{201D}", at: at)
+    }
+
+    /// waits out the Undo (everything that answers, speaks or takes a card off)
+    var undoable: Bool { what == .answer || what == .snooze || what == .dismiss || what == .say }
 
     /// the banner's first line
     var headline: String {
         switch what {
-        case .answer: return "Sent to \(to)"
+        case .answer, .say: return "Sent to \(to)"
         case .snooze: return "Snoozed for an hour"
         case .dismiss: return "Dismissed"
         case .park: return "Brought back"
@@ -247,7 +260,7 @@ struct WatchSend: Codable, Equatable, Identifiable {
     /// the banner's second line
     var detail: String {
         switch what {
-        case .answer: return label
+        case .answer, .say: return label
         case .snooze, .dismiss, .park: return to
         case .open: return "Open GupWorks there to answer"
         }
@@ -346,6 +359,8 @@ enum WatchRelay {
         var needs: NeedsState
         var pcNow: Double
         var at: Double
+        /// a235: each project's threads for the Running screen (nil from an iPhone that doesn't send them yet)
+        var projects: [WatchProject]? = nil
 
         /// the PC's milliseconds at `now` (the watch's seconds since 1970)
         func pc(at now: Double) -> Double { pcNow + (now - at) * 1000 }
@@ -402,6 +417,144 @@ enum WatchRelay {
         guard longest > max, longest > 0 else { return (width, height) }
         let k = max / longest
         return ((width * k).rounded(), (height * k).rounded())
+    }
+}
+
+// MARK: what is running (a235, docs/watch-mockups/round1 shared-5-running-extra)
+
+/// One project as the Running screen draws it: its threads working or being checked, and whether it has a main chat
+/// to tell something (YouTube Studio has none). The iPhone fills it from the PC's project rows (WatchHome.swift).
+struct WatchProject: Codable, Equatable, Hashable, Identifiable {
+    var id: String
+    var name: String
+    var working: Int
+    var checking: Int
+    var main: Bool
+}
+
+enum WatchRunState: Equatable {
+    case working, checking, idle
+}
+
+/// The Running screen's rows: running projects first (the phone's own order inside each group), each with the
+/// coloured dot and the words under its name: "2 working", "1 checking", "idle".
+struct WatchGlance: Equatable {
+    struct Row: Equatable, Identifiable {
+        var project: WatchProject
+        var state: WatchRunState
+        var text: String
+        var id: String { project.id }
+    }
+
+    private(set) var rows: [Row]
+
+    init(_ projects: [WatchProject]?) {
+        let all = (projects ?? []).map { p in
+            Row(project: p, state: p.working > 0 ? .working : p.checking > 0 ? .checking : .idle,
+                text: WatchGlance.words(working: p.working, checking: p.checking))
+        }
+        rows = all.filter { $0.state != .idle } + all.filter { $0.state == .idle }
+    }
+
+    /// "2 working", "1 checking", "2 working · 1 checking", "idle"
+    static func words(working: Int, checking: Int) -> String {
+        let parts = [working > 0 ? "\(working) working" : nil, checking > 0 ? "\(checking) checking" : nil]
+        let text = parts.compactMap { $0 }.joined(separator: " \u{B7} ")
+        return text.isEmpty ? "idle" : text
+    }
+
+    /// nothing listed yet (the iPhone hasn't sent projects)
+    var isEmpty: Bool { rows.isEmpty }
+
+    func project(_ id: String?) -> WatchProject? { rows.first { $0.project.id == id }?.project }
+}
+
+// MARK: the complication (a235, docs/watch-mockups/round1 shared-1-complication)
+
+/// What the watch face shows: how many wait, the colour of the oldest, and the oldest one's project and question for
+/// the families with room (rectangular). The count and order are the deck's, so the face and the app agree.
+struct WatchComplication: Equatable {
+    var count: Int
+    var tone: NeedTone
+    /// the oldest item's project (or chat), its question and when it started waiting (the PC's ms)
+    var source: String?
+    var title: String?
+    var since: Double?
+    /// the PC's milliseconds the entry was made for
+    var pcNow: Double
+    /// false until the iPhone has sent the watch a list: the face says to open GupWorks instead of "nothing"
+    var known: Bool
+
+    /// `now`: seconds since 1970 (the watch's clock); `off`: what the watch took off a moment ago (its outbox)
+    init(_ list: WatchRelay.List?, now: Double, off: Set<String> = []) {
+        pcNow = list?.pc(at: now) ?? now * 1000
+        known = list != nil
+        let cards = WatchDeck(list?.needs, now: pcNow, off: off).cards
+        count = cards.count
+        // the memory warning heads the deck; the face names the oldest question, and colours itself red while memory waits
+        let oldest = cards.first { $0.kind != .memory } ?? cards.first
+        source = oldest?.source
+        title = oldest?.title
+        since = oldest?.since
+        tone = cards.contains { $0.kind == .memory } ? .red : oldest?.tone ?? .grey
+    }
+
+    var isEmpty: Bool { count == 0 }
+
+    /// Whether the face would look the same (the wait aside, which the timeline keeps ticking itself): the watch app
+    /// only asks WidgetKit for a reload when this is false.
+    func looksLike(_ other: WatchComplication) -> Bool {
+        count == other.count && tone == other.tone && source == other.source && title == other.title
+            && known == other.known
+    }
+
+    /// "5 NEED YOU", "1 NEEDS YOU"; "Nothing needs you" (quiet, no capitals) with nothing waiting
+    var headline: String {
+        !known ? "Open GupWorks" : count == 0 ? "Nothing needs you" : count == 1 ? "1 NEEDS YOU" : "\(count) NEED YOU"
+    }
+
+    /// "12m", as the cards say it
+    var wait: String? { since.map { WatchCard.wait(pcNow - $0) } }
+
+    /// The circle's ring: 6% of it per item, so five is the 30% drawn in the mockup
+    var ring: Double { min(Double(count) * 0.06, 1) }
+
+    /// what a tap on the face opens: the app at its first card
+    static let url = URL(string: "gupworksw://cards")!
+}
+
+/// What the watch app hands its complication (a WidgetKit extension: another process, so the two share an App Group's
+/// defaults): the iPhone's last list and what the watch has taken off a moment ago. The extension builds its
+/// timeline from this alone, with no WatchConnectivity of its own.
+enum WatchFace {
+    static let group = "group.app.gupworks3.phone"
+    static let key = "face"
+
+    struct Saved: Codable, Equatable {
+        var list: WatchRelay.List?
+        var off: [String]
+    }
+
+    static func load(_ defaults: UserDefaults?) -> Saved {
+        guard let data = defaults?.data(forKey: key), let s = try? JSONDecoder().decode(Saved.self, from: data) else {
+            return Saved(list: nil, off: [])
+        }
+        return s
+    }
+
+    /// Keeps the face's data (without the pictures' links and the projects it never draws) and says whether the face
+    /// now looks different from what it showed before, i.e. whether WidgetKit should reload it.
+    @discardableResult
+    static func save(list: WatchRelay.List?, off: Set<String>, now: Double, _ defaults: UserDefaults?) -> Bool {
+        var slim = list
+        slim?.projects = nil
+        let before = load(defaults)
+        let new = Saved(list: slim, off: off.sorted())
+        guard new != before, let data = try? JSONEncoder().encode(new) else { return false }
+        defaults?.set(data, forKey: key)
+        let a = WatchComplication(before.list, now: now, off: Set(before.off))
+        let b = WatchComplication(slim, now: now, off: off)
+        return !a.looksLike(b)
     }
 }
 

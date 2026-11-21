@@ -50,7 +50,12 @@ struct RootView: View {
             guard let needs, !model.demo else { return }
             let live = Set(model.needsDeck.waiting.map(\.key))
             Task { await PushCenter.shared.takeBack(live: live) }
-            WatchLink.shared.update(needs, pcNow: model.pcNow)  // a234: the watch's list follows the PC's
+            WatchLink.shared.update(needs, pcNow: model.pcNow, projects: WatchProject.list(model.home))  // a234: the watch's list follows the PC's
+        }
+        // a235: so does the Running screen's (threads working or being checked)
+        .onChange(of: WatchProject.list(model.home)) { _, projects in
+            guard let needs = model.home?.needs, !model.demo else { return }
+            WatchLink.shared.update(needs, pcNow: model.pcNow, projects: projects)
         }
         .onChange(of: phase) { _, now in
             if model.isPaired { model.transfer.active = now == .active }
