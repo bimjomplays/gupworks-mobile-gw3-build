@@ -1,5 +1,6 @@
 import Foundation
 
+
 // The needs-you bar on the phone (a230, docs/needs-phone-mockups/round1 Option 4 "Card deck"): the desktop bar's
 // items as gw3-phone sends them in /v1/home (`needs`, tools/gw3_needs.py) and the deck's rules: which wait and in
 // what order, the chip, what each card offers. The snoozes and dismissals come from the PC's one shared file, so the
@@ -396,34 +397,3 @@ enum MemoryText {
     }
 }
 
-/// Open chat with the card in view (README feature 6; the desktop's NeedsModel::reveal): the ask card in a project's
-/// main chat that asks this question, else its newest open one. Its row id is the one ChatView gives the card
-/// (`<turn>/outside/<id>`), which the chat's ChatScrollKeeper scrolls to.
-enum NeedsReveal {
-    static func row(in turns: [Turn], question: String?) -> String? {
-        let want = (question ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        var newestOpen: String?
-        var newestAny: String?
-        for t in turns {
-            for o in t.outside ?? [] where o.type == "ask" {
-                let id = "\(t.id)/outside/\(o.id)"
-                newestAny = id
-                if o.answered != true { newestOpen = id }
-                if !want.isEmpty, (o.question ?? "").trimmingCharacters(in: .whitespacesAndNewlines) == want { return id }
-            }
-        }
-        return newestOpen ?? newestAny
-    }
-}
-
-struct NeedsRevealRequest: Equatable {
-    var chatId: String
-    /// the main chat's ask card that asks this (nil: a plain chat, whose question is its dialog at the end)
-    var question: String?
-
-    init?(_ item: NeedItem) {
-        guard let c = item.openChat, !c.isEmpty else { return nil }
-        chatId = c
-        question = item.source == "project" ? (item.question ?? "") : nil
-    }
-}

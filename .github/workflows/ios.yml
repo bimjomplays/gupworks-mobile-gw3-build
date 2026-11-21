@@ -127,6 +127,91 @@ jobs:
             CODE_SIGNING_ALLOWED=NO test-without-building > unit.log 2>&1 \
             || { grep -E "error:|failed|XCTAssert" unit.log | head -80; tail -40 unit.log; exit 1; }
           echo "unit tests in $((SECONDS - start)) s"
+      - name: Watch screens (a234)
+        id: watch
+        if: always() && steps.unit.outcome != 'skipped'
+        run: |
+          # the watch app (built with the iPhone app, which embeds it) on the newest Apple Watch 46 mm simulator (the
+          # mockups' screen), each screen launched in its demo state (-demo -screen NAME) and shot as the simulator
+          # draws it; then a real push to the watch for its own notification view
+          set -o pipefail
+          start=$SECONDS
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devs = [d | {"rt": rt} for rt, ds in json.load(sys.stdin)["devices"].items() if "watchOS" in rt for d in ds]
+          def rank(d):
+              n = d["name"]
+              return ("46mm" in n, "Series 11" in n, "Series 10" in n, "Ultra" not in n, d["rt"])
+          devs.sort(key=rank)
+          print(devs[-1]["udid"] if devs else "")')
+          test -n "$udid" || { echo "no watch simulator"; xcrun simctl list runtimes; exit 1; }
+          xcrun simctl list devices | grep "$udid"
+          xcrun simctl boot "$udid" || true
+          app=$(find build/Build/Products -maxdepth 2 -path '*watchsimulator*' -name GupWorksWatch.app | head -1)
+          if [ -z "$app" ]; then
+            xcodebuild -project "$PROJECT" -scheme GupWorksWatch -destination "id=$udid" -derivedDataPath build \
+              CODE_SIGNING_ALLOWED=NO build > watch.log 2>&1 || { grep -E "error:" watch.log | head -60; tail -30 watch.log; exit 1; }
+            app=$(find build/Build/Products -maxdepth 2 -path '*watchsimulator*' -name GupWorksWatch.app | head -1)
+          fi
+          echo "watch app: $app"
+          xcrun simctl bootstatus "$udid" -b > /dev/null
+          xcrun simctl status_bar "$udid" override --time 9:41 || true
+          xcrun simctl install "$udid" "$app"
+          out="$GITHUB_WORKSPACE/shots/watch"
+          mkdir -p "$out"
+          id=app.gupworks3.phone.watchkitapp
+          shot() {
+            name=$1; shift
+            xcrun simctl terminate "$udid" "$id" > /dev/null 2>&1 || true
+            xcrun simctl launch "$udid" "$id" -demo "$@" > /dev/null
+            sleep 5
+            xcrun simctl io "$udid" screenshot "$out/$name.png" > /dev/null 2>&1 && echo "shot $name"
+          }
+          shot watch-1-notification -screen notification
+          shot watch-2-card-top -screen card-top
+          shot watch-3-card-answers -screen card-answers
+          shot watch-4-card-end -screen card-end
+          shot watch-5-voice-answer -screen voice
+          shot watch-6-picture-card -screen picture-card
+          shot watch-7-picture-full -screen picture-full
+          shot watch-8-permission -screen permission
+          shot watch-9-answered -screen answered
+          shot watch-s2-waiting-list -screen list -memory
+          shot watch-s3-memory-warning -screen memory -memory
+          shot watch-s4-open-on-iphone -screen phone
+          # the watch's own notification view, from a push as gw3-phone sends it (invented demo text)
+          xcrun simctl terminate "$udid" "$id" > /dev/null 2>&1 || true
+          xcrun simctl launch "$udid" com.apple.Carousel > /dev/null 2>&1 || true
+          sleep 2
+          cat > "$RUNNER_TEMP/push.apns" <<'JSON'
+          {"Simulator Target Bundle": "app.gupworks3.phone.watchkitapp",
+           "aps": {"alert": {"title": "Home server", "subtitle": "a14 · Memory limits",
+                             "body": "Add 32 GB of real swap on the SSD as a safety net?\nRecommended: Add disk swap"},
+                   "sound": "default", "category": "gw3.ask.rec.other", "thread-id": "home-server-5e6f"},
+           "needs": "ask:home-server-5e6f:q3",
+           "gw3": {"kind": "ask", "rec": 0, "chat": "00000067-1111-4222-8333-000000000067",
+                   "card": {"n": "Home server", "t": "Add 32 GB of real swap?",
+                            "q": "Add 32 GB of real swap on the SSD as a safety net?",
+                            "s": "Your PC only swaps to compressed RAM, so when that fills there is nothing behind it. A swap file on the SSD is used only after that.",
+                            "w": "a14", "wt": "Memory limits", "src": "project", "pid": "home-server-5e6f",
+                            "since": 0,
+                            "o": [["Add disk swap", "I prepare one script; you run it with your password. No reboot."],
+                                  ["Leave it as is", "Rely on sleeping chats, memory limits and the warning."],
+                                  ["Do it later", "Ask again in a week, once the new limits have run."]],
+                            "r": 0, "x": true}}}
+          JSON
+          # the card waited 12 minutes, as in the mockups
+          python3 - "$RUNNER_TEMP/push.apns" <<'PY'
+          import json, sys, time
+          p = json.load(open(sys.argv[1]))
+          p["gw3"]["card"]["since"] = int(time.time() * 1000) - 12 * 60000
+          json.dump(p, open(sys.argv[1], "w"))
+          PY
+          xcrun simctl push "$udid" "$id" "$RUNNER_TEMP/push.apns" && sleep 4 \
+            && xcrun simctl io "$udid" screenshot "$out/watch-1-notification-push.png" > /dev/null 2>&1 \
+            && sleep 4 && xcrun simctl io "$udid" screenshot "$out/watch-1-notification-push-later.png" > /dev/null 2>&1 \
+            || echo "::warning title=Watch push::the simulator's push didn't show (the in-app picture stands in)"
+          echo "watch screens in $((SECONDS - start)) s"
       - name: UI tests
         id: ui
         if: always() && steps.plan.outputs.ui != '' && steps.unit.outcome != 'skipped'
@@ -216,6 +301,7 @@ jobs:
             mobile/ios/build.log
             mobile/ios/unit.log
             mobile/ios/ui.log
+            mobile/ios/watch.log
 
   ipa:
     if: >-
@@ -248,6 +334,11 @@ jobs:
           mkdir Payload
           cp -R "$app" Payload/
           zip -qry GupWorks3.ipa Payload
+      - name: Push entitlement (a233)
+        run: |
+          # the TestFlight job's ad hoc signing with push, tried on a copy (the ipa above stays unsigned)
+          cp -R "build/Build/Products/Release-iphoneos/$SCHEME.app" "$RUNNER_TEMP/push-check.app"
+          ./push-entitlements.sh "$RUNNER_TEMP/push-check.app" production
       - uses: actions/upload-artifact@v4
         with:
           name: GupWorks3-ipa
@@ -310,6 +401,12 @@ jobs:
             CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             CURRENT_PROJECT_VERSION=${{ github.run_number }} archive > archive.log 2>&1 \
             || { grep -E "error:" archive.log | head -60; tail -40 archive.log; exit 1; }
+      - name: Push entitlement
+        if: steps.keys.outputs.ready == 'true'
+        run: |
+          # a233: the unsigned archive carries no entitlements; signed ad hoc with production push here, the export's
+          # re-signing keeps aps-environment (the App ID gets Push Notifications through automatic signing)
+          ./push-entitlements.sh "$RUNNER_TEMP/GupWorks3.xcarchive/Products/Applications/$SCHEME.app" production
       - name: Upload to TestFlight
         if: steps.keys.outputs.ready == 'true'
         run: |
