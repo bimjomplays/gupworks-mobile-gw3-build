@@ -324,13 +324,13 @@ final class WatchTests: XCTestCase {
 
     // MARK: what is running (a235)
 
-    func testGlanceSaysWorkingCheckingOrIdleAndListsRunningFirst() {
+    func testGlanceSaysWorkingCheckingOrIdleInTheProjectsOrder() {
         let l = demo.list(now: 0, memory: false)
         let g = WatchGlance(l.projects)
         XCTAssertEqual(g.rows.map(\.project.name),
-                       ["Home server", "Lumen Studio website", "YouTube Studio", "Garden planner"])
-        XCTAssertEqual(g.rows.map(\.text), ["2 working", "1 checking", "1 working", "idle"])
-        XCTAssertEqual(g.rows.map(\.state), [.working, .checking, .working, .idle])
+                       ["Home server", "Lumen Studio website", "Garden planner", "YouTube Studio"])
+        XCTAssertEqual(g.rows.map(\.text), ["2 working", "1 checking", "idle", "1 working"])
+        XCTAssertEqual(g.rows.map(\.state), [.working, .checking, .idle, .working])
         XCTAssertEqual(WatchGlance.words(working: 2, checking: 1), "2 working \u{B7} 1 checking")
         XCTAssertTrue(WatchGlance(nil).isEmpty, "an iPhone that sends no projects yet")
     }

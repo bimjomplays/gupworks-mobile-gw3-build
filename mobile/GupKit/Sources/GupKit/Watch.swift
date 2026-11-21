@@ -436,7 +436,7 @@ enum WatchRunState: Equatable {
     case working, checking, idle
 }
 
-/// The Running screen's rows: running projects first (the phone's own order inside each group), each with the
+/// The Running screen's rows, in the Projects list's order as drawn (idle ones stay where they are), each with the
 /// coloured dot and the words under its name: "2 working", "1 checking", "idle".
 struct WatchGlance: Equatable {
     struct Row: Equatable, Identifiable {
@@ -449,11 +449,10 @@ struct WatchGlance: Equatable {
     private(set) var rows: [Row]
 
     init(_ projects: [WatchProject]?) {
-        let all = (projects ?? []).map { p in
+        rows = (projects ?? []).map { p in
             Row(project: p, state: p.working > 0 ? .working : p.checking > 0 ? .checking : .idle,
                 text: WatchGlance.words(working: p.working, checking: p.checking))
         }
-        rows = all.filter { $0.state != .idle } + all.filter { $0.state == .idle }
     }
 
     /// "2 working", "1 checking", "2 working · 1 checking", "idle"
